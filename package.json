@@ -1,0 +1,17 @@
+{
+  "name": "openmedform",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "db:migrate": "pnpm --filter @openmedform/api prisma:migrate",
+    "db:seed": "pnpm --filter @openmedform/api prisma:seed",
+    "db:studio": "pnpm --filter @openmedform/api prisma:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  }
+}

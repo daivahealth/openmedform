@@ -1,0 +1,21 @@
+name: Form.io JavaScript Forms and SDK
+description: The core JavaScript Library for Form.io
+author: The Form.io Developers
+markdown: kramdown
+highlighter: rouge
+baseurl: /formio.js/
+exclude:
+  [
+    package.json,
+    package-lock.json,
+    circle.yml,
+    gulpfile.js,
+    node_modules,
+    bower_components,
+    src,
+    test,
+    gulp,
+    lib,
+    config,
+    tsconfig.json,
+  ]

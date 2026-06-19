@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("form_status_enum")
+}
+
+enum SubmissionStatus {
+  IN_PROGRESS
+  COMPLETED
+  AMENDED
+  VOIDED
+
+  @@map("submission_status_enum")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  FORM_DESIGNER
+  CLINICIAN
+  VIEWER
+
+  @@map("user_role_enum")
+}
+
+// ─── Tenant ──────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  settings  Json?    @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  users       User[]
+  forms       Form[]
+  submissions Submission[]
+
+  @@map("tenant")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  email        String    @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.Text
+  fullName     String    @map("full_name") @db.VarChar(255)
+  role         UserRole  @default(CLINICIAN)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  createdForms Form[]       @relation("FormCreator")
+  submissions  Submission[]
+
+  @@unique([tenantId, email], name: "uq_user_tenant_email")
+  @@index([tenantId])
+  @@map("user")
+}
+
+// ─── Form ────────────────────────────────────────────────────────────────────
+
+model Form {
+  id               String     @id @default(uuid()) @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  name             String     @db.VarChar(255)
+  slug             String     @db.VarChar(255)
+  description      String?    @db.Text
+  category         String?    @db.VarChar(100)
+  tags             String[]   @default([])
+  status           FormStatus @default(DRAFT)
+  currentVersionId String?    @unique @map("current_version_id") @db.Uuid
+  createdById      String     @map("created_by_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  createdBy      User         @relation("FormCreator", fields: [createdById], references: [id])
+  versions       FormVersion[]
+  currentVersion FormVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  submissions    Submission[]
+
+  @@unique([tenantId, slug], name: "uq_form_tenant_slug")
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@map("form")
+}
+
+// ─── Form Version ────────────────────────────────────────────────────────────
+
+model FormVersion {
+  id           String    @id @default(uuid()) @db.Uuid
+  formId       String    @map("form_id") @db.Uuid
+  version      Int       @default(1)
+  schema       Json
+  scoringRules Json?     @map("scoring_rules")
+  metadata     Json?     @default("{}")
+  changelog    String?   @db.Text
+  publishedAt  DateTime? @map("published_at") @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  form        Form         @relation(fields: [formId], references: [id])
+  currentOf   Form?        @relation("CurrentVersion")
+  submissions Submission[]
+
+  @@unique([formId, version], name: "uq_form_version")
+  @@index([formId])
+  @@map("form_version")
+}
+
+// ─── Submission ──────────────────────────────────────────────────────────────
+
+model Submission {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  formId        String           @map("form_id") @db.Uuid
+  formVersionId String           @map("form_version_id") @db.Uuid
+  submittedById String           @map("submitted_by_id") @db.Uuid
+  status        SubmissionStatus @default(IN_PROGRESS)
+  data          Json
+  scores        Json?            @default("{}")
+  riskLevel     String?          @map("risk_level") @db.VarChar(50)
+  patientMrn    String?          @map("patient_mrn") @db.VarChar(50)
+  encounterId   String?          @map("encounter_id") @db.VarChar(100)
+  signedAt      DateTime?        @map("signed_at") @db.Timestamp(6)
+  signedBy      String?          @map("signed_by") @db.VarChar(255)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  form        Form        @relation(fields: [formId], references: [id])
+  formVersion FormVersion @relation(fields: [formVersionId], references: [id])
+  submittedBy User        @relation(fields: [submittedById], references: [id])
+
+  @@index([tenantId, formId])
+  @@index([tenantId, patientMrn])
+  @@index([formVersionId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("submission")
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  tenantId     String   @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String   @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  details      Json?
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([tenantId, action])
+  @@index([tenantId, resourceType, resourceId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
