@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-openmedform}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-openmedform}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,6 +26,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       PORT: 3100
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost}
+      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-default-dev-encryption-key-change-in-prod}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-}
       AI_CLAUDE_API_KEY: ${AI_CLAUDE_API_KEY:-}
       AI_CLAUDE_MODEL: ${AI_CLAUDE_MODEL:-}
@@ -49,6 +52,22 @@ services:
     depends_on:
       - api
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@openmedform.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "${PGADMIN_PORT:-5050}:5050"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   nginx:
     image: nginx:alpine
     restart: unless-stopped
@@ -62,3 +81,4 @@ services:
 
 volumes:
   postgres_data:
+  pgadmin_data:

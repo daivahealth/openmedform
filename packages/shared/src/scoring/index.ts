@@ -1,0 +1,1 @@
+export { calculateScores } from './calculate';

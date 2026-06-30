@@ -49,9 +49,34 @@ Example:
 { "type": "columns", "key": "nameCols", "columns": [{ "components": [...], "width": 6, "offset": 0, "push": 0, "pull": 0, "size": "md" }, { "components": [...], "width": 6, "offset": 0, "push": 0, "pull": 0, "size": "md" }] }
 
 table — Grid layout with explicit rows and columns.
+Use table only for fixed layout or static/read-only content. Do not use table for repeated clinical data-entry logs; use datagrid or editgrid instead.
 Key properties: key, numRows, numCols, rows
 Example:
 { "type": "table", "key": "labResults", "numRows": 2, "numCols": 3, "rows": [[{ "components": [...] }, { "components": [...] }, { "components": [...] }], [{ "components": [...] }, { "components": [...] }, { "components": [...] }]] }
+
+datagrid — Repeatable row-based data entry for multiple instances of the same fields.
+Use for vitals logs, medication rows, fluid balance entries, and observation charts. Each nested component is a field in one repeated row.
+Key properties: key, label, components
+Example:
+{ "type": "datagrid", "key": "vitalSignObservations", "label": "Vital Sign Observations", "components": [
+  { "type": "datetime", "key": "observationDate", "label": "Date", "enableDate": true, "enableTime": false },
+  { "type": "textfield", "key": "observationTime", "label": "Time (24 HR)" },
+  { "type": "number", "key": "systolicBp", "label": "Systolic BP (mmHg)" },
+  { "type": "number", "key": "diastolicBp", "label": "Diastolic BP (mmHg)" },
+  { "type": "number", "key": "heartRate", "label": "Pulse / Heart Rate (bpm)" },
+  { "type": "select", "key": "consciousnessAvpu", "label": "Consciousness (AVPU)", "data": { "values": [{ "label": "Alert", "value": "alert" }, { "label": "Voice", "value": "voice" }, { "label": "Pain", "value": "pain" }, { "label": "Unresponsive", "value": "unresponsive" }] } }
+] }
+
+editgrid — Repeatable row-based data entry with modal/expanded editing.
+Use instead of datagrid when each row has many fields and would be too wide in a table.
+Key properties: key, label, components, rowDrafts
+Example:
+{ "type": "editgrid", "key": "medicationAdministrations", "label": "Medication Administrations", "rowDrafts": false, "components": [
+  { "type": "textfield", "key": "medicationName", "label": "Medication" },
+  { "type": "textfield", "key": "dose", "label": "Dose" },
+  { "type": "datetime", "key": "administeredAt", "label": "Date / Time", "enableDate": true, "enableTime": true },
+  { "type": "textfield", "key": "staffInitials", "label": "Staff Initials" }
+] }
 
 tabs — Tabbed sections.
 Key properties: key, components (each tab is { label, key, components })
@@ -74,6 +99,28 @@ Example:
 { "type": "signature", "key": "physicianSignature", "label": "Physician Signature", "width": "100%", "height": "150px" }
 
 === CUSTOM CLINICAL COMPONENTS ===
+
+vitalSignsChart — Purpose-built vital sign observation chart/log.
+Use this for paper forms titled Vital Sign Observation Chart, Standard Ward Multi-Parameter Log, EWS/NEWS observation chart, or similar multi-parameter vital-sign charts.
+Do not model these forms as static tables or generic editgrids unless the user explicitly asks for generic Form.io components.
+Patient identity/header fields are excluded because OpenMedForm supplies patient context separately.
+Key properties: key, label, rows, columns (array of { key, label, type?, options? })
+Example:
+{ "type": "vitalSignsChart", "key": "vitalSignObservations", "label": "Vital Sign Observation Chart", "rows": 8, "columns": [
+  { "key": "observationDate", "label": "Date" },
+  { "key": "observationTime", "label": "Time (24 HR)" },
+  { "key": "bloodPressure", "label": "Blood Pressure Systolic / Diastolic (mmHg)" },
+  { "key": "heartRate", "label": "Pulse / Heart Rate (bpm)", "type": "number" },
+  { "key": "respiratoryRate", "label": "Respiratory Rate (cpm)", "type": "number" },
+  { "key": "temperatureCelsius", "label": "Temperature (°C)", "type": "number" },
+  { "key": "oxygenSaturation", "label": "Oxygen Saturation SpO₂ (%)", "type": "number" },
+  { "key": "supplementalOxygen", "label": "Supplemental O₂ L/min or Room Air" },
+  { "key": "consciousnessAvpu", "label": "Consciousness AVPU", "type": "select", "options": [{ "label": "Alert", "value": "alert" }, { "label": "Voice", "value": "voice" }, { "label": "Pain", "value": "pain" }, { "label": "Unresponsive", "value": "unresponsive" }] },
+  { "key": "painScore", "label": "Pain Score (0-10)", "type": "number" },
+  { "key": "bloodGlucose", "label": "Blood Glucose", "type": "number" },
+  { "key": "ewsNewsTotalScore", "label": "EWS / NEWS Total Score", "type": "number" },
+  { "key": "staffInitials", "label": "Staff Initials / Sign" }
+] }
 
 scoringMatrix — Aggregates checkbox/radio values into domain-grouped scores.
 The field references in items must point to checkbox or radio keys defined earlier in the form.

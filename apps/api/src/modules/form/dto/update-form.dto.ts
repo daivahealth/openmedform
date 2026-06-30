@@ -1,4 +1,5 @@
-import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { FormType } from '@prisma/client';
 
 export class UpdateFormDto {
   @IsOptional()
@@ -19,4 +20,8 @@ export class UpdateFormDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsEnum(FormType)
+  formType?: FormType;
 }

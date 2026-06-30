@@ -31,6 +31,7 @@ const ALLOWED_COMPONENT_TYPES = new Set([
   'riskStratification',
   'signatureDate',
   'clinicalReferenceTable',
+  'vitalSignsChart',
 ]);
 
 @Injectable()
@@ -49,6 +50,7 @@ export class SchemaValidatorService {
 
     const allKeys = new Set<string>();
     const allComponentKeys: string[] = [];
+    const submitButtonPaths: string[] = [];
 
     this.walkComponents(
       schema.components as Record<string, unknown>[],
@@ -73,6 +75,13 @@ export class SchemaValidatorService {
         if (component.key) {
           allKeys.add(component.key as string);
         }
+
+        if (
+          component.type === 'button' &&
+          ((component.action as string | undefined) ?? '') === 'submit'
+        ) {
+          submitButtonPaths.push(path);
+        }
       },
     );
 
@@ -85,6 +94,14 @@ export class SchemaValidatorService {
       if (count > 1) {
         errors.push(`Duplicate component key "${key}" found ${count} times.`);
       }
+    }
+
+    if (submitButtonPaths.length !== 1) {
+      errors.push(
+        `Schema must contain exactly one submit button; found ${submitButtonPaths.length}.`,
+      );
+    } else if (!/^root\.components\[\d+\]$/.test(submitButtonPaths[0])) {
+      errors.push('Submit button must be a top-level component.');
     }
 
     // Validate riskStratification scoreField references

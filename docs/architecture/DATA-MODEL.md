@@ -54,6 +54,7 @@ Multi-tenant isolation root.
 | description | TEXT | |
 | category | VARCHAR(100) | e.g. "vte-assessment" |
 | tags | TEXT[] | |
+| form_type | ENUM | PATIENT, NON_PATIENT (default PATIENT) |
 | status | ENUM | DRAFT, PUBLISHED, ARCHIVED |
 | current_version_id | UUID FK | → form_version (nullable) |
 | created_by_id | UUID FK | → user |
@@ -86,6 +87,7 @@ Immutable once published. Each edit creates a new version.
 | risk_level | VARCHAR(50) | Denormalized for queries |
 | patient_mrn | VARCHAR(50) | Optional patient link |
 | encounter_id | VARCHAR(100) | Optional encounter link |
+| patient_context | JSONB | Full patient context for patient forms |
 | signed_at | TIMESTAMP | |
 | signed_by | VARCHAR(255) | |
 

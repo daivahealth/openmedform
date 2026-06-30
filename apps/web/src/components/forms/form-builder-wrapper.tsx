@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { loadFormioCss } from '@/lib/formio-css';
 
 interface FormBuilderWrapperProps {
   initialSchema: object;
   onSchemaChange: (schema: object) => void;
   options?: object;
+  sidebarCollapsed?: boolean;
 }
 
 const defaultOptions = {
@@ -17,19 +19,22 @@ const defaultOptions = {
     premium: false,
   },
   noNewEdit: false,
-  noDefaultSubmitButton: false,
+  noDefaultSubmitButton: true,
 };
 
 export function FormBuilderWrapper({
   initialSchema,
   onSchemaChange,
   options,
+  sidebarCollapsed,
 }: FormBuilderWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const builderRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    loadFormioCss();
+
     let destroyed = false;
 
     async function initBuilder() {
@@ -85,7 +90,7 @@ export function FormBuilderWrapper({
   }, []);
 
   return (
-    <div className="relative min-h-[500px]">
+    <div className={`formio-builder-scope relative min-h-[500px]${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
           <div className="flex flex-col items-center gap-2">

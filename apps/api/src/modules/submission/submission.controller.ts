@@ -37,6 +37,11 @@ export class SubmissionController {
     );
   }
 
+  @Get('submissions')
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.submissionService.findAll(user.tenantId);
+  }
+
   @Get('forms/:formId/submissions')
   findAllByForm(
     @CurrentUser() user: RequestUser,

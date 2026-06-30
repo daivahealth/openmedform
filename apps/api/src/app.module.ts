@@ -9,6 +9,7 @@ import { SubmissionModule } from './modules/submission/submission.module';
 import { HealthModule } from './modules/health/health.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
     SubmissionModule,
     ScoringModule,
     AiBuilderModule,
+    SettingsModule,
     HealthModule,
   ],
 })

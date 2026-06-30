@@ -1,18 +1,26 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
-import { useAiGenerate, useAiRefine, useAiProviders } from '@/hooks/use-ai-builder';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useAiGenerate,
+  useFormAiRefine,
+  useAiProviders,
+  useAiMessages,
+  useAddAiMessage,
+  useClearAiMessages,
+} from '@/hooks/use-ai-builder';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Bot,
   Send,
   Loader2,
-  ChevronLeft,
   ChevronRight,
   Sparkles,
   Check,
   X,
+  ImagePlus,
+  Trash2,
 } from 'lucide-react';
 
 interface Message {
@@ -24,20 +32,42 @@ interface Message {
 }
 
 interface AiChatPanelProps {
+  formId: string;
   currentSchema: Record<string, unknown>;
   onApplySchema: (schema: Record<string, unknown>) => void;
 }
 
-export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) {
+export function AiChatPanel({ formId, currentSchema, onApplySchema }: AiChatPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [attachedImage, setAttachedImage] = useState<File | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const initialLoadDone = useRef(false);
 
+  const { data: dbMessages } = useAiMessages(formId);
+  const addMessage = useAddAiMessage(formId);
+  const clearMessages = useClearAiMessages(formId);
   const { data: providersData } = useAiProviders();
   const generate = useAiGenerate();
-  const refine = useAiRefine();
+  const refine = useFormAiRefine();
+
+  useEffect(() => {
+    if (dbMessages && !initialLoadDone.current) {
+      setLocalMessages(
+        dbMessages.map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          provider: m.provider ?? undefined,
+        })),
+      );
+      initialLoadDone.current = true;
+    }
+  }, [dbMessages]);
 
   const isLoading = generate.isPending || refine.isPending;
   const providers = providersData?.providers ?? [];
@@ -50,36 +80,52 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isLoading) return;
+    if ((!text && !attachedImage) || isLoading) return;
+    const imageToSend = attachedImage;
+
+    const userContent = imageToSend
+      ? `${text || 'Use attached image to correct the form.'}\n\nAttached: ${imageToSend.name}`
+      : text;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: text,
+      content: userContent,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    setLocalMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setAttachedImage(null);
+    setProgressMessage('');
     scrollToBottom();
 
+    addMessage.mutate({ role: 'user', content: userContent });
+
     try {
-      let result: { schema: Record<string, unknown>; provider: string };
+      let result: { schema: Record<string, unknown>; provider: string; changeSummary?: string };
 
       const hasExistingSchema =
-        messages.some((m) => m.schema) ||
+        !!imageToSend ||
+        localMessages.some((m) => m.schema) ||
         ((currentSchema as { components?: unknown[] }).components?.length ?? 0) > 0;
 
+      const onProgress = (message: string) => {
+        setProgressMessage(message);
+        scrollToBottom();
+      };
+
       if (hasExistingSchema) {
-        const schemaToRefine =
-          [...messages].reverse().find((m) => m.schema)?.schema ?? currentSchema;
-        const history = messages.map((m) => ({
+        const history = localMessages.map((m) => ({
           role: m.role,
           content: m.content,
         }));
         result = await refine.mutateAsync({
-          currentSchema: schemaToRefine,
-          instruction: text,
+          formId,
+          currentSchema,
+          instruction: text || 'Use the attached image to correct the current form.',
           conversationHistory: history,
           provider: selectedProvider || undefined,
+          image: imageToSend ?? undefined,
+          onProgress,
         });
       } else {
         result = await generate.mutateAsync({
@@ -88,33 +134,46 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
         });
       }
 
+      setProgressMessage('');
+      const summaryText = result.changeSummary
+        ? `Changes made (${result.provider}):\n${result.changeSummary}\n\nClick "Apply" to load into the builder.`
+        : `Generated form schema using ${result.provider}. Click "Apply" to load it into the builder.`;
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Generated form schema using ${result.provider}. Click "Apply" to load it into the builder.`,
+        content: summaryText,
         schema: result.schema,
         provider: result.provider,
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+      setLocalMessages((prev) => [...prev, assistantMsg]);
       scrollToBottom();
+
+      addMessage.mutate({ role: 'assistant', content: summaryText, provider: result.provider });
     } catch (err: any) {
+      setProgressMessage('');
+      const errorContent = `Error: ${err?.response?.data?.message ?? err?.message ?? 'Failed to generate form'}`;
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${err?.response?.data?.message ?? err?.message ?? 'Failed to generate form'}`,
+        content: errorContent,
       };
-      setMessages((prev) => [...prev, errorMsg]);
+      setLocalMessages((prev) => [...prev, errorMsg]);
       scrollToBottom();
+
+      addMessage.mutate({ role: 'assistant', content: errorContent });
     }
   }, [
     input,
+    attachedImage,
     isLoading,
-    messages,
+    localMessages,
     currentSchema,
     selectedProvider,
     generate,
     refine,
+    addMessage,
     scrollToBottom,
+    formId,
   ]);
 
   const handleKeyDown = useCallback(
@@ -126,6 +185,22 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
     },
     [handleSend],
   );
+
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && isSupportedImage(file)) {
+      setAttachedImage(file);
+    }
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  }, []);
+
+  const handleClearHistory = useCallback(() => {
+    setLocalMessages([]);
+    initialLoadDone.current = true;
+    clearMessages.mutate();
+  }, [clearMessages]);
 
   if (collapsed) {
     return (
@@ -147,13 +222,25 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
           <Bot className="h-5 w-5 text-primary" />
           <span className="font-semibold">AI Form Builder</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(true)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {localMessages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClearHistory}
+              title="Clear chat history"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(true)}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Provider selector */}
@@ -176,13 +263,13 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
+        {localMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
             <Sparkles className="mb-3 h-10 w-10 text-primary/40" />
             <p className="text-sm font-medium">AI Form Builder</p>
             <p className="mt-1 text-xs">
-              Describe the form you want to create, or ask to modify the
-              current form.
+              Describe the form you want to create, ask to modify the current
+              form, or attach an image as visual reference.
             </p>
             <div className="mt-4 space-y-2 text-xs">
               <button
@@ -213,7 +300,7 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
           </div>
         )}
 
-        {messages.map((msg) => (
+        {localMessages.map((msg) => (
           <div
             key={msg.id}
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -245,9 +332,11 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Generating form...
+            <div className="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                <span>{progressMessage || 'Starting...'}</span>
+              </div>
             </div>
           </div>
         )}
@@ -257,19 +346,52 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
 
       {/* Input */}
       <div className="border-t p-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Describe your form..."
+        {attachedImage && (
+          <div className="mb-2 flex items-center justify-between rounded-md border bg-muted px-2 py-1 text-xs">
+            <span className="truncate">Attached image: {attachedImage.name}</span>
+            <button
+              type="button"
+              onClick={() => setAttachedImage(null)}
+              className="ml-2 rounded p-1 hover:bg-background"
+              aria-label="Remove attached image"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2 items-end">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={isLoading}
+            title="Attach image reference"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </Button>
+          <Textarea
+            placeholder="Describe the change or attach an image... (Shift+Enter for new line)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            className="text-sm"
+            rows={4}
+            className="text-sm resize-none"
           />
           <Button
             size="icon"
+            className="shrink-0"
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !attachedImage) || isLoading}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -281,4 +403,8 @@ export function AiChatPanel({ currentSchema, onApplySchema }: AiChatPanelProps) 
       </div>
     </div>
   );
+}
+
+function isSupportedImage(file: File): boolean {
+  return ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { loadFormioCss } from '@/lib/formio-css';
 
 interface FormRendererWrapperProps {
   schema: object;
@@ -22,6 +23,8 @@ export function FormRendererWrapper({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    loadFormioCss();
+
     let destroyed = false;
 
     async function initForm() {
@@ -83,7 +86,7 @@ export function FormRendererWrapper({
   }, [schema, readOnly]);
 
   return (
-    <div className="relative min-h-[200px]">
+    <div className="formio-renderer-scope relative min-h-[200px]">
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
           <div className="flex flex-col items-center gap-2">

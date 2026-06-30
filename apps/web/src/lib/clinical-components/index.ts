@@ -3,6 +3,7 @@ import { registerColorCodedGrid } from './color-coded-grid';
 import { registerRiskStratification } from './risk-stratification';
 import { registerSignatureDate } from './signature-date';
 import { registerClinicalReferenceTable } from './clinical-reference-table';
+import { registerVitalSignsChart } from './vital-signs-chart';
 
 let registered = false;
 
@@ -15,6 +16,7 @@ export function registerClinicalComponents(Formio: any) {
   registerRiskStratification(Formio);
   registerSignatureDate(Formio);
   registerClinicalReferenceTable(Formio);
+  registerVitalSignsChart(Formio);
 }
 
 export const clinicalBuilderConfig = {
@@ -24,6 +26,7 @@ export const clinicalBuilderConfig = {
     weight: 5,
     components: {
       scoringMatrix: true,
+      vitalSignsChart: true,
       colorCodedGrid: true,
       riskStratification: true,
       signatureDate: true,

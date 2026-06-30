@@ -32,4 +32,47 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Undo Tailwind Preflight reset on formio dialogs — they need position:fixed overlay */
+  .formio-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    overflow: auto;
+  }
+
+  .formio-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: -1;
+  }
+
+  .formio-dialog-content {
+    background: #f0f0f0;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 1em;
+    position: relative;
+    pointer-events: all;
+  }
+
+  .formio-dialog .formio-dialog-close {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    z-index: 100;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+  }
 }

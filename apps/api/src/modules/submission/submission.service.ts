@@ -35,6 +35,11 @@ export class SubmissionService {
       throw new BadRequestException('Form has no published version');
     }
 
+    const patientMrn =
+      dto.patientMrn ?? dto.patientContext?.patientMrn ?? null;
+    const encounterId =
+      dto.encounterId ?? dto.patientContext?.encounterId ?? null;
+
     return this.prisma.submission.create({
       data: {
         tenantId,
@@ -42,9 +47,24 @@ export class SubmissionService {
         formVersionId: form.currentVersionId,
         submittedById: userId,
         data: {},
-        patientMrn: dto.patientMrn,
-        encounterId: dto.encounterId,
+        patientMrn,
+        encounterId,
+        ...(dto.patientContext
+          ? { patientContext: dto.patientContext as unknown as Prisma.InputJsonValue }
+          : {}),
       },
+    });
+  }
+
+  async findAll(tenantId: string) {
+    return this.prisma.submission.findMany({
+      where: { tenantId },
+      include: {
+        form: { select: { id: true, name: true, slug: true } },
+        submittedBy: { select: { id: true, fullName: true, email: true } },
+        formVersion: { select: { id: true, version: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

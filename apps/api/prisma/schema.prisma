@@ -17,6 +17,13 @@ enum FormStatus {
   @@map("form_status_enum")
 }
 
+enum FormType {
+  PATIENT
+  NON_PATIENT
+
+  @@map("form_type_enum")
+}
+
 enum SubmissionStatus {
   IN_PROGRESS
   COMPLETED
@@ -87,17 +94,19 @@ model Form {
   description      String?    @db.Text
   category         String?    @db.VarChar(100)
   tags             String[]   @default([])
+  formType         FormType   @default(PATIENT) @map("form_type")
   status           FormStatus @default(DRAFT)
   currentVersionId String?    @unique @map("current_version_id") @db.Uuid
   createdById      String     @map("created_by_id") @db.Uuid
   createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id])
-  createdBy      User         @relation("FormCreator", fields: [createdById], references: [id])
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  createdBy      User            @relation("FormCreator", fields: [createdById], references: [id])
   versions       FormVersion[]
-  currentVersion FormVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  currentVersion FormVersion?    @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   submissions    Submission[]
+  aiMessages     FormAiMessage[]
 
   @@unique([tenantId, slug], name: "uq_form_tenant_slug")
   @@index([tenantId, status])
@@ -141,6 +150,7 @@ model Submission {
   riskLevel     String?          @map("risk_level") @db.VarChar(50)
   patientMrn    String?          @map("patient_mrn") @db.VarChar(50)
   encounterId   String?          @map("encounter_id") @db.VarChar(100)
+  patientContext Json?           @map("patient_context")
   signedAt      DateTime?        @map("signed_at") @db.Timestamp(6)
   signedBy      String?          @map("signed_by") @db.VarChar(255)
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
@@ -157,6 +167,43 @@ model Submission {
   @@index([status])
   @@index([createdAt])
   @@map("submission")
+}
+
+// ─── AI Provider Config ─────────────────────────────────────────────────────
+
+model AiProviderConfig {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  provider    String   @db.VarChar(50)
+  displayName String   @map("display_name") @db.VarChar(100)
+  apiKey      String   @map("api_key") @db.Text
+  model       String?  @db.VarChar(100)
+  baseUrl     String?  @map("base_url") @db.VarChar(500)
+  isDefault   Boolean  @default(false) @map("is_default")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@unique([tenantId, provider], name: "uq_ai_provider_tenant")
+  @@index([tenantId])
+  @@map("ai_provider_config")
+}
+
+// ─── Form AI Chat ───────────────────────────────────────────────────────────
+
+model FormAiMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  formId    String   @map("form_id") @db.Uuid
+  role      String   @db.VarChar(20)
+  content   String   @db.Text
+  provider  String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, formId])
+  @@map("form_ai_message")
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ const FormBuilderWrapper = dynamic(
 );
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save, Upload, Eye, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Eye, Check, Sparkles, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 const AiChatPanel = dynamic(
   () => import('@/components/ai-builder/ai-chat-panel').then(m => ({ default: m.AiChatPanel })),
@@ -31,6 +31,7 @@ export default function FormBuilderPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [builderKey, setBuilderKey] = useState(0);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const latestSchemaRef = useRef<object | null>(null);
@@ -161,9 +162,27 @@ export default function FormBuilderPage() {
 
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            title={sidebarCollapsed ? 'Show component sidebar' : 'Hide component sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="mr-2 h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="mr-2 h-4 w-4" />
+            )}
+            Components
+          </Button>
+          <Button
             variant={showAiPanel ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setShowAiPanel((v) => !v)}
+            onClick={() => {
+              setShowAiPanel((v) => {
+                if (!v) setSidebarCollapsed(true);
+                return !v;
+              });
+            }}
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI Builder
@@ -213,10 +232,12 @@ export default function FormBuilderPage() {
             key={builderKey}
             initialSchema={appliedSchemaRef.current ?? currentSchema}
             onSchemaChange={handleSchemaChange}
+            sidebarCollapsed={sidebarCollapsed}
           />
         </div>
         {showAiPanel && (
           <AiChatPanel
+            formId={formId}
             currentSchema={(latestSchemaRef.current ?? currentSchema) as Record<string, unknown>}
             onApplySchema={handleApplyAiSchema}
           />

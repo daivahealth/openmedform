@@ -28,6 +28,7 @@ export class FormService {
           description: dto.description,
           category: dto.category,
           tags: dto.tags ?? [],
+          formType: dto.formType,
           createdById: userId,
         },
       });
@@ -38,6 +39,41 @@ export class FormService {
           formId: form.id,
           version: 1,
           schema: {},
+        },
+      });
+
+      return form;
+    });
+  }
+
+  async createWithSchema(
+    tenantId: string,
+    userId: string,
+    dto: CreateFormDto,
+    schema: Record<string, unknown>,
+  ) {
+    const slug = await this.uniqueSlug(tenantId, dto.name);
+    const jsonSchema = schema as unknown as Prisma.InputJsonValue;
+
+    return this.prisma.$transaction(async (tx) => {
+      const form = await tx.form.create({
+        data: {
+          tenantId,
+          name: dto.name,
+          slug,
+          description: dto.description,
+          category: dto.category,
+          tags: dto.tags ?? [],
+          formType: dto.formType,
+          createdById: userId,
+        },
+      });
+
+      await tx.formVersion.create({
+        data: {
+          formId: form.id,
+          version: 1,
+          schema: jsonSchema,
         },
       });
 
@@ -79,6 +115,7 @@ export class FormService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.tags !== undefined) data.tags = dto.tags;
+    if (dto.formType !== undefined) data.formType = dto.formType;
 
     return this.prisma.form.update({
       where: { id: form.id },
@@ -110,6 +147,16 @@ export class FormService {
         schema: jsonSchema,
       },
     });
+  }
+
+  async getLatestSchema(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+    const latestVersion = form.versions?.[0] ?? form.currentVersion;
+
+    return (latestVersion?.schema ?? {
+      display: 'form',
+      components: [],
+    }) as Record<string, unknown>;
   }
 
   async publish(tenantId: string, id: string) {
@@ -192,6 +239,7 @@ export class FormService {
           description: source.description,
           category: source.category,
           tags: source.tags,
+          formType: source.formType,
           createdById: userId,
         },
       });
@@ -215,11 +263,138 @@ export class FormService {
     });
   }
 
+  async exportTemplate(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+
+    if (!form.currentVersion) {
+      throw new BadRequestException('Form must be published before exporting');
+    }
+
+    const schema = form.currentVersion.schema as Record<string, unknown>;
+    const scoringRules = form.currentVersion.scoringRules as Record<string, unknown> | null;
+
+    return {
+      openmedform: '1.0',
+      exportedAt: new Date().toISOString(),
+      form: {
+        name: form.name,
+        description: form.description,
+        category: form.category,
+        formType: form.formType,
+        tags: form.tags,
+      },
+      schema,
+      scoringRules: scoringRules ?? {},
+      patientContextFields:
+        form.formType === 'PATIENT'
+          ? ['patientName', 'patientMrn', 'age', 'gender', 'encounterId']
+          : [],
+    };
+  }
+
+  async importTemplate(tenantId: string, userId: string, template: Record<string, unknown>) {
+    const version = template.openmedform as string;
+    if (!version) {
+      throw new BadRequestException('Invalid template: missing openmedform version');
+    }
+
+    const formMeta = template.form as Record<string, unknown>;
+    const schema = template.schema as Record<string, unknown>;
+    if (!formMeta?.name || !schema) {
+      throw new BadRequestException('Invalid template: missing form metadata or schema');
+    }
+
+    const baseName = formMeta.name as string;
+    const baseSlug = this.toSlug(baseName);
+
+    const existing = await this.prisma.form.findFirst({
+      where: { tenantId, slug: baseSlug },
+    });
+    const slug = existing ? `${baseSlug}-${Date.now()}` : baseSlug;
+    const name = existing ? `${baseName} (Imported)` : baseName;
+
+    const scoringRules = template.scoringRules as Record<string, unknown> | undefined;
+    const hasScoringRules = scoringRules && Object.keys(scoringRules).length > 0;
+
+    return this.prisma.$transaction(async (tx) => {
+      const form = await tx.form.create({
+        data: {
+          tenantId,
+          name,
+          slug,
+          description: (formMeta.description as string) ?? null,
+          category: (formMeta.category as string) ?? null,
+          tags: (formMeta.tags as string[]) ?? [],
+          formType: (formMeta.formType as 'PATIENT' | 'NON_PATIENT') ?? 'PATIENT',
+          createdById: userId,
+        },
+      });
+
+      await tx.formVersion.create({
+        data: {
+          formId: form.id,
+          version: 1,
+          schema: schema as unknown as Prisma.InputJsonValue,
+          ...(hasScoringRules
+            ? { scoringRules: scoringRules as unknown as Prisma.InputJsonValue }
+            : {}),
+        },
+      });
+
+      return form;
+    });
+  }
+
+  async getAiMessages(tenantId: string, formId: string) {
+    await this.findOne(tenantId, formId);
+    return this.prisma.formAiMessage.findMany({
+      where: { tenantId, formId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, role: true, content: true, provider: true, createdAt: true },
+    });
+  }
+
+  async addAiMessage(
+    tenantId: string,
+    formId: string,
+    data: { role: string; content: string; provider?: string },
+  ) {
+    await this.findOne(tenantId, formId);
+    return this.prisma.formAiMessage.create({
+      data: {
+        tenantId,
+        formId,
+        role: data.role,
+        content: data.content,
+        provider: data.provider,
+      },
+      select: { id: true, role: true, content: true, provider: true, createdAt: true },
+    });
+  }
+
+  async clearAiMessages(tenantId: string, formId: string) {
+    await this.findOne(tenantId, formId);
+    await this.prisma.formAiMessage.deleteMany({
+      where: { tenantId, formId },
+    });
+    return { cleared: true };
+  }
+
   private toSlug(name: string): string {
     return name
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  private async uniqueSlug(tenantId: string, name: string): Promise<string> {
+    const baseSlug = this.toSlug(name);
+    const existing = await this.prisma.form.findFirst({
+      where: { tenantId, slug: baseSlug },
+      select: { id: true },
+    });
+
+    return existing ? `${baseSlug}-${Date.now()}` : baseSlug;
   }
 }

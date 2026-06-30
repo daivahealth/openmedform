@@ -24,6 +24,9 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | PUT | /api/forms/:id | Update form metadata |
 | DELETE | /api/forms/:id | Archive form |
 | PUT | /api/forms/:id/schema | Save form schema (auto-save) |
+| POST | /api/forms/from-file | Upload PDF/image, generate schema, and create draft form |
+| POST | /api/forms/from-pdf | Compatibility alias for PDF/image generation |
+| POST | /api/forms/:id/ai/refine | Refine a form schema with AI chat; accepts JSON or multipart image reference |
 | POST | /api/forms/:id/publish | Publish current draft |
 | GET | /api/forms/:id/versions | List versions |
 | POST | /api/forms/:id/clone | Clone form |
@@ -42,6 +45,6 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /api/ai/generate | Generate form from prompt |
-| POST | /api/ai/refine | Refine existing form schema |
-| POST | /api/ai/generate-from-pdf | Generate from uploaded PDF |
+| POST | /api/ai/refine | Refine supplied schema directly |
+| POST | /api/ai/generate-from-pdf | Generate schema from uploaded PDF |
 | GET | /api/ai/providers | List configured LLM providers |

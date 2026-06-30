@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "OpenMedForm",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "openmedform",
+      "Username": "openmedform",
+      "SSLMode": "prefer",
+      "PassFile": "/pgadmin4/pgpass"
+    }
+  }
+}

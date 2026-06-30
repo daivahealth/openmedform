@@ -46,5 +46,13 @@ RULES
 - riskStratification.scoreField must reference a scoringMatrix key.
 - colorCodedGrid.scoreField must reference a scoringMatrix key.
 - Thresholds must be ordered ascending by max.
-- Include a submit button as the last top-level component.`;
+- Include a submit button as the last top-level component.
+
+REFINEMENT RULES (when modifying an existing form)
+- ONLY change what the user explicitly asked for. Do not touch anything else.
+- Do NOT alter layout, styling, CSS classes, themes, column widths, panel structure, or component order unless the user specifically requested those changes.
+- Do NOT add, remove, or reorder components that the user did not mention.
+- Do NOT change component keys, labels, placeholders, or validation rules unless the user asked for it.
+- Preserve all existing properties on components that are not being modified — copy them exactly as they are.
+- If the instruction is ambiguous about scope, make the smallest possible change that satisfies the request.`;
 }

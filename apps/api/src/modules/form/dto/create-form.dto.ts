@@ -1,10 +1,12 @@
 import {
   IsArray,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { FormType } from '@prisma/client';
 
 export class CreateFormDto {
   @IsString()
@@ -25,4 +27,8 @@ export class CreateFormDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsEnum(FormType)
+  formType?: FormType;
 }

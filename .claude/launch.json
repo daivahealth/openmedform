@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3001"],
+      "port": 3001
+    }
+  ]
+}

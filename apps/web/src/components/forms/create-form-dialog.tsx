@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateForm } from '@/hooks/use-forms';
+import { cn } from '@/lib/utils';
+import { UserRound, ClipboardList } from 'lucide-react';
 
 interface CreateFormDialogProps {
   open: boolean;
@@ -26,11 +28,13 @@ export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [formType, setFormType] = useState<'PATIENT' | 'NON_PATIENT'>('PATIENT');
 
   function resetFields() {
     setName('');
     setDescription('');
     setCategory('');
+    setFormType('PATIENT');
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,6 +46,7 @@ export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) 
       name: name.trim(),
       description: description.trim() || undefined,
       category: category.trim() || undefined,
+      formType,
     });
 
     resetFields();
@@ -62,6 +67,44 @@ export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) 
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Form Type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormType('PATIENT')}
+                  className={cn(
+                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors',
+                    formType === 'PATIENT'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30',
+                  )}
+                >
+                  <UserRound className={cn('h-6 w-6', formType === 'PATIENT' ? 'text-primary' : 'text-muted-foreground')} />
+                  <span className="text-sm font-medium">Patient Form</span>
+                  <span className="text-xs text-muted-foreground">
+                    Tied to a patient encounter
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormType('NON_PATIENT')}
+                  className={cn(
+                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors',
+                    formType === 'NON_PATIENT'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-muted-foreground/30',
+                  )}
+                >
+                  <ClipboardList className={cn('h-6 w-6', formType === 'NON_PATIENT' ? 'text-primary' : 'text-muted-foreground')} />
+                  <span className="text-sm font-medium">Non-Patient Form</span>
+                  <span className="text-xs text-muted-foreground">
+                    OT checklist, audit, etc.
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="form-name">Name *</Label>
               <Input

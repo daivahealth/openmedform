@@ -267,8 +267,8 @@ async function main() {
   if (existingVte) {
     // Delete old versions and form to re-create with updated schema
     await prisma.form.update({ where: { id: existingVte.id }, data: { currentVersionId: null } });
-    await prisma.formVersion.deleteMany({ where: { formId: existingVte.id } });
     await prisma.submission.deleteMany({ where: { formId: existingVte.id } });
+    await prisma.formVersion.deleteMany({ where: { formId: existingVte.id } });
     await prisma.form.delete({ where: { id: existingVte.id } });
     console.log('Deleted old VTE form for re-seed.');
   }
