@@ -11,7 +11,7 @@ const nextConfig = {
       ...config.resolve.alias,
       '@openmedform/formio-core': path.resolve(
         __dirname,
-        '../../packages/formio-core/dist/formio.full.min.js',
+        'node_modules/@openmedform/formio-core/lib/cjs/index.js',
       ),
     };
     return config;
