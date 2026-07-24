@@ -37,14 +37,21 @@ const dataSchema: JsonFormsFormDefinition['dataSchema'] = {
     reasonForCall: {
       type: 'object',
       properties: {
-        pulseLessThan40: { type: 'boolean', default: false },
-        pulseGreaterThan130: { type: 'boolean', default: false },
-        bpLessThan90: { type: 'boolean', default: false },
-        consciousnessChange: { type: 'boolean', default: false },
-        breathsLessThan8: { type: 'boolean', default: false },
-        breathsGreaterThan24: { type: 'boolean', default: false },
-        spo2LessThan91: { type: 'boolean', default: false },
-        other: { type: 'string', maxLength: 200 },
+        // `title` carries the source-language (Greek) label. Without it JSON
+        // Forms auto-derives an English label from the camelCase key
+        // (startCase → "Pulse Less Than 40"), which is the wrong language.
+        pulseLessThan40: { type: 'boolean', default: false, title: 'Σφύξεις < 40' },
+        pulseGreaterThan130: { type: 'boolean', default: false, title: 'Σφύξεις > 130' },
+        bpLessThan90: { type: 'boolean', default: false, title: 'ΑΠ < 90' },
+        consciousnessChange: {
+          type: 'boolean',
+          default: false,
+          title: 'Μεταβολή επιπέδου συνείδησης',
+        },
+        breathsLessThan8: { type: 'boolean', default: false, title: 'Αναπνοές < 8' },
+        breathsGreaterThan24: { type: 'boolean', default: false, title: 'Αναπνοές > 24' },
+        spo2LessThan91: { type: 'boolean', default: false, title: 'SpO₂ < 91' },
+        other: { type: 'string', maxLength: 200, title: 'Άλλο' },
       },
       additionalProperties: false,
     },

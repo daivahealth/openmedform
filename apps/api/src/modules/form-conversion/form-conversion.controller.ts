@@ -14,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { FormEngine } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
+import { decodeUploadFilename } from '../../common/utils/filename';
 import { FormConversionService } from './form-conversion.service';
 
 const SUPPORTED = [
@@ -62,7 +63,7 @@ export class FormConversionController {
       user.userId,
       {
         fileBuffer: file.buffer,
-        fileName: file.originalname,
+        fileName: decodeUploadFilename(file.originalname),
         mimeType: file.mimetype,
         engineTarget: engineTarget as FormEngine,
         providerName: provider,

@@ -8,12 +8,7 @@ import {
   useUpdateSubmission,
   useCompleteSubmission,
 } from '@/hooks/use-submissions';
-import dynamic from 'next/dynamic';
-
-const FormRendererWrapper = dynamic(
-  () => import('@/components/forms/form-renderer-wrapper').then(m => ({ default: m.FormRendererWrapper })),
-  { ssr: false, loading: () => <div className="flex h-[200px] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> },
-);
+import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,6 +37,7 @@ export default function FormFillPage() {
   const [patientContext, setPatientContext] = useState<PatientContext>({});
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [jsonFormsData, setJsonFormsData] = useState<Record<string, unknown>>({});
 
   const updateSubmission = useUpdateSubmission(submissionId ?? '');
   const completeSubmission = useCompleteSubmission(submissionId ?? '');
@@ -258,7 +254,7 @@ export default function FormFillPage() {
     );
   }
 
-  const schema = form.currentVersion?.schema ?? { display: 'form', components: [] };
+  const isJsonForms = formEngine(form) === 'JSONFORMS';
 
   return (
     <div className="mx-auto max-w-4xl py-4">
@@ -269,11 +265,25 @@ export default function FormFillPage() {
       {isPatientForm && <PatientHeaderBar context={patientContext} />}
 
       <div className="rounded-lg border bg-white p-6">
-        <FormRendererWrapper
-          schema={schema}
-          onChange={handleChange}
+        <DualFormRenderer
+          form={form}
+          onChange={(data) => {
+            setJsonFormsData(data);
+            handleChange(data);
+          }}
           onSubmit={handleSubmit}
         />
+        {/* Form.io renders its own submit button; jsonforms needs an explicit one. */}
+        {isJsonForms && (
+          <div className="mt-6 flex justify-end">
+            <Button
+              onClick={() => handleSubmit(jsonFormsData)}
+              disabled={completeSubmission.isPending}
+            >
+              {completeSubmission.isPending ? 'Submitting...' : 'Submit'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

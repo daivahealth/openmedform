@@ -219,12 +219,24 @@ importers:
 
   apps/web:
     dependencies:
+      '@openmedform/form-core':
+        specifier: workspace:*
+        version: link:../../packages/form-core
+      '@openmedform/form-design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/form-design-tokens
+      '@openmedform/form-schema-types':
+        specifier: workspace:*
+        version: link:../../packages/form-schema-types
       '@openmedform/formio-core':
         specifier: workspace:*
         version: link:../../packages/formio-core
       '@openmedform/formio-react':
         specifier: workspace:*
         version: link:../../packages/formio-react
+      '@openmedform/react-form-renderer':
+        specifier: workspace:*
+        version: link:../../packages/react-form-renderer
       '@radix-ui/react-avatar':
         specifier: ^1.1.0
         version: 1.2.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

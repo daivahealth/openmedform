@@ -4,8 +4,14 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3001"],
-      "port": 3001
+      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next start -p 3000"],
+      "port": 3000
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/api && npx nest start"],
+      "port": 3100
     },
     {
       "name": "react-demo",

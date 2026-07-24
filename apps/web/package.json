@@ -10,8 +10,12 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@openmedform/form-core": "workspace:*",
+    "@openmedform/form-design-tokens": "workspace:*",
+    "@openmedform/form-schema-types": "workspace:*",
     "@openmedform/formio-core": "workspace:*",
     "@openmedform/formio-react": "workspace:*",
+    "@openmedform/react-form-renderer": "workspace:*",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-dropdown-menu": "^2.1.1",
