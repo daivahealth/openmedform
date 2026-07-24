@@ -54,3 +54,15 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | POST | /api/ai/refine | Refine supplied schema directly |
 | POST | /api/ai/generate-from-pdf | Generate schema from uploaded PDF |
 | GET | /api/ai/providers | List configured LLM providers |
+
+### Conversions (engine-targeted PDF/image → form)
+Async pipeline (Phase 6). `POST` creates a `conversion_job` and runs in the
+background; poll `GET /api/conversions/:id` for status (PENDING → RUNNING →
+REVIEW \| FAILED). On success a **draft form** (status REVIEW) is created for the
+chosen engine, and for jsonforms per-field confidence + warnings are persisted.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /api/conversions | multipart: `file`, `engine` (formio\|jsonforms), optional `provider`, `instructions`. Returns the created job |
+| GET | /api/conversions | List conversion jobs for the tenant |
+| GET | /api/conversions/:id | Job status + persisted warnings |

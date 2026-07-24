@@ -17,6 +17,6 @@ import { SettingsModule } from '../settings/settings.module';
     SchemaValidatorService,
     SchemaPreviewRendererService,
   ],
-  exports: [AiBuilderService],
+  exports: [AiBuilderService, ProviderRegistry],
 })
 export class AiBuilderModule {}

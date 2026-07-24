@@ -120,5 +120,14 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   jsonforms submissions are Ajv-2020-12-validated server-side on complete; a
   `sign` action locks a completed submission. Pure logic (content hash, Ajv
   validation) is unit-tested; a live-DB smoke exercised every new table/enum.
-- **Phases 6–9 (planned):** AI conversion pipeline; prompt-based designer/review;
-  print engine + visual-diff loop; docs/examples.
+- **Phase 6 (done):** engine-targeted AI conversion pipeline. `conversion_job`
+  tracks each run (PENDING→RUNNING→REVIEW|FAILED, background/no queue); the author
+  picks the engine. FORMIO reuses AiBuilderService; JSONFORMS uses a dedicated
+  prompt to emit split Data/UI/Print schemas + translations, the Data Schema is
+  Ajv-2020-12 compile-checked, and per-field confidence/warnings persist to
+  `conversion_warning`. A successful job creates a draft form (REVIEW) and
+  audit-logs `ai.convert`. Assembler is unit-tested; a live-DB smoke ran the
+  jsonforms path end-to-end with a stubbed provider. (Real LLM E2E needs a
+  configured provider.)
+- **Phases 7–9 (planned):** prompt-based designer/review; print engine +
+  visual-diff loop; docs/examples.

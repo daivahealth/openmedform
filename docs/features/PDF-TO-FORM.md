@@ -81,8 +81,28 @@ The forms page has a "From File" button that opens a dialog with two steps:
 
 The form is created as a DRAFT with the AI-generated schema pre-loaded in the builder for review. Further changes should use the builder's AI chat, which calls `POST /api/forms/:id/ai/refine` and returns proposed schema updates for the user to apply.
 
+## Engine-Targeted Conversion Pipeline (Phase 6)
+
+The direct `POST /api/forms/from-file` path above always targets the **Form.io**
+engine. The **conversion pipeline** (`POST /api/conversions`) lets the author
+choose the target engine and tracks the run as a `conversion_job`:
+
+- `engine: "formio"` — reuses the Form.io generator described above.
+- `engine: "jsonforms"` — emits the separated **Data / UI / Print** schemas +
+  translations (see [ADR-003](../ADR/003-dual-engine-json-forms.md)) via a
+  dedicated system prompt (`prompts/pdf-to-jsonforms-prompt.ts`). The Data Schema
+  is verified to compile under Ajv 2020-12 before persisting; **per-field
+  confidence and warnings** are stored in `conversion_warning` so uncertain
+  elements are surfaced for review, never silently dropped.
+
+Jobs run in the background (lightweight fire-and-forget — no external queue) and
+transition PENDING → RUNNING → REVIEW \| FAILED; poll `GET /api/conversions/:id`.
+A successful job creates a **draft form in REVIEW status** for the chosen engine;
+`ai.convert` is audit-logged. The review/publish UI is Phase 7.
+
 ## Limitations
 
 - Scanned PDFs with only images require page-image rendering plus a vision-capable provider. Text-only providers need embedded text or future OCR support.
 - Complex multi-page forms may exceed token limits for some providers.
-- Generated schemas should always be reviewed in the builder before publishing — AI output is a starting point, not a final form.
+- Generated schemas should always be reviewed before publishing — AI output is a starting point, not a final form.
+- The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.

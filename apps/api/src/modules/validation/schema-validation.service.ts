@@ -60,6 +60,19 @@ export class SchemaValidationService {
     };
   }
 
+  /**
+   * Assert a Data Schema compiles under Ajv 2020-12. Returns null on success or
+   * an error message. Used to reject AI-generated schemas before persisting.
+   */
+  checkCompiles(dataSchema: unknown): string | null {
+    try {
+      this.ajv.compile(dataSchema as object);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  }
+
   private toErrors(errors: ErrorObject[] | null | undefined): ValidationError[] {
     return (errors ?? []).map((e) => ({
       instancePath: e.instancePath,

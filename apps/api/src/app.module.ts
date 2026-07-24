@@ -11,6 +11,7 @@ import { SubmissionModule } from './modules/submission/submission.module';
 import { HealthModule } from './modules/health/health.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
+import { FormConversionModule } from './modules/form-conversion/form-conversion.module';
 import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     SubmissionModule,
     ScoringModule,
     AiBuilderModule,
+    FormConversionModule,
     SettingsModule,
     HealthModule,
   ],
