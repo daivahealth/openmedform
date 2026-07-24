@@ -257,7 +257,7 @@ export default function FormFillPage() {
   const isJsonForms = formEngine(form) === 'JSONFORMS';
 
   return (
-    <div className="mx-auto max-w-4xl py-4">
+    <div className="w-full py-4">
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">{form.name}</h1>
       </div>

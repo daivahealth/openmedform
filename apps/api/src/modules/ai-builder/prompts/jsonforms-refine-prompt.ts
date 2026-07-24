@@ -17,7 +17,13 @@ REFINEMENT MODE
   option, translation, and layout exactly as-is.
 - Return the COMPLETE updated object with all four artifacts + conversionMetadata
   (carry the metadata forward; you may lower/raise confidence for fields you
-  touched). Never drop existing fields the user did not ask to remove.`
+  touched). Never drop existing fields the user did not ask to remove.
+- Before returning, repair every invalid nested JSON Forms Control scope so all
+  existing checkbox controls render. Preserve every field, Greek label,
+  validation rule, and layout. Nested object controls MUST include
+  "/properties/" at every object level — for example,
+  "#/properties/reasonForCall/properties/pulseLessThan40". Do not add, remove,
+  rename, or translate fields while repairing scopes.`
   );
 }
 

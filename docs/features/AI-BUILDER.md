@@ -26,10 +26,20 @@ The AI builder generates formio.js JSON schemas from natural language prompts us
 6. Invalid schemas are rejected before client delivery
 7. Validated schema is returned to the builder as a proposed change or saved as a new draft form
 
+### OpenAI transport and model selection
+
+The OpenAI provider uses the **Responses API** for text and image-backed form
+generation/refinement. It requests JSON-object output and sends rendered PDF
+pages as high-detail image inputs. For a balanced production default, configure
+`AI_OPENAI_MODEL=gpt-5.6-terra`; model selection can also be set per tenant in
+Settings → AI Providers. GPT-5.6 Terra supports image input, structured output,
+and the Responses API.
+
 ## Form-Scoped Agent Flow
 
 - `POST /api/forms/from-file` accepts PDF or image files plus form metadata, generates a Form.io schema, validates it, creates a draft form version, and returns `{ form, schema, provider }`.
 - `POST /api/forms/:id/ai/refine` verifies tenant access to the form, refines the live builder schema or latest saved schema, and returns a validated proposed schema for the chat UI.
+- JSON Forms previews expose **Refine with AI**, which streams `POST /api/forms/:id/jsonforms/refine`. It updates an unpublished draft in place or forks a draft from a published version, then refreshes the preview with the saved definition.
 - The refinement endpoint also accepts an optional image upload (`multipart/form-data`, field `image`) so users can attach a visual reference and describe corrections in chat.
 - The chat UI requires the user to apply the proposed schema before the builder auto-save writes it through `PUT /api/forms/:id/schema`.
 - Published versions remain immutable. Further applied edits create or update the latest draft version through the normal form service.

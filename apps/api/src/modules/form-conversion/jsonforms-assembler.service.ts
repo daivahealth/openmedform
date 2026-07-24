@@ -58,6 +58,7 @@ export class JsonFormsAssemblerService {
     }
 
     const uiSchema = this.normalizeUiSchema(parsed.uiSchema);
+    this.ensureControlScopesResolve(uiSchema, dataSchema);
     const printSchema = this.asObject(parsed.printSchema) ?? { ...DEFAULT_PRINT_SCHEMA };
     const translations = this.normalizeTranslations(parsed.translations);
     const conversionMetadata = this.asObject(parsed.conversionMetadata) ?? {};
@@ -131,6 +132,59 @@ export class JsonFormsAssemblerService {
       };
     }
     return { defaultLanguage: 'en', languages: ['en'], entries: {} };
+  }
+
+  /**
+   * JSON Forms silently omits Controls whose schema pointer cannot be resolved.
+   * Reject those AI outputs here instead of persisting a form with invisible
+   * fields. Nested JSON Schema properties must include `/properties/` at every
+   * object level.
+   */
+  private ensureControlScopesResolve(
+    uiSchema: Record<string, unknown>,
+    dataSchema: Record<string, unknown>,
+  ): void {
+    const visit = (element: unknown): void => {
+      if (!element || typeof element !== 'object' || Array.isArray(element)) return;
+      const ui = element as Record<string, unknown>;
+      if (ui.type === 'Control' && typeof ui.scope === 'string') {
+        if (!this.resolveLocalPointer(dataSchema, ui.scope)) {
+          throw new BadRequestException(
+            `AI output includes a Control scope that does not resolve in dataSchema: ${ui.scope}`,
+          );
+        }
+      }
+      if (Array.isArray(ui.elements)) ui.elements.forEach(visit);
+    };
+
+    visit(uiSchema.layout);
+  }
+
+  private resolveLocalPointer(
+    root: Record<string, unknown>,
+    pointer: string,
+  ): Record<string, unknown> | undefined {
+    if (!pointer.startsWith('#/')) return undefined;
+
+    let node: unknown = root;
+    for (const segment of pointer.slice(2).split('/')) {
+      node = this.dereferenceLocal(root, node);
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return undefined;
+      node = (node as Record<string, unknown>)[
+        segment.replace(/~1/g, '/').replace(/~0/g, '~')
+      ];
+    }
+    node = this.dereferenceLocal(root, node);
+    return node && typeof node === 'object' && !Array.isArray(node)
+      ? (node as Record<string, unknown>)
+      : undefined;
+  }
+
+  private dereferenceLocal(root: Record<string, unknown>, value: unknown): unknown {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const ref = (value as Record<string, unknown>).$ref;
+    if (typeof ref !== 'string' || !ref.startsWith('#/')) return value;
+    return this.resolveLocalPointer(root, ref) ?? value;
   }
 
   private asObject(value: unknown): Record<string, unknown> | undefined {

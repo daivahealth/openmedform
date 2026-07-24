@@ -26,6 +26,9 @@ export default function FormBuilderPage() {
   const { data: form, isLoading: formLoading } = useForm(formId);
   const saveSchema = useSaveSchema(formId);
   const publishForm = usePublishForm(formId);
+  const isJsonForms =
+    (form?.currentVersion?.engine ?? form?.versions?.[0]?.engine) ===
+    'JSONFORMS';
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -104,6 +107,14 @@ export default function FormBuilderPage() {
     };
   }, []);
 
+  // JSON Forms has a prompt-based designer rather than the Form.io
+  // drag-and-drop builder. Protect direct /builder URLs as well as list routing.
+  useEffect(() => {
+    if (isJsonForms) {
+      router.replace(`/forms/${formId}/preview`);
+    }
+  }, [formId, isJsonForms, router]);
+
   if (formLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -116,6 +127,17 @@ export default function FormBuilderPage() {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <p className="text-muted-foreground">Form not found</p>
+      </div>
+    );
+  }
+
+  if (isJsonForms) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          Opening JSON Forms designer...
+        </div>
       </div>
     );
   }

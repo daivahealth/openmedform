@@ -72,6 +72,50 @@ describe('JsonFormsAssemblerService', () => {
     expect(service.assemble(out).uiSchema.schemaVersion).toBe('1.0');
   });
 
+  it('rejects a nested Control scope that omits the JSON Schema properties segment', () => {
+    const out = JSON.stringify({
+      dataSchema: {
+        type: 'object',
+        properties: {
+          reasonForCall: {
+            type: 'object',
+            properties: { pulseLessThan40: { type: 'boolean' } },
+          },
+        },
+      },
+      uiSchema: {
+        layout: {
+          type: 'Control',
+          scope: '#/properties/reasonForCall/pulseLessThan40',
+        },
+      },
+    });
+
+    expect(() => service.assemble(out)).toThrow(/Control scope that does not resolve/);
+  });
+
+  it('accepts a nested Control scope with properties at every object level', () => {
+    const out = JSON.stringify({
+      dataSchema: {
+        type: 'object',
+        properties: {
+          reasonForCall: {
+            type: 'object',
+            properties: { pulseLessThan40: { type: 'boolean' } },
+          },
+        },
+      },
+      uiSchema: {
+        layout: {
+          type: 'Control',
+          scope: '#/properties/reasonForCall/properties/pulseLessThan40',
+        },
+      },
+    });
+
+    expect(() => service.assemble(out)).not.toThrow();
+  });
+
   it('rejects a Data Schema that does not compile', () => {
     const bad = JSON.stringify({ dataSchema: { type: 'nonsense' }, uiSchema: {} });
     expect(() => service.assemble(bad)).toThrow(/does not compile/);

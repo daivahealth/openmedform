@@ -6,6 +6,7 @@ import api from '@/lib/api';
 interface FormVersion {
   id: string;
   version: number;
+  engine?: 'FORMIO' | 'JSONFORMS';
   schema: Record<string, unknown>;
   scoringRules?: Record<string, unknown>;
   publishedAt?: string;

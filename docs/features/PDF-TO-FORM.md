@@ -6,8 +6,8 @@ OpenMedForm can convert paper-based clinical forms (PDFs) into digital formio.js
 
 1. User uploads a PDF of a clinical form (assessment, checklist, intake form, etc.)
 2. The system extracts text from the PDF using `pdf-parse`
-3. When available, the backend renders the first PDF pages to PNG images with `pdftoppm`
-4. If the selected AI provider supports image input, the page images are sent with extracted text for layout-aware analysis
+3. When available, the backend renders up to the first four PDF pages to PNG images with `pdftoppm`
+4. If the selected AI provider supports image input, the page images are sent with extracted text for source-driven, page-aware layout analysis
 5. The LLM analyzes the form structure and generates a Form.io JSON schema using OpenMedForm clinical components where appropriate
 6. The backend renders a lightweight PNG preview of the generated schema
 7. A visual QA pass compares the source PDF page image with the generated preview image and can return a repaired schema
@@ -41,7 +41,7 @@ Low-level compatibility endpoint:
 
 ## Vision Support
 
-When `pdftoppm` is available, the backend renders the first pages of the PDF to PNG and sends those images alongside extracted text to providers with image input support. This gives the LLM access to visual layout (tables, checkboxes, scoring grids) in addition to text content.
+When `pdftoppm` is available, the backend renders up to the first four pages of the PDF to PNG and sends those images alongside extracted text to providers with image input support. This gives the LLM access to visual layout (tables, checkboxes, scoring grids) in addition to text content. The JSON Forms conversion treats each supplied page as its own visual reference: it uses parallel columns only when the source has them, and keeps wide tables, grids, and narrative areas full-width when the source does.
 
 Providers with page-image vision support:
 - **Claude**
@@ -91,7 +91,9 @@ choose the target engine and tracks the run as a `conversion_job`:
 - `engine: "jsonforms"` — emits the separated **Data / UI / Print** schemas +
   translations (see [ADR-003](../ADR/003-dual-engine-json-forms.md)) via a
   dedicated system prompt (`prompts/pdf-to-jsonforms-prompt.ts`). The Data Schema
-  is verified to compile under Ajv 2020-12 before persisting; **per-field
+  is verified to compile under Ajv 2020-12 before persisting. Its UI layout is
+  inferred from the supplied source pages rather than a fixed clinical template;
+  **per-field
   confidence and warnings** are stored in `conversion_warning` so uncertain
   elements are surfaced for review, never silently dropped.
 

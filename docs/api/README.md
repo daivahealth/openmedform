@@ -34,7 +34,7 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | GET | /api/forms/:id/versions | List versions |
 | GET | /api/forms/:id/versions/:versionId/integrity | Recompute a published version's content hash to detect tampering |
 | POST | /api/forms/:id/clone | Clone form |
-| POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language (SSE stream; edits a draft or forks one if published) |
+| POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language; accepts JSON or multipart `image` visual reference (SSE stream; edits a draft or forks one if published) |
 
 ### Submissions
 | Method | Path | Description |

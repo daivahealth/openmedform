@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { AxiosError } from 'axios';
 import { Plus, Pencil, Eye, Archive, Inbox, Copy, Download, Upload, FileUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,7 @@ import { DeleteFormDialog } from '@/components/forms/delete-form-dialog';
 
 export default function FormsPage() {
   const router = useRouter();
-  const { data: forms, isLoading } = useForms();
+  const { data: forms, isLoading, isError, error, refetch } = useForms();
   const archiveForm = useArchiveForm();
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
@@ -107,6 +108,7 @@ export default function FormsPage() {
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="px-4 py-3 text-left font-medium">Name</th>
+                  <th className="px-4 py-3 text-left font-medium">Engine</th>
                   <th className="px-4 py-3 text-left font-medium">Type</th>
                   <th className="px-4 py-3 text-left font-medium">Category</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -117,15 +119,32 @@ export default function FormsPage() {
               <tbody>
                 {isLoading ? (
                   <tr className="border-b">
-                    <td className="px-4 py-8" colSpan={6}>
+                    <td className="px-4 py-8" colSpan={7}>
                       <div className="flex justify-center">
                         <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                       </div>
                     </td>
                   </tr>
+                ) : isError ? (
+                  <tr className="border-b">
+                    <td className="px-4 py-3" colSpan={7}>
+                      <div className="flex flex-col items-center justify-center gap-3 py-8 text-center text-muted-foreground">
+                        <div>
+                          <p className="font-medium text-foreground">Unable to load forms</p>
+                          <p className="text-sm">
+                            {(error as AxiosError<{ message?: string }>).response?.data?.message ??
+                              'Check that the API is running and that your session is still valid.'}
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                          Try again
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : !forms?.length ? (
                   <tr className="border-b">
-                    <td className="px-4 py-3" colSpan={6}>
+                    <td className="px-4 py-3" colSpan={7}>
                       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                         <p>No forms yet</p>
                         <p className="text-sm">
@@ -135,7 +154,12 @@ export default function FormsPage() {
                     </td>
                   </tr>
                 ) : (
-                  forms.map((form) => (
+                  forms.map((form) => {
+                    const isJsonForms =
+                      (form.currentVersion?.engine ?? form.versions?.[0]?.engine) ===
+                      'JSONFORMS';
+
+                    return (
                     <tr key={form.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div>
@@ -146,6 +170,11 @@ export default function FormsPage() {
                             </p>
                           )}
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={isJsonForms ? 'secondary' : 'outline'}>
+                          {isJsonForms ? 'JSON Forms' : 'Form.io'}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={form.formType === 'PATIENT' ? 'default' : 'secondary'}>
@@ -167,9 +196,13 @@ export default function FormsPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() =>
-                              router.push(`/forms/${form.id}/builder`)
+                              router.push(
+                                isJsonForms
+                                  ? `/forms/${form.id}/preview`
+                                  : `/forms/${form.id}/builder`,
+                              )
                             }
-                            title="Edit"
+                            title={isJsonForms ? 'Edit with AI' : 'Edit in Builder'}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -235,7 +268,8 @@ export default function FormsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

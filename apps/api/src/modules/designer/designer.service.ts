@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
+import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
 import { JsonFormsAssemblerService } from '../form-conversion/jsonforms-assembler.service';
 import {
   getJsonFormsRefineSystemPrompt,
@@ -10,6 +11,11 @@ import {
 } from '../ai-builder/prompts/jsonforms-refine-prompt';
 
 export type ProgressCallback = (message: string) => void;
+
+interface RefinementImage {
+  buffer: Buffer;
+  mimeType: ImageContent['mediaType'];
+}
 
 /**
  * Prompt-based designer for the jsonforms engine: a reviewer refines the
@@ -37,6 +43,7 @@ export class DesignerService {
     onProgress?: ProgressCallback,
     ipAddress?: string | null,
     userId?: string,
+    image?: RefinementImage,
   ) {
     const progress = onProgress ?? (() => {});
 
@@ -55,6 +62,11 @@ export class DesignerService {
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
     const provider = this.providerRegistry.getProvider(providerSet, providerName);
     if (!provider) throw new BadRequestException('No AI providers are configured');
+    if (image && !provider.generateWithImages) {
+      throw new BadRequestException(
+        `Provider "${provider.name}" does not support image-based refinement.`,
+      );
+    }
 
     const current = {
       dataSchema: latest.dataSchema ?? {},
@@ -64,12 +76,33 @@ export class DesignerService {
       conversionMetadata: latest.conversionMetadata ?? {},
     };
 
-    progress(`Sending refinement to ${provider.name} — this may take 30–60 seconds...`);
-    const raw = await provider.generate(
-      buildJsonFormsRefineUserPrompt(current, instruction),
-      getJsonFormsRefineSystemPrompt(),
-      { temperature: 0.2, maxTokens: 16384, jsonMode: true },
+    progress(
+      `Sending ${image ? 'image-guided ' : ''}refinement to ${provider.name} — this may take 30–60 seconds...`,
     );
+    const userPrompt =
+      buildJsonFormsRefineUserPrompt(current, instruction) +
+      (image
+        ? '\n\nThe user attached an image as a visual reference. Compare it with the current definition and apply only the requested correction.'
+        : '');
+    const generationOptions = { temperature: 0.2, maxTokens: 16384, jsonMode: true };
+    const raw = image
+      ? await provider.generateWithImages!(
+          userPrompt,
+          [
+            {
+              type: 'image',
+              mediaType: image.mimeType,
+              data: image.buffer.toString('base64'),
+            },
+          ],
+          getJsonFormsRefineSystemPrompt(),
+          generationOptions,
+        )
+      : await provider.generate(
+          userPrompt,
+          getJsonFormsRefineSystemPrompt(),
+          generationOptions,
+        );
 
     progress('Parsing and validating the refined definition...');
     const assembled = this.assembler.assemble(raw);
@@ -92,6 +125,11 @@ export class DesignerService {
           where: { id: latest.id },
           data: versionData,
         });
+
+    await this.prisma.form.update({
+      where: { id: form.id },
+      data: { currentVersionId: savedVersion.id },
+    });
 
     await this.audit.record({
       tenantId,

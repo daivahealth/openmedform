@@ -76,8 +76,9 @@ export class FormService {
         },
       });
 
-      // Create an initial empty draft version
-      await tx.formVersion.create({
+      // Create an initial empty draft version and mark it active. The active
+      // version is used by list, fill, and submission flows.
+      const version = await tx.formVersion.create({
         data: {
           formId: created.id,
           version: 1,
@@ -85,7 +86,10 @@ export class FormService {
         },
       });
 
-      return created;
+      return tx.form.update({
+        where: { id: created.id },
+        data: { currentVersionId: version.id },
+      });
     });
 
     await this.audit.record({
@@ -124,7 +128,7 @@ export class FormService {
         },
       });
 
-      await tx.formVersion.create({
+      const version = await tx.formVersion.create({
         data: {
           formId: form.id,
           version: 1,
@@ -132,14 +136,23 @@ export class FormService {
         },
       });
 
-      return form;
+      return tx.form.update({
+        where: { id: form.id },
+        data: { currentVersionId: version.id },
+      });
     });
   }
 
   async findAll(tenantId: string) {
     return this.prisma.form.findMany({
       where: { tenantId },
-      include: { currentVersion: true, createdBy: { select: { id: true, fullName: true, email: true } } },
+      include: {
+        currentVersion: true,
+        // Older rows may predate currentVersionId. Expose their latest version
+        // as a safe read-only fallback while they are subsequently updated.
+        versions: { orderBy: { version: 'desc' }, take: 1 },
+        createdBy: { select: { id: true, fullName: true, email: true } },
+      },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -192,19 +205,33 @@ export class FormService {
     });
 
     if (latestVersion && !latestVersion.publishedAt) {
-      return this.prisma.formVersion.update({
-        where: { id: latestVersion.id },
-        data: { schema: jsonSchema },
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.formVersion.update({
+          where: { id: latestVersion.id },
+          data: { schema: jsonSchema },
+        });
+        await tx.form.update({
+          where: { id: form.id },
+          data: { currentVersionId: updated.id },
+        });
+        return updated;
       });
     }
 
     const nextVersion = (latestVersion?.version ?? 0) + 1;
-    return this.prisma.formVersion.create({
-      data: {
-        formId: form.id,
-        version: nextVersion,
-        schema: jsonSchema,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.formVersion.create({
+        data: {
+          formId: form.id,
+          version: nextVersion,
+          schema: jsonSchema,
+        },
+      });
+      await tx.form.update({
+        where: { id: form.id },
+        data: { currentVersionId: created.id },
+      });
+      return created;
     });
   }
 

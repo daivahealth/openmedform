@@ -1,18 +1,36 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from '@/hooks/use-forms';
+import { useJsonFormsRefine } from '@/hooks/use-ai-builder';
 import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ArrowLeft, ImagePlus, Loader2, Pencil, Sparkles, X } from 'lucide-react';
 
 export default function FormPreviewPage() {
   const params = useParams();
   const router = useRouter();
   const formId = params.formId as string;
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [instruction, setInstruction] = useState('');
+  const [progress, setProgress] = useState('');
+  const [refineError, setRefineError] = useState('');
+  const [referenceImage, setReferenceImage] = useState<File | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { data: form, isLoading } = useForm(formId);
+  const refine = useJsonFormsRefine();
 
   if (isLoading) {
     return (
@@ -45,6 +63,39 @@ export default function FormPreviewPage() {
         return !!components && components.length > 0;
       })();
 
+  async function handleRefine() {
+    const trimmedInstruction = instruction.trim();
+    if (!trimmedInstruction && !referenceImage) return;
+
+    setRefineError('');
+    setProgress('Preparing refinement...');
+    try {
+      await refine.mutateAsync({
+        formId,
+        instruction: trimmedInstruction || 'Use the attached image as visual reference for this form refinement.',
+        image: referenceImage ?? undefined,
+        onProgress: setProgress,
+      });
+      setInstruction('');
+      setReferenceImage(null);
+      setProgress('');
+      setRefineOpen(false);
+    } catch (error) {
+      setProgress('');
+      setRefineError(error instanceof Error ? error.message : 'Failed to refine form');
+    }
+  }
+
+  function selectReferenceImage(file: File | undefined) {
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+      setRefineError('Attach a PNG, JPEG, WebP, or GIF image.');
+      return;
+    }
+    setRefineError('');
+    setReferenceImage(file);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -74,7 +125,12 @@ export default function FormPreviewPage() {
 
         {/* The drag-and-drop builder is Form.io-only; JSON Forms forms are
             edited via the prompt-based designer, not this builder. */}
-        {!isJsonForms && (
+        {isJsonForms ? (
+          <Button variant="outline" size="sm" onClick={() => setRefineOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Refine with AI
+          </Button>
+        ) : (
           <Button
             variant="outline"
             size="sm"
@@ -85,6 +141,79 @@ export default function FormPreviewPage() {
           </Button>
         )}
       </div>
+
+      <Dialog open={refineOpen} onOpenChange={(open) => !refine.isPending && setRefineOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refine with AI</DialogTitle>
+            <DialogDescription>
+              Describe the layout or content change. Existing fields, labels, and validation are preserved unless you explicitly ask to change them.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder="For example: Match the source document layout. Use columns only where sections are visibly side by side; keep wide grids full-width."
+            disabled={refine.isPending}
+          />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={(event) => {
+              selectReferenceImage(event.target.files?.[0]);
+              event.currentTarget.value = '';
+            }}
+          />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => imageInputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') imageInputRef.current?.click();
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              selectReferenceImage(event.dataTransfer.files[0]);
+            }}
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-3 text-sm text-muted-foreground hover:bg-muted/50"
+          >
+            <ImagePlus className="h-4 w-4" />
+            Drag an image here or click to attach a visual reference
+          </div>
+          {referenceImage && (
+            <div className="flex items-center justify-between rounded-md border bg-muted px-3 py-2 text-sm">
+              <span className="truncate">Attached: {referenceImage.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setReferenceImage(null)}
+                aria-label="Remove attached image"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {progress && <p className="text-sm text-muted-foreground">{progress}</p>}
+          {refineError && <p className="text-sm text-destructive">{refineError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefineOpen(false)} disabled={refine.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleRefine()}
+              disabled={(!instruction.trim() && !referenceImage) || refine.isPending}
+            >
+              {refine.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {refine.isPending ? 'Refining…' : 'Refine form'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-lg border bg-white p-6">
         {hasContent ? (

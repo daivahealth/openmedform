@@ -17,7 +17,6 @@ import {
   Loader2,
   ChevronRight,
   Sparkles,
-  Check,
   X,
   ImagePlus,
   Trash2,
@@ -135,14 +134,12 @@ export function AiChatPanel({ formId, currentSchema, onApplySchema }: AiChatPane
       }
 
       setProgressMessage('');
-      const summaryText = result.changeSummary
-        ? `Changes made (${result.provider}):\n${result.changeSummary}\n\nClick "Apply" to load into the builder.`
-        : `Generated form schema using ${result.provider}. Click "Apply" to load it into the builder.`;
+      onApplySchema(result.schema);
+      const summaryText = `Changes applied with ${result.provider}.\nThe builder has been updated automatically.`;
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: summaryText,
-        schema: result.schema,
         provider: result.provider,
       };
       setLocalMessages((prev) => [...prev, assistantMsg]);
@@ -313,19 +310,6 @@ export function AiChatPanel({ formId, currentSchema, onApplySchema }: AiChatPane
               }`}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.schema && (
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 text-xs"
-                    onClick={() => onApplySchema(msg.schema!)}
-                  >
-                    <Check className="mr-1 h-3 w-3" />
-                    Apply to Builder
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
         ))}

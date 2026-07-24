@@ -9,7 +9,9 @@ import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
 import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
 
-const MAX_VISION_PAGES = 2;
+// Keep typical multi-page clinical forms visually grounded without sending an
+// unbounded number of high-resolution images to a provider.
+const MAX_VISION_PAGES = 4;
 
 export interface ConversionInput {
   fileBuffer: Buffer;
@@ -226,6 +228,7 @@ export class FormConversionService {
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 
       if (provider.generateWithImages && pageImages.length > 0) {
+        userPrompt += `\n\nVisual source pages: ${pageImages.length} rendered page image(s) are attached in page order (image 1 = PDF page 1). Use each image as the authority for that page's layout. The form may use a different layout on each page; infer it from the source instead of applying a fixed column arrangement.`;
         const images: ImageContent[] = pageImages.map((data) => ({
           type: 'image',
           mediaType: 'image/png',
@@ -237,6 +240,7 @@ export class FormConversionService {
           jsonMode: true,
         });
       } else {
+        userPrompt += '\n\nNo page image is available. Preserve the extracted-text reading order in a conservative single-column layout unless the text itself provides unambiguous layout evidence; add an UNCERTAIN_SECTION_BOUNDARY warning for layout guesses.';
         rawOutput = await provider.generate(userPrompt, systemPrompt, {
           temperature: 0.2,
           maxTokens: 16384,
@@ -301,15 +305,23 @@ export class FormConversionService {
     const baseName = fileName.replace(/\.[^.]+$/, '') || 'Converted form';
     const slug = `${this.toSlug(baseName)}-${Date.now()}`;
 
-    return this.prisma.form.create({
-      data: {
-        tenantId,
-        name: baseName,
-        slug,
-        status: 'REVIEW',
-        createdById: userId,
-        versions: { create: { version: 1, ...versionData } },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const form = await tx.form.create({
+        data: {
+          tenantId,
+          name: baseName,
+          slug,
+          status: 'REVIEW',
+          createdById: userId,
+        },
+      });
+      const version = await tx.formVersion.create({
+        data: { formId: form.id, version: 1, ...versionData },
+      });
+      return tx.form.update({
+        where: { id: form.id },
+        data: { currentVersionId: version.id },
+      });
     });
   }
 

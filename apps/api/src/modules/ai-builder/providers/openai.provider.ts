@@ -12,18 +12,16 @@ export class OpenAiProvider implements LlmProvider {
   }
 
   async generate(prompt: string, systemPrompt: string, options?: LlmOptions): Promise<string> {
-    const response = await this.client.chat.completions.create({
+    const response = await this.client.responses.create({
       model: this.model,
-      ...this.getTokenLimitParam(options?.maxTokens ?? 8192),
-      temperature: options?.temperature ?? 0.2,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-      ...(options?.jsonMode && { response_format: { type: 'json_object' as const } }),
+      max_output_tokens: options?.maxTokens ?? 8192,
+      ...this.samplingOptions(options),
+      instructions: systemPrompt,
+      input: prompt,
+      ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
     });
 
-    return response.choices[0]?.message?.content ?? '';
+    return response.output_text;
   }
 
   async generateWithImages(
@@ -32,49 +30,49 @@ export class OpenAiProvider implements LlmProvider {
     systemPrompt: string,
     options?: LlmOptions,
   ): Promise<string> {
-    const contentParts: OpenAI.ChatCompletionContentPart[] = [];
+    const contentParts: Array<
+      | { type: 'input_image'; image_url: string; detail: 'high' }
+      | { type: 'input_text'; text: string }
+    > = [];
 
     for (const img of images) {
       contentParts.push({
-        type: 'image_url',
-        image_url: {
-          url: `data:${img.mediaType};base64,${img.data}`,
-          detail: 'high',
-        },
+        type: 'input_image',
+        image_url: `data:${img.mediaType};base64,${img.data}`,
+        detail: 'high',
       });
     }
 
-    contentParts.push({ type: 'text', text: prompt });
+    contentParts.push({ type: 'input_text', text: prompt });
 
-    const response = await this.client.chat.completions.create({
+    const response = await this.client.responses.create({
       model: this.model,
-      ...this.getTokenLimitParam(options?.maxTokens ?? 8192),
-      temperature: options?.temperature ?? 0.2,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: contentParts },
+      max_output_tokens: options?.maxTokens ?? 8192,
+      ...this.samplingOptions(options),
+      instructions: systemPrompt,
+      input: [
+        {
+          role: 'user',
+          content: contentParts,
+        },
       ],
-      ...(options?.jsonMode && { response_format: { type: 'json_object' as const } }),
+      ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
     });
 
-    return response.choices[0]?.message?.content ?? '';
+    return response.output_text;
   }
 
-  private getTokenLimitParam(maxTokens: number) {
-    if (this.requiresMaxCompletionTokens()) {
-      return { max_completion_tokens: maxTokens };
-    }
-
-    return { max_tokens: maxTokens };
-  }
-
-  private requiresMaxCompletionTokens(): boolean {
+  /** GPT-5 and OpenAI reasoning models do not accept temperature overrides. */
+  private samplingOptions(options?: LlmOptions): { temperature?: number } {
     const model = this.model.toLowerCase();
-    return (
+    if (
       model.startsWith('gpt-5') ||
       model.startsWith('o1') ||
       model.startsWith('o3') ||
       model.startsWith('o4')
-    );
+    ) {
+      return {};
+    }
+    return { temperature: options?.temperature ?? 0.2 };
   }
 }
