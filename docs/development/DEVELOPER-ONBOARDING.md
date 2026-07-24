@@ -71,6 +71,10 @@ pnpm --filter api start:dev         # Backend only
 - `packages/angular-form-renderer` — Angular 20 standalone JSON Forms renderer
   (`<omf-form [definition]="...">`): custom token-styled renderers over
   `@jsonforms/angular`, no Angular Material (jsonforms engine only)
+- `packages/form-print-engine` — reconstructs A4 print HTML/CSS (`@page` in mm)
+  from a jsonforms definition + pure visual-diff primitives (`comparePixels`,
+  `runVisualDiffLoop`). HTML→PDF/image rasterization (Playwright/Chromium or
+  WeasyPrint) is injected at deployment, not bundled.
 - `apps/react-demo` — Vite demo rendering one form per engine through the
   dispatcher: `pnpm --filter @openmedform/react-demo dev` (http://localhost:5175)
 - `apps/angular-demo` — Angular demo (Analog + Vite) rendering the same jsonforms

@@ -139,4 +139,12 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   plus a refine box and accept action — no drag-and-drop. Productionizing the
   surface inside apps/web (React 19 + auth + SSE wiring + source-PDF pane) is the
   remaining integration step.
-- **Phases 8–9 (planned):** print engine + visual-diff loop; docs/examples.
+- **Phase 8 (done):** `packages/form-print-engine`. `renderPrintHtml(definition,
+  {data})` reconstructs a self-contained A4 HTML/CSS document (`@page` in mm,
+  print-safe checkbox/radio glyphs, mm field boxes from `omf.print`) from the UI +
+  Print schemas — never PDF-as-background. The visual-fidelity loop is pure,
+  injectable orchestration: `comparePixels` (0..1 similarity) + `runVisualDiffLoop`
+  (render → compare → AI-patch until threshold/max iterations). The HTML→image
+  rasterizer (Playwright/Chromium or WeasyPrint) is injected in deployment, not
+  bundled. 14 unit tests (HTML reconstruction + diff/loop with fakes).
+- **Phase 9 (planned):** docker, docs, examples, full-flow verification.
