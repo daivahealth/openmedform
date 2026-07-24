@@ -1,0 +1,36 @@
+{
+  "name": "@openmedform/angular-form-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Angular (standalone) JSON Forms renderer: custom token-styled control/layout renderers over @jsonforms/angular, sharing form-core and form-design-tokens with the React renderer so the same jsonforms FormDefinition renders equivalently in both frameworks.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@jsonforms/angular": "3.8.0",
+    "@jsonforms/core": "3.8.0",
+    "@openmedform/form-core": "workspace:*",
+    "@openmedform/form-design-tokens": "workspace:*",
+    "@openmedform/form-schema-types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@angular/common": "^20.0.0",
+    "@angular/core": "^20.0.0",
+    "@angular/forms": "^20.0.0",
+    "rxjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "@angular/common": "20.3.26",
+    "@angular/core": "20.3.26",
+    "@angular/forms": "20.3.26",
+    "@angular/platform-browser": "20.3.26",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

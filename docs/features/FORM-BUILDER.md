@@ -24,3 +24,12 @@ The form builder is a drag-and-drop visual editor built on forked formio.js. It 
 - Auto-save (debounced 2s)
 - Form preview
 - Version history
+
+## Removing Forms
+
+The forms list (`/forms`) offers two removal actions:
+
+- **Archive** (soft delete) — sets the form status to `ARCHIVED`. The form and all its data are retained; it is only hidden from active workflows. This is the default, recoverable option.
+- **Delete permanently** (hard delete) — irreversibly removes the form and **all** related data in a single transaction: every form version (including draft schemas), every submission (clinical records), and all AI chat history. A confirmation dialog fetches and displays the exact counts (via `GET /api/forms/:id/deletion-summary`) before the user confirms.
+
+Both actions are tenant-scoped. Prefer **Archive** for anything that has clinical submissions; permanent delete destroys those records with no recovery.

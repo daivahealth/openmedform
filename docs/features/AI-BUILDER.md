@@ -37,8 +37,24 @@ The AI builder generates formio.js JSON schemas from natural language prompts us
 - Vital sign observation charts should use the custom `vitalSignsChart` component instead of generic static tables.
 - PDF generation includes a visual QA repair pass that compares a source PDF page image with a backend-rendered PNG preview of the generated schema.
 
+### Layout fidelity (PDF → Form)
+
+The PDF/image generation prompt ([prompts/pdf-to-form-prompt.ts](../../apps/api/src/modules/ai-builder/prompts/pdf-to-form-prompt.ts)) reproduces the paper form's **row-based layout**, not just a flat vertical stack of fields:
+
+- **Page-level two-column layouts** — when the whole page is split into two independent vertical tracks running in parallel (e.g. a left track of checklists and a right track of SBAR narrative), the generator reconstructs it as one top-level `columns` (width 6/6): all left-track blocks in the left column, all right-track blocks in the right. Text/vision extraction interleaves the two tracks line-by-line; the generator is instructed to ignore that interleaving rather than scatter one track's sections through the other. SBAR sections (Situation/Background/Assessment/Recommendation) are kept together in order in the right column. This is the most fragile case — reliability varies with how cleanly the source PDF separates its columns.
+- **Paired yes/no boxes** — a label followed by two mutually-exclusive boxes (`□YES □NO`, `□ΝΑΙ □ΟΧΙ`) becomes **one `radio` with `inline: true`** and two values, never two separate checkboxes. A single standalone `□` (one risk factor / presence-absence) stays a `checkbox`.
+- **Left spine labels** — many paper forms have a left column of bold category labels (e.g. `Αλλεργίες`, `Ζωτικά Σημεία`, `Εκτίμηση Δέρματος`) naming the row of fields to their right. Each labelled row becomes one `columns` component whose **first column is a narrow `htmlelement` (`strong`) holding the label text**, followed by the row's field columns. These labels must always be rendered visibly — the generator must not encode a category only in a component `key` (keys are invisible to the user).
+- **Same-line field groups** — multiple fields sharing one horizontal line become a single `columns` component so they stay side-by-side.
+- **Inline fill-in blanks** — `Label: ____` on one line uses `labelPosition: "left-left"` so the label sits beside the input.
+
+Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields), not pixel-exact. Exact borders, fonts, and spacing are not reproduced — Form.io's open-source renderer is a data-entry engine, not a PDF layout replicator. The relevant layout properties (`inline`, `labelPosition`, `table`/`columns` structures) pass through the schema assembler and validator unchanged.
+
 ## Security
-- LLM API keys stored in environment variables only
+- LLM API keys can come from two sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant`:
+  1. **Tenant-configured providers** (Settings → AI Providers): keys are encrypted at rest (AES-256-GCM, via `AI_ENCRYPTION_KEY`) and decrypted only in-memory when instantiating a provider client. When a tenant has any configured providers, these take priority over env vars.
+  2. **Org-wide env vars** (`AI_CLAUDE_API_KEY`, `AI_OPENAI_API_KEY`, etc.): used as a fallback only when a tenant has no provider configured in the database.
+- API keys are never logged; the API only ever returns a masked form (`sk-t****xxxx`) to the client.
+- On create/update, `AiProviderConfigService` rejects keys that are empty (except optional for Ollama), exceed 300 characters, or contain whitespace/line breaks/non-ASCII characters — this catches paste mistakes (e.g. pasting terminal output instead of a key) before they reach the LLM SDK, where a malformed `Authorization` header would otherwise fail with an opaque 500.
 - Generated schemas validated before client delivery
 - AI agents do not write directly to form tables; persistence goes through tenant-scoped form services
-- Production deployments should audit AI operations with provider, user, tenant, form, and version metadata without storing API keys
+- Production deployments should audit AI operations with provider, user, tenant, form, and version metadata without storing API keys in audit logs

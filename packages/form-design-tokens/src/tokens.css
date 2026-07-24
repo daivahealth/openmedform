@@ -1,0 +1,23 @@
+:root {
+  --omf-grid-columns: 12;
+  --omf-grid-gap: 12px;
+  --omf-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --omf-font-size-body: 14px;
+  --omf-font-size-label: 13px;
+  --omf-font-size-section-title: 15px;
+  --omf-font-size-help: 12px;
+  --omf-line-height: 1.4;
+  --omf-label-weight: 600;
+  --omf-field-gap: 12px;
+  --omf-section-gap: 20px;
+  --omf-section-padding: 16px;
+  --omf-control-padding: 8px;
+  --omf-row-min-height: 36px;
+  --omf-border-width: 1px;
+  --omf-border-radius: 4px;
+  --omf-color-border: #c8cdd4;
+  --omf-color-text: #1c2430;
+  --omf-color-label: #3a4552;
+  --omf-color-section-bg: #f7f8fa;
+  --omf-color-invalid: #c0392b;
+}

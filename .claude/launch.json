@@ -6,6 +6,18 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3001"],
       "port": 3001
+    },
+    {
+      "name": "react-demo",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/react-demo && npx vite --port 5175"],
+      "port": 5175
+    },
+    {
+      "name": "angular-demo",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/angular-demo && npx vite preview --port 5176 --strictPort"],
+      "port": 5176
     }
   ]
 }

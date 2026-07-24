@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Ip,
   Param,
   ParseUUIDPipe,
   Post,
@@ -42,6 +43,11 @@ export class SubmissionController {
     return this.submissionService.findAll(user.tenantId);
   }
 
+  @Get('submissions/count')
+  async count(@CurrentUser() user: RequestUser) {
+    return { count: await this.submissionService.count(user.tenantId) };
+  }
+
   @Get('forms/:formId/submissions')
   findAllByForm(
     @CurrentUser() user: RequestUser,
@@ -71,8 +77,26 @@ export class SubmissionController {
   complete(
     @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
   ) {
-    return this.submissionService.complete(user.tenantId, id);
+    return this.submissionService.complete(user.tenantId, id, {
+      userId: user.userId,
+      displayName: user.email,
+      ipAddress: ip,
+    });
+  }
+
+  @Post('submissions/:id/sign')
+  sign(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.submissionService.sign(user.tenantId, id, {
+      userId: user.userId,
+      displayName: user.email,
+      ipAddress: ip,
+    });
   }
 
   @Get('submissions/:id/pdf')

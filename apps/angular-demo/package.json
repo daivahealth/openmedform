@@ -1,0 +1,35 @@
+{
+  "name": "@openmedform/angular-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Angular 20 demo proving the same jsonforms FormDefinition renders through the Angular engine (@openmedform/angular-form-renderer), matching the React demo.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@angular/common": "20.3.26",
+    "@angular/core": "20.3.26",
+    "@angular/forms": "20.3.26",
+    "@angular/platform-browser": "20.3.26",
+    "@jsonforms/angular": "3.8.0",
+    "@jsonforms/core": "3.8.0",
+    "@openmedform/angular-form-renderer": "workspace:*",
+    "@openmedform/form-core": "workspace:*",
+    "@openmedform/form-schema-types": "workspace:*",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.7.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@analogjs/vite-plugin-angular": "^2.6.4",
+    "@angular/build": "20.3.32",
+    "@angular/compiler": "20.3.26",
+    "@angular/compiler-cli": "20.3.26",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}

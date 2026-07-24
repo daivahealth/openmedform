@@ -6,6 +6,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "clean": "turbo run clean",
     "db:migrate": "pnpm --filter @openmedform/api prisma:migrate",
     "db:seed": "pnpm --filter @openmedform/api prisma:seed",
@@ -13,5 +14,11 @@
   },
   "devDependencies": {
     "turbo": "^2.3.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.17",
+      "@types/react-dom": "19.2.3"
+    }
   }
 }

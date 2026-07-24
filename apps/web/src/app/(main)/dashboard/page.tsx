@@ -10,9 +10,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from '@/providers/auth-provider';
+import { useFormsCount } from '@/hooks/use-forms';
+import { useSubmissionsCount } from '@/hooks/use-submissions';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { data: formsCount } = useFormsCount();
+  const { data: submissionsCount } = useSubmissionsCount();
 
   return (
     <div className="space-y-6">
@@ -31,7 +35,7 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
+              <div className="text-2xl font-bold">{formsCount?.count ?? '--'}</div>
               <CardDescription>Manage clinical forms</CardDescription>
             </CardContent>
           </Card>
@@ -40,12 +44,12 @@ export default function DashboardPage() {
         <Link href="/submissions">
           <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Submissions</CardTitle>
+              <CardTitle className="text-sm font-medium">Records</CardTitle>
               <Inbox className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <CardDescription>View form submissions</CardDescription>
+              <div className="text-2xl font-bold">{submissionsCount?.count ?? '--'}</div>
+              <CardDescription>View submitted form records</CardDescription>
             </CardContent>
           </Card>
         </Link>

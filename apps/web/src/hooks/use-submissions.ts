@@ -42,6 +42,16 @@ export function useSubmissions(formId: string) {
   });
 }
 
+export function useSubmissionsCount() {
+  return useQuery<{ count: number }>({
+    queryKey: ['submissions', 'count'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/submissions/count');
+      return data;
+    },
+  });
+}
+
 export function useSubmission(id: string) {
   return useQuery<Submission>({
     queryKey: ['submission', id],
