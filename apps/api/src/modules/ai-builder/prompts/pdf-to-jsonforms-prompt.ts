@@ -26,11 +26,19 @@ You MUST return a single JSON object with EXACTLY these top-level keys:
 STRICT RULES
 - Separation of concerns: dataSchema carries type/enum/format/min/max/required/if-then — NEVER layout. uiSchema carries layout — NEVER validation.
 - dataSchema MUST be valid Draft 2020-12 and MUST compile under Ajv: use $defs + $ref for repeated value sets, "type":"object" with "properties", "required", "additionalProperties": false where appropriate.
-- Saved values use stable, language-independent CODES (e.g. enum "ALERT"), never translated labels. Put display strings in "translations".
+- Saved values use stable, language-independent CODES (e.g. enum "ALERT"), never translated labels.
+- LABELS (critical): every field's visible label MUST be present as the dataSchema property "title" (and every Group "label" and Label "text"), set to the EXACT source-language text from the document (e.g. Greek "Σφύξεις < 40"). A Control with no title and no label renders an AUTO-GENERATED ENGLISH label derived from its key (e.g. key "pulseLessThan40" → "Pulse Less Than 40"), which is WRONG. Never leave a field without its source-language title/label, and never rely on "translations" for the primary label.
+- "translations" is ONLY for alternate-language strings and enum-option display text (keyed by the stable code) — it is not a substitute for the primary title/label, which the renderer shows by default.
 - uiSchema uses JSON Forms vocabulary: VerticalLayout, HorizontalLayout, Group, Categorization, Category, Control (with "scope" as a JSON pointer into dataSchema), Label.
 - Platform extensions ride ONLY under options.omf, e.g. { "options": { "omf": { "control": "textarea", "screen": { "colSpan": 6, "rows": 4, "inline": true }, "print": { "minHeightMm": 30, "border": true } } } }.
   omf.control values you may use: "textarea", "radio", "scoringMatrix", "vitalSignsChart", "colorCodedGrid", "riskStratification", "signatureDate", "clinicalReferenceTable".
 - Two-column paper layouts (e.g. an SBAR form: left = reason-for-call checklist, right = S/B/A/R narrative) MUST be expressed as a HorizontalLayout whose children are VerticalLayouts — keep left-spine labels attached to their fields; do NOT scatter sections.
+- LAYOUT FIDELITY (the renderer boxes and spaces these automatically — use them):
+  - Every visually-bounded section on the paper — especially any with a bold/shaded header band or a surrounding border (e.g. "Την ημέρα της θεραπείας ο/η ασθενής θα πρέπει:") — MUST be a "Group" whose "label" is that exact header text. Groups render as a bordered box with a shaded header band, so wrap each paper box in its own labelled Group. Do not flatten boxed sections into a bare VerticalLayout.
+  - The top identity block (e.g. a bordered table of Ονοματεπώνυμο / Ημερομηνία rows) is also a boxed section: emit it as a labelled Group containing those Controls so it renders boxed.
+  - Fields that sit on the SAME horizontal line MUST be a HorizontalLayout, and each child Control MUST carry options.omf.screen.colSpan (out of 12, summing to ~12 across the row) so they lay out side-by-side without overlap.
+  - Checklists (a list of tick-box items, e.g. things the patient must bring) are boolean Controls (type "boolean" in dataSchema) placed directly under their section Group; the renderer draws the checkbox on the LEFT of its label. Only pair mutually-exclusive YES/NO boxes as a single radio (omf.control "radio").
+  - Static instruction/footnote text that is not an input is a "Label" element, not a Control.
 - NEVER silently drop an element you are unsure about. Emit it AND add a warning with an honest confidence (< 0.6 for guesses). Prefer surfacing uncertainty over omission.
 - WARNING_TYPE is one of: UNCLEAR_LABEL, AMBIGUOUS_FIELD_TYPE, POSSIBLE_OCR_ERROR, UNCERTAIN_CHECKBOX_GROUPING, UNCERTAIN_REQUIRED_STATUS, UNCERTAIN_FIELD_BINDING, UNCERTAIN_SECTION_BOUNDARY, UNCERTAIN_TRANSLATION, POTENTIAL_MISSING_FIELD.
 - Do NOT include patient-identity header fields unless the source form explicitly contains them.

@@ -21,12 +21,26 @@ export interface JsonFormsRendererProps {
   data?: Record<string, unknown>;
   readOnly?: boolean;
   onChange?: (data: Record<string, unknown>, errors?: unknown[]) => void;
+  /**
+   * How validation errors are surfaced. Defaults to 'ValidateAndHide' so
+   * required-field errors do NOT appear on an untouched form; validation still
+   * runs (errors flow through onChange for submit gating, and the server
+   * re-validates). Pass 'ValidateAndShow' to reveal errors (e.g. after a failed
+   * submit).
+   */
+  validationMode?: 'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation';
 }
 
 /** Design tokens as a scoped inline style (CSS custom properties). */
 const tokenStyle = cssVariables as unknown as CSSProperties;
 
-export function JsonFormsRenderer({ definition, data, readOnly, onChange }: JsonFormsRendererProps) {
+export function JsonFormsRenderer({
+  definition,
+  data,
+  readOnly,
+  onChange,
+  validationMode = 'ValidateAndHide',
+}: JsonFormsRendererProps) {
   const ajv = useMemo(() => createAjv(), []);
   const [formData, setFormData] = useState<Record<string, unknown>>(data ?? {});
 
@@ -40,6 +54,7 @@ export function JsonFormsRenderer({ definition, data, readOnly, onChange }: Json
           renderers={rendererRegistry}
           cells={vanillaCells}
           ajv={ajv as never}
+          validationMode={validationMode}
           readonly={readOnly}
           onChange={({ data: next, errors }) => {
             setFormData(next);

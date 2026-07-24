@@ -7,7 +7,22 @@
 
 import type { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 import { vanillaRenderers } from '@jsonforms/vanilla-renderers';
-import { OmfTextareaControl, omfTextareaTester, OmfRadioControl, omfRadioTester } from './renderers/omf-controls';
+import {
+  OmfTextareaControl,
+  omfTextareaTester,
+  OmfRadioControl,
+  omfRadioTester,
+  OmfCheckboxControl,
+  omfCheckboxTester,
+  OmfGroupControl,
+  omfGroupTester,
+  OmfHorizontalLayoutControl,
+  omfHorizontalTester,
+  OmfInputControl,
+  omfInputTester,
+  OmfSelectControl,
+  omfSelectTester,
+} from './renderers/omf-controls';
 import {
   ScoringMatrixControl,
   scoringMatrixTester,
@@ -27,6 +42,11 @@ import {
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfTextareaTester, renderer: OmfTextareaControl },
   { tester: omfRadioTester, renderer: OmfRadioControl },
+  { tester: omfCheckboxTester, renderer: OmfCheckboxControl },
+  { tester: omfInputTester, renderer: OmfInputControl },
+  { tester: omfSelectTester, renderer: OmfSelectControl },
+  { tester: omfGroupTester, renderer: OmfGroupControl },
+  { tester: omfHorizontalTester, renderer: OmfHorizontalLayoutControl },
 ];
 
 /** The six clinical custom controls. */
