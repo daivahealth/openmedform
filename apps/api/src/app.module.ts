@@ -12,6 +12,7 @@ import { HealthModule } from './modules/health/health.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
 import { FormConversionModule } from './modules/form-conversion/form-conversion.module';
+import { DesignerModule } from './modules/designer/designer.module';
 import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     ScoringModule,
     AiBuilderModule,
     FormConversionModule,
+    DesignerModule,
     SettingsModule,
     HealthModule,
   ],

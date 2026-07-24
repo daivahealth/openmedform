@@ -9,6 +9,9 @@
 export { FormRenderer } from './FormRenderer';
 export type { FormRendererProps } from './FormRenderer';
 
+export { ReviewSurface } from './ReviewSurface';
+export type { ReviewSurfaceProps } from './ReviewSurface';
+
 export { JsonFormsRenderer } from './engine/jsonforms/JsonFormsRenderer';
 export type { JsonFormsRendererProps } from './engine/jsonforms/JsonFormsRenderer';
 export { FormioBranch } from './engine/formio/FormioRenderer';

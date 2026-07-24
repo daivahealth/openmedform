@@ -129,5 +129,14 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   audit-logs `ai.convert`. Assembler is unit-tested; a live-DB smoke ran the
   jsonforms path end-to-end with a stubbed provider. (Real LLM E2E needs a
   configured provider.)
-- **Phases 7–9 (planned):** prompt-based designer/review; print engine +
-  visual-diff loop; docs/examples.
+- **Phase 7 (done):** prompt-based designer + review surface. Backend
+  `DesignerService` refines a jsonforms form's artifacts from natural language
+  (SSE, reusing the Form.io refine transport), Ajv-compile-checking the result and
+  editing a draft in place (or forking one if published); `POST /conversions/:id/
+  accept` promotes a reviewed draft REVIEW→DRAFT. Frontend `ReviewSurface`
+  (packages/react-form-renderer, browser-verified in apps/react-demo) shows the
+  live preview beside low-confidence fields + warnings from conversionMetadata,
+  plus a refine box and accept action — no drag-and-drop. Productionizing the
+  surface inside apps/web (React 19 + auth + SSE wiring + source-PDF pane) is the
+  remaining integration step.
+- **Phases 8–9 (planned):** print engine + visual-diff loop; docs/examples.

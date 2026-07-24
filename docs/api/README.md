@@ -34,6 +34,7 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | GET | /api/forms/:id/versions | List versions |
 | GET | /api/forms/:id/versions/:versionId/integrity | Recompute a published version's content hash to detect tampering |
 | POST | /api/forms/:id/clone | Clone form |
+| POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language (SSE stream; edits a draft or forks one if published) |
 
 ### Submissions
 | Method | Path | Description |
@@ -64,5 +65,6 @@ chosen engine, and for jsonforms per-field confidence + warnings are persisted.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /api/conversions | multipart: `file`, `engine` (formio\|jsonforms), optional `provider`, `instructions`. Returns the created job |
+| POST | /api/conversions/:id/accept | Accept a reviewed job: promote the draft form REVIEW→DRAFT, mark job COMPLETED (audited) |
 | GET | /api/conversions | List conversion jobs for the tenant |
 | GET | /api/conversions/:id | Job status + persisted warnings |

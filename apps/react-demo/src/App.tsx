@@ -1,22 +1,46 @@
 import { useMemo, useState } from 'react';
-import { FormRenderer } from '@openmedform/react-form-renderer';
+import { FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
 import { rrtSbarReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { formioSample } from './formio-sample';
 
-type EngineKey = 'jsonforms' | 'formio';
+type Mode = 'jsonforms' | 'formio' | 'review';
 
-const definitions: Record<EngineKey, FormDefinition> = {
+const definitions: Record<'jsonforms' | 'formio', FormDefinition> = {
   jsonforms: rrtSbarReference,
   formio: formioSample,
 };
+const modes: Mode[] = ['jsonforms', 'formio', 'review'];
 
 export function App() {
-  const [engine, setEngine] = useState<EngineKey>('jsonforms');
+  const [engine, setEngine] = useState<Mode>('jsonforms');
   const [data, setData] = useState<Record<string, unknown>>({});
-  const definition = definitions[engine];
-
+  const [refining, setRefining] = useState(false);
   const dataPreview = useMemo(() => JSON.stringify(data, null, 2), [data]);
+
+  if (engine === 'review') {
+    return (
+      <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
+        <ModeTabs engine={engine} onSelect={setEngine} />
+        <p style={{ color: '#555', marginTop: 0 }}>
+          Phase 7 review surface: live preview + low-confidence fields/warnings + prompt-based refine.
+        </p>
+        <ReviewSurface
+          definition={rrtSbarReference}
+          refining={refining}
+          onRefine={(instruction) => {
+            // Demo stub: the real UI streams this to POST /forms/:id/jsonforms/refine.
+            setRefining(true);
+            window.setTimeout(() => setRefining(false), 900);
+            console.log('refine instruction:', instruction);
+          }}
+          onAccept={() => console.log('accept conversion')}
+        />
+      </div>
+    );
+  }
+
+  const definition = definitions[engine];
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1100, margin: '0 auto', padding: 24 }}>
@@ -27,27 +51,7 @@ export function App() {
         </p>
       </header>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {(Object.keys(definitions) as EngineKey[]).map((key) => (
-          <button
-            key={key}
-            onClick={() => {
-              setEngine(key);
-              setData({});
-            }}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 6,
-              border: '1px solid #c8cdd4',
-              background: key === engine ? '#1c2430' : '#fff',
-              color: key === engine ? '#fff' : '#1c2430',
-              cursor: 'pointer',
-            }}
-          >
-            {key} engine
-          </button>
-        ))}
-      </div>
+      <ModeTabs engine={engine} onSelect={(m) => { setEngine(m); setData({}); }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
         <section style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: 16 }}>
@@ -72,6 +76,29 @@ export function App() {
           </pre>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      {modes.map((key) => (
+        <button
+          key={key}
+          onClick={() => onSelect(key)}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 6,
+            border: '1px solid #c8cdd4',
+            background: key === engine ? '#1c2430' : '#fff',
+            color: key === engine ? '#fff' : '#1c2430',
+            cursor: 'pointer',
+          }}
+        >
+          {key === 'review' ? 'review surface' : `${key} engine`}
+        </button>
+      ))}
     </div>
   );
 }

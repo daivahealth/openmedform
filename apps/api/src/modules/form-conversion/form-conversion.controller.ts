@@ -72,6 +72,15 @@ export class FormConversionController {
     );
   }
 
+  @Post(':id/accept')
+  accept(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.conversion.acceptJob(user.tenantId, user.userId, id, ip);
+  }
+
   @Get()
   list(@CurrentUser() user: RequestUser) {
     return this.conversion.listJobs(user.tenantId);

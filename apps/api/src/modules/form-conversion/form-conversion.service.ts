@@ -76,6 +76,35 @@ export class FormConversionService {
     return job;
   }
 
+  /**
+   * Accept a reviewed conversion: promote the generated draft form from REVIEW
+   * to DRAFT (ready for normal editing/publishing) and mark the job COMPLETED.
+   */
+  async acceptJob(tenantId: string, userId: string, id: string, ipAddress?: string | null) {
+    const job = await this.prisma.conversionJob.findFirst({ where: { id, tenantId } });
+    if (!job) throw new NotFoundException(`Conversion job ${id} not found`);
+    if (job.status !== 'REVIEW' || !job.formId) {
+      throw new NotFoundException('Job is not in a reviewable state');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.form.update({ where: { id: job.formId }, data: { status: 'DRAFT' } }),
+      this.prisma.conversionJob.update({ where: { id: job.id }, data: { status: 'COMPLETED' } }),
+    ]);
+
+    await this.audit.record({
+      tenantId,
+      userId,
+      ipAddress,
+      action: 'ai.convert.accept',
+      resourceType: 'conversion_job',
+      resourceId: job.id,
+      details: { formId: job.formId },
+    });
+
+    return { accepted: true, formId: job.formId };
+  }
+
   async listJobs(tenantId: string) {
     return this.prisma.conversionJob.findMany({
       where: { tenantId },
