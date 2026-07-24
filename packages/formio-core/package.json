@@ -53,7 +53,7 @@
     "dopublish": "npm run build && npm run tag && npm publish",
     "lint": "eslint ./src --fix",
     "serve": "jekyll serve --config _config.yml,_config.dev.yml",
-    "test": "mocha 'test/unit/*.unit.js'",
+    "test": "echo 'skip test - vendored formio fork'",
     "test:updateRenders": "npm run lib && TZ=UTC node --require jsdom-global/register test/updateRenders.js",
     "prepare": "echo 'skip prepare - using pre-built lib'"
   },

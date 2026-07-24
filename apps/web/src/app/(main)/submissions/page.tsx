@@ -64,9 +64,9 @@ export default function AllSubmissionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Responses</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Records</h1>
           <p className="text-sm text-muted-foreground">
-            All form responses across your organization
+            All form records across your organization
           </p>
         </div>
         <Button onClick={() => setPickFormOpen(true)}>
@@ -77,9 +77,9 @@ export default function AllSubmissionsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Responses</CardTitle>
+          <CardTitle>All Records</CardTitle>
           <CardDescription>
-            {submissions?.length ?? 0} total responses
+            {submissions?.length ?? 0} total records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -110,7 +110,7 @@ export default function AllSubmissionsPage() {
                     <td className="px-4 py-3" colSpan={7}>
                       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                         <Inbox className="mb-2 h-8 w-8" />
-                        <p>No responses yet</p>
+                        <p>No records yet</p>
                         <p className="mt-1 text-xs">
                           Click &quot;Fill a Form&quot; to fill a published form
                         </p>

@@ -62,6 +62,16 @@ export function useForms() {
   });
 }
 
+export function useFormsCount() {
+  return useQuery<{ count: number }>({
+    queryKey: ['forms', 'count'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/forms/count');
+      return data;
+    },
+  });
+}
+
 export function useForm(formId: string) {
   return useQuery<Form>({
     queryKey: ['form', formId],
@@ -219,6 +229,39 @@ export function useArchiveForm() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] });
+    },
+  });
+}
+
+interface FormDeletionSummary {
+  formName: string;
+  versionCount: number;
+  submissionCount: number;
+}
+
+export function useFormDeletionSummary(formId: string | null) {
+  return useQuery<FormDeletionSummary>({
+    queryKey: ['form', 'deletion-summary', formId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/forms/${formId}/deletion-summary`);
+      return data;
+    },
+    enabled: !!formId,
+  });
+}
+
+export function useDeleteForm() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (formId: string) => {
+      const { data } = await api.delete(`/api/forms/${formId}/permanent`);
+      return data as { deleted: boolean; versions: number; submissions: number };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['forms'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-submissions'] });
     },
   });
 }

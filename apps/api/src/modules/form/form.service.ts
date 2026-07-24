@@ -6,21 +6,64 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { contentHash, verifyContentHash } from '../../common/utils/content-hash';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
+
+/** Context for auditable mutations (who + from where). */
+export interface ActorContext {
+  userId: string;
+  ipAddress?: string | null;
+}
+
+/** The immutable content of a version, used for the published content hash. */
+type VersionLike = {
+  engine: string;
+  schema?: unknown;
+  dataSchema?: unknown;
+  uiSchema?: unknown;
+  printSchema?: unknown;
+  translations?: unknown;
+};
 
 @Injectable()
 export class FormService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scoringService: ScoringService,
+    private readonly audit: AuditService,
   ) {}
 
-  async create(tenantId: string, userId: string, dto: CreateFormDto) {
+  /**
+   * The canonical payload hashed at publish time. For the formio engine that is
+   * the coupled `schema`; for jsonforms it is the separated data/ui/print
+   * schemas plus translations. Engine is included so two engines with the same
+   * shape never collide.
+   */
+  private versionPayload(version: VersionLike): Record<string, unknown> {
+    if (version.engine === 'JSONFORMS') {
+      return {
+        engine: version.engine,
+        dataSchema: version.dataSchema ?? null,
+        uiSchema: version.uiSchema ?? null,
+        printSchema: version.printSchema ?? null,
+        translations: version.translations ?? null,
+      };
+    }
+    return { engine: version.engine ?? 'FORMIO', schema: version.schema ?? null };
+  }
+
+  async create(
+    tenantId: string,
+    userId: string,
+    dto: CreateFormDto,
+    ipAddress?: string | null,
+  ) {
     const slug = this.toSlug(dto.name);
 
-    return this.prisma.$transaction(async (tx) => {
-      const form = await tx.form.create({
+    const form = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.form.create({
         data: {
           tenantId,
           name: dto.name,
@@ -36,14 +79,26 @@ export class FormService {
       // Create an initial empty draft version
       await tx.formVersion.create({
         data: {
-          formId: form.id,
+          formId: created.id,
           version: 1,
           schema: {},
         },
       });
 
-      return form;
+      return created;
     });
+
+    await this.audit.record({
+      tenantId,
+      userId,
+      ipAddress,
+      action: 'form.create',
+      resourceType: 'form',
+      resourceId: form.id,
+      details: { name: form.name },
+    });
+
+    return form;
   }
 
   async createWithSchema(
@@ -87,6 +142,10 @@ export class FormService {
       include: { currentVersion: true, createdBy: { select: { id: true, fullName: true, email: true } } },
       orderBy: { updatedAt: 'desc' },
     });
+  }
+
+  async count(tenantId: string) {
+    return this.prisma.form.count({ where: { tenantId } });
   }
 
   async findOne(tenantId: string, id: string) {
@@ -159,7 +218,7 @@ export class FormService {
     }) as Record<string, unknown>;
   }
 
-  async publish(tenantId: string, id: string) {
+  async publish(tenantId: string, id: string, actor?: ActorContext) {
     const form = await this.findOne(tenantId, id);
 
     const latestVersion = await this.prisma.formVersion.findFirst({
@@ -175,15 +234,26 @@ export class FormService {
       throw new BadRequestException('Latest version is already published');
     }
 
-    const schema = latestVersion.schema as Record<string, unknown>;
-    const scoringRules = this.scoringService.extractRulesFromSchema(schema);
+    // Formio scoring rules are extracted from the coupled schema; jsonforms
+    // versions carry no formio scoring tree.
+    const schema = (latestVersion.schema ?? {}) as Record<string, unknown>;
+    const scoringRules =
+      latestVersion.engine === 'JSONFORMS'
+        ? {}
+        : this.scoringService.extractRulesFromSchema(schema);
     const hasScoringRules = Object.keys(scoringRules).length > 0;
 
-    return this.prisma.$transaction(async (tx) => {
-      const published = await tx.formVersion.update({
+    // Immutability: hash the canonical published payload so later tampering is
+    // detectable (verifyIntegrity). The version becomes read-only once
+    // publishedAt is set — subsequent edits fork a new draft (see saveSchema).
+    const hash = contentHash(this.versionPayload(latestVersion as VersionLike));
+
+    const published = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.formVersion.update({
         where: { id: latestVersion.id },
         data: {
           publishedAt: new Date(),
+          contentHash: hash,
           ...(hasScoringRules
             ? { scoringRules: scoringRules as unknown as Prisma.InputJsonValue }
             : {}),
@@ -193,13 +263,52 @@ export class FormService {
       await tx.form.update({
         where: { id: form.id },
         data: {
-          currentVersionId: published.id,
+          currentVersionId: updated.id,
           status: 'PUBLISHED',
         },
       });
 
-      return published;
+      return updated;
     });
+
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.publish',
+      resourceType: 'form_version',
+      resourceId: published.id,
+      details: {
+        formId: form.id,
+        version: published.version,
+        engine: published.engine,
+        contentHash: hash,
+      },
+    });
+
+    return published;
+  }
+
+  /**
+   * Recompute the content hash of a published version and compare it to the
+   * stored hash. Returns whether the immutable content is intact — a mismatch
+   * indicates the row was edited outside the service layer.
+   */
+  async verifyIntegrity(tenantId: string, versionId: string) {
+    const version = await this.prisma.formVersion.findFirst({
+      where: { id: versionId, form: { tenantId } },
+    });
+    if (!version) {
+      throw new NotFoundException(`Form version ${versionId} not found`);
+    }
+    if (!version.publishedAt || !version.contentHash) {
+      return { versionId, published: false, intact: null as boolean | null };
+    }
+    const intact = verifyContentHash(
+      this.versionPayload(version as VersionLike),
+      version.contentHash,
+    );
+    return { versionId, published: true, intact };
   }
 
   async findBySlug(tenantId: string, slug: string) {
@@ -222,6 +331,71 @@ export class FormService {
       where: { id: form.id },
       data: { status: 'ARCHIVED' },
     });
+  }
+
+  /**
+   * Counts of related records that a permanent delete would destroy.
+   * Used to show an accurate confirmation prompt before deletion.
+   */
+  async deletionSummary(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+    const [versionCount, submissionCount] = await Promise.all([
+      this.prisma.formVersion.count({ where: { formId: form.id } }),
+      this.prisma.submission.count({ where: { formId: form.id, tenantId } }),
+    ]);
+    return { formName: form.name, versionCount, submissionCount };
+  }
+
+  /**
+   * Permanently deletes a form and ALL of its related data (versions,
+   * submissions, AI chat messages). This is irreversible.
+   *
+   * Order matters: submissions reference both form and form_version, and
+   * Form.currentVersionId <-> FormVersion.formId form a circular FK, so we
+   * null the pointer before deleting versions. FormAiMessage cascades on
+   * form delete but is removed explicitly for clarity.
+   */
+  async remove(tenantId: string, id: string, actor?: ActorContext) {
+    const form = await this.findOne(tenantId, id);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const submissions = await tx.submission.deleteMany({
+        where: { formId: form.id, tenantId },
+      });
+      await tx.formAiMessage.deleteMany({
+        where: { formId: form.id, tenantId },
+      });
+      await tx.form.update({
+        where: { id: form.id },
+        data: { currentVersionId: null },
+      });
+      const versions = await tx.formVersion.deleteMany({
+        where: { formId: form.id },
+      });
+      await tx.form.delete({ where: { id: form.id } });
+
+      return {
+        deleted: true,
+        versions: versions.count,
+        submissions: submissions.count,
+      };
+    });
+
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.delete',
+      resourceType: 'form',
+      resourceId: form.id,
+      details: {
+        name: form.name,
+        versionsDeleted: result.versions,
+        submissionsDeleted: result.submissions,
+      },
+    });
+
+    return result;
   }
 
   async clone(tenantId: string, userId: string, formId: string) {

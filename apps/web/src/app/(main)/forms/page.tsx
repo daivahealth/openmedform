@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Eye, Archive, Inbox, Copy, Download, Upload, FileUp } from 'lucide-react';
+import { Plus, Pencil, Eye, Archive, Inbox, Copy, Download, Upload, FileUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,6 +16,7 @@ import { useForms, useArchiveForm, useCloneForm, useExportForm, useImportForm } 
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { CreateFormDialog } from '@/components/forms/create-form-dialog';
 import { PdfToFormDialog } from '@/components/forms/pdf-to-form-dialog';
+import { DeleteFormDialog } from '@/components/forms/delete-form-dialog';
 
 export default function FormsPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function FormsPage() {
   const importForm = useImportForm();
   const [createOpen, setCreateOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleExport(formId: string, formName: string) {
@@ -187,7 +189,7 @@ export default function FormsPage() {
                             onClick={() =>
                               router.push(`/forms/${form.id}/submissions`)
                             }
-                            title="Responses"
+                            title="Records"
                           >
                             <Inbox className="h-4 w-4" />
                           </Button>
@@ -219,6 +221,17 @@ export default function FormsPage() {
                               <Archive className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setDeleteTarget({ id: form.id, name: form.name })
+                            }
+                            title="Delete permanently"
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -232,6 +245,10 @@ export default function FormsPage() {
 
       <CreateFormDialog open={createOpen} onOpenChange={setCreateOpen} />
       <PdfToFormDialog open={pdfOpen} onOpenChange={setPdfOpen} />
+      <DeleteFormDialog
+        form={deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      />
     </div>
   );
 }

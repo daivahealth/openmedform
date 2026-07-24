@@ -17,7 +17,7 @@ import { useSidebarStore } from '@/lib/stores/sidebar-store';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/forms', label: 'Forms', icon: FileText },
-  { href: '/submissions', label: 'Responses', icon: Inbox },
+  { href: '/submissions', label: 'Records', icon: Inbox },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

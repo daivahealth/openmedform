@@ -42,10 +42,10 @@ export default function SubmissionsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Responses{form ? `: ${form.name}` : ''}
+              Records{form ? `: ${form.name}` : ''}
             </h1>
             <p className="text-sm text-muted-foreground">
-              All responses for this form
+              All records for this form
             </p>
           </div>
         </div>
@@ -64,9 +64,9 @@ export default function SubmissionsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Responses</CardTitle>
+          <CardTitle>Records</CardTitle>
           <CardDescription>
-            {submissions?.length ?? 0} total responses
+            {submissions?.length ?? 0} total records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,7 +100,7 @@ export default function SubmissionsPage() {
                     <td className="px-4 py-3" colSpan={6}>
                       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                         <FileText className="mb-2 h-8 w-8" />
-                        <p>No responses yet</p>
+                        <p>No records yet</p>
                         {form?.slug && form.status === 'PUBLISHED' && (
                           <Button
                             variant="link"

@@ -4,9 +4,12 @@ export function getComponentCatalog(): string {
 === STANDARD COMPONENTS ===
 
 textfield — Single-line text input.
-Key properties: key, label, placeholder, validate.required, validate.maxLength, validate.pattern
+Key properties: key, label, placeholder, labelPosition, validate.required, validate.maxLength, validate.pattern
+Set "labelPosition": "left-left" to place the label to the LEFT of the input on the same line (use this for inline fill-in blanks like "TER: ____" or "Cigarettes/day: ____" so they don't stack the label above the box).
 Example:
 { "type": "textfield", "key": "patientName", "label": "Patient Name", "validate": { "required": true } }
+Example (inline blank):
+{ "type": "textfield", "key": "cigarettesPerDay", "label": "Τσιγάρα/ημέρα", "labelPosition": "left-left" }
 
 textarea — Multi-line text input.
 Key properties: key, label, rows, validate
@@ -28,10 +31,13 @@ Key properties: key, label, data.values, validate
 Example:
 { "type": "select", "key": "severity", "label": "Severity", "data": { "values": [{ "label": "Mild", "value": "mild" }, { "label": "Moderate", "value": "moderate" }, { "label": "Severe", "value": "severe" }] } }
 
-radio — Radio button group.
-Key properties: key, label, values, validate
-Example:
+radio — Radio button group (single choice from a set).
+Key properties: key, label, values, inline, validate
+Set "inline": true to render the options on a single horizontal line (use this for compact Yes/No pairs).
+Example (single-choice):
 { "type": "radio", "key": "gender", "label": "Gender", "values": [{ "label": "Male", "value": "male" }, { "label": "Female", "value": "female" }] }
+Example (inline Yes/No — use this for paired "□YES □NO" / "□ΝΑΙ □ΟΧΙ" checkbox pairs on a paper form; model the WHOLE pair as ONE inline radio, never two checkboxes):
+{ "type": "radio", "key": "possiblePregnancy", "label": "Possible Pregnancy", "inline": true, "values": [{ "label": "ΝΑΙ", "value": "yes" }, { "label": "ΟΧΙ", "value": "no" }] }
 
 datetime — Date and/or time picker.
 Key properties: key, label, format, enableDate, enableTime, validate

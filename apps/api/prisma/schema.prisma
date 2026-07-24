@@ -11,10 +11,31 @@ datasource db {
 
 enum FormStatus {
   DRAFT
+  CONVERTING
+  REVIEW
   PUBLISHED
   ARCHIVED
+  RETIRED
 
   @@map("form_status_enum")
+}
+
+// Which rendering/authoring engine a form version targets (see ADR-003).
+enum FormEngine {
+  FORMIO
+  JSONFORMS
+
+  @@map("form_engine_enum")
+}
+
+enum ConversionJobStatus {
+  PENDING
+  RUNNING
+  REVIEW
+  COMPLETED
+  FAILED
+
+  @@map("conversion_job_status_enum")
 }
 
 enum FormType {
@@ -27,6 +48,7 @@ enum FormType {
 enum SubmissionStatus {
   IN_PROGRESS
   COMPLETED
+  SIGNED
   AMENDED
   VOIDED
 
@@ -117,15 +139,26 @@ model Form {
 // ─── Form Version ────────────────────────────────────────────────────────────
 
 model FormVersion {
-  id           String    @id @default(uuid()) @db.Uuid
-  formId       String    @map("form_id") @db.Uuid
-  version      Int       @default(1)
-  schema       Json
-  scoringRules Json?     @map("scoring_rules")
-  metadata     Json?     @default("{}")
-  changelog    String?   @db.Text
-  publishedAt  DateTime? @map("published_at") @db.Timestamp(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  id           String     @id @default(uuid()) @db.Uuid
+  formId       String     @map("form_id") @db.Uuid
+  version      Int        @default(1)
+  // Engine discriminator (ADR-003). FORMIO uses `schema`; JSONFORMS uses the
+  // split dataSchema/uiSchema/printSchema (+ translations).
+  engine       FormEngine @default(FORMIO)
+  schema       Json?
+  dataSchema   Json?      @map("data_schema")
+  uiSchema     Json?      @map("ui_schema")
+  printSchema  Json?      @map("print_schema")
+  translations Json?
+  scoringRules Json?      @map("scoring_rules")
+  metadata     Json?      @default("{}")
+  conversionMetadata Json? @map("conversion_metadata")
+  changelog    String?    @db.Text
+  // SHA-256 of the canonical published payload; set at publish time and used to
+  // detect tampering with an immutable published version.
+  contentHash  String?    @map("content_hash") @db.VarChar(64)
+  publishedAt  DateTime?  @map("published_at") @db.Timestamp(6)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
 
   form        Form         @relation(fields: [formId], references: [id])
   currentOf   Form?        @relation("CurrentVersion")
@@ -204,6 +237,69 @@ model FormAiMessage {
 
   @@index([tenantId, formId])
   @@map("form_ai_message")
+}
+
+// ─── Form Asset ──────────────────────────────────────────────────────────────
+// Binary assets referenced by a form version (logos, reference images). Scalar
+// FKs (no relations) follow the log-table convention used by AuditLog.
+
+model FormAsset {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  formVersionId String?  @map("form_version_id") @db.Uuid
+  filename      String   @db.VarChar(255)
+  mimeType      String   @map("mime_type") @db.VarChar(100)
+  sizeBytes     Int      @map("size_bytes")
+  checksum      String?  @db.VarChar(64)
+  storageKey    String?  @map("storage_key") @db.VarChar(500)
+  data          Bytes?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([tenantId])
+  @@index([formVersionId])
+  @@map("form_asset")
+}
+
+// ─── Conversion Job / Warning ────────────────────────────────────────────────
+// Async PDF→form conversion tracking (Phase 6 consumes these). Persisted
+// warnings ensure uncertain elements are never silently dropped.
+
+model ConversionJob {
+  id              String              @id @default(uuid()) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  formId          String?             @map("form_id") @db.Uuid
+  status          ConversionJobStatus @default(PENDING)
+  engineTarget    FormEngine          @default(JSONFORMS) @map("engine_target")
+  provider        String?             @db.VarChar(50)
+  model           String?             @db.VarChar(100)
+  sourceFileName  String?             @map("source_file_name") @db.VarChar(255)
+  pageCount       Int?                @map("page_count")
+  similarityScore Float?              @map("similarity_score")
+  error           String?             @db.Text
+  createdById     String              @map("created_by_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
+  completedAt     DateTime?           @map("completed_at") @db.Timestamp(6)
+
+  warnings ConversionWarning[]
+
+  @@index([tenantId, status])
+  @@map("conversion_job")
+}
+
+model ConversionWarning {
+  id              String   @id @default(uuid()) @db.Uuid
+  conversionJobId String   @map("conversion_job_id") @db.Uuid
+  type            String   @db.VarChar(50)
+  message         String   @db.Text
+  binding         String?  @db.VarChar(500)
+  sourcePage      Int?     @map("source_page")
+  confidence      Float?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  job ConversionJob @relation(fields: [conversionJobId], references: [id], onDelete: Cascade)
+
+  @@index([conversionJobId])
+  @@map("conversion_warning")
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────

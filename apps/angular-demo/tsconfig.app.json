@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc"
+  },
+  "files": ["src/main.ts"],
+  "include": [
+    "src/**/*.d.ts",
+    "../../packages/angular-form-renderer/src/**/*.ts"
+  ]
+}

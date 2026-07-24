@@ -7,6 +7,31 @@ import { PrismaService } from '../../database/prisma.service';
 import { encrypt, decrypt, maskApiKey } from '../../common/utils/crypto';
 
 const VALID_PROVIDERS = ['claude', 'openai', 'minimax', 'kimi', 'ollama'];
+const MAX_API_KEY_LENGTH = 300;
+const PRINTABLE_ASCII_NO_WHITESPACE = /^[\x21-\x7E]+$/;
+
+function assertValidApiKey(provider: string, apiKey: string | undefined) {
+  const trimmed = apiKey?.trim() ?? '';
+
+  if (!trimmed) {
+    if (provider === 'ollama') return '';
+    throw new BadRequestException('API key is required');
+  }
+
+  if (trimmed.length > MAX_API_KEY_LENGTH) {
+    throw new BadRequestException(
+      `API key looks invalid: it is ${trimmed.length} characters long (expected at most ${MAX_API_KEY_LENGTH}). Make sure you pasted only the key, not surrounding text.`,
+    );
+  }
+
+  if (!PRINTABLE_ASCII_NO_WHITESPACE.test(trimmed)) {
+    throw new BadRequestException(
+      'API key looks invalid: it contains whitespace, line breaks, or non-ASCII characters. Make sure you pasted only the key itself.',
+    );
+  }
+
+  return trimmed;
+}
 
 interface CreateProviderInput {
   provider: string;
@@ -61,6 +86,8 @@ export class AiProviderConfigService {
       throw new BadRequestException('Ollama provider requires a base URL');
     }
 
+    const apiKey = assertValidApiKey(input.provider, input.apiKey);
+
     const existing = await this.prisma.aiProviderConfig.findUnique({
       where: {
         uq_ai_provider_tenant: { tenantId, provider: input.provider },
@@ -84,7 +111,7 @@ export class AiProviderConfigService {
         tenantId,
         provider: input.provider,
         displayName: input.displayName,
-        apiKey: encrypt(input.apiKey),
+        apiKey: encrypt(apiKey),
         model: input.model,
         baseUrl: input.baseUrl,
         isDefault: input.isDefault ?? false,
@@ -95,7 +122,7 @@ export class AiProviderConfigService {
       id: config.id,
       provider: config.provider,
       displayName: config.displayName,
-      apiKeyMasked: maskApiKey(input.apiKey),
+      apiKeyMasked: maskApiKey(apiKey),
       model: config.model,
       baseUrl: config.baseUrl,
       isDefault: config.isDefault,
@@ -118,7 +145,9 @@ export class AiProviderConfigService {
 
     const data: Record<string, unknown> = {};
     if (input.displayName !== undefined) data.displayName = input.displayName;
-    if (input.apiKey !== undefined) data.apiKey = encrypt(input.apiKey);
+    if (input.apiKey !== undefined) {
+      data.apiKey = encrypt(assertValidApiKey(config.provider, input.apiKey));
+    }
     if (input.model !== undefined) data.model = input.model;
     if (input.baseUrl !== undefined) data.baseUrl = input.baseUrl;
     if (input.isDefault !== undefined) data.isDefault = input.isDefault;

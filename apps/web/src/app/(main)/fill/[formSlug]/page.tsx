@@ -124,7 +124,7 @@ export default function FormFillPage() {
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button variant="outline" onClick={() => router.push('/submissions')}>
-            Back to Responses
+            Back to Records
           </Button>
           <Button
             onClick={() => {

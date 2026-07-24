@@ -1,0 +1,37 @@
+{
+  "name": "@openmedform/react-form-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React engine dispatcher: renders a FormDefinition with either the Form.io engine (delegating to @openmedform/renderer) or the JSON Forms engine (@jsonforms/react + token-styled clinical controls), behind one stable prop seam.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@jsonforms/core": "^3.8.0",
+    "@jsonforms/react": "^3.8.0",
+    "@jsonforms/vanilla-renderers": "^3.8.0",
+    "@openmedform/form-core": "workspace:*",
+    "@openmedform/form-design-tokens": "workspace:*",
+    "@openmedform/form-schema-types": "workspace:*",
+    "@openmedform/renderer": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "^25.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

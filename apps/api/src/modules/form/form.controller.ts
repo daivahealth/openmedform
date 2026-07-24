@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Ip,
   Param,
   ParseUUIDPipe,
   Post,
@@ -61,13 +62,22 @@ export class FormController {
   ) {}
 
   @Post()
-  create(@CurrentUser() user: RequestUser, @Body() dto: CreateFormDto) {
-    return this.formService.create(user.tenantId, user.userId, dto);
+  create(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateFormDto,
+    @Ip() ip: string,
+  ) {
+    return this.formService.create(user.tenantId, user.userId, dto, ip);
   }
 
   @Get()
   findAll(@CurrentUser() user: RequestUser) {
     return this.formService.findAll(user.tenantId);
+  }
+
+  @Get('count')
+  async count(@CurrentUser() user: RequestUser) {
+    return { count: await this.formService.count(user.tenantId) };
   }
 
   @Post('from-pdf')
@@ -321,8 +331,20 @@ export class FormController {
   publish(
     @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
   ) {
-    return this.formService.publish(user.tenantId, id);
+    return this.formService.publish(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
+  }
+
+  @Get(':id/versions/:versionId/integrity')
+  verifyIntegrity(
+    @CurrentUser() user: RequestUser,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+  ) {
+    return this.formService.verifyIntegrity(user.tenantId, versionId);
   }
 
   @Post(':id/clone')
@@ -378,11 +400,31 @@ export class FormController {
     return this.formService.clearAiMessages(user.tenantId, id);
   }
 
+  @Get(':id/deletion-summary')
+  deletionSummary(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.formService.deletionSummary(user.tenantId, id);
+  }
+
   @Delete(':id')
   archive(
     @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.formService.archive(user.tenantId, id);
+  }
+
+  @Delete(':id/permanent')
+  remove(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.formService.remove(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
   }
 }

@@ -22,6 +22,9 @@ RUN npx nest build
 # --- runtime ---
 FROM node:20-alpine AS runtime
 RUN corepack enable && corepack prepare pnpm@9 --activate
+# poppler-utils provides pdftoppm, used to render PDF pages to images for the
+# vision-based AI conversion pipeline (falls back to text extraction if absent).
+RUN apk add --no-cache poppler-utils
 WORKDIR /app
 
 COPY --from=build /app/apps/api/dist ./dist

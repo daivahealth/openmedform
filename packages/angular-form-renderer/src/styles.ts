@@ -1,0 +1,40 @@
+/**
+ * Shared style fragments for the Angular renderers, built on the same
+ * `--omf-*` design tokens the React renderer uses. Because Angular component
+ * styles are view-encapsulated, each component includes FIELD_STYLES; the token
+ * custom properties themselves are set once on the host of the root form
+ * component (see OmfFormComponent) and inherited by all descendants.
+ */
+
+import { cssVariables } from '@openmedform/form-design-tokens';
+
+/** Token custom properties as a style object for the root host element. */
+export const tokenStyleObject: Record<string, string> = cssVariables;
+
+/** Reusable CSS for a field frame + inputs + tables, shared by every renderer. */
+export const FIELD_STYLES = `
+  .omf-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--omf-field-gap, 12px); }
+  .omf-label { font-size: var(--omf-font-size-label, 13px); font-weight: var(--omf-label-weight, 600); color: var(--omf-color-label, #3a4552); }
+  .omf-required { color: var(--omf-color-invalid, #c0392b); }
+  .omf-error { font-size: var(--omf-font-size-help, 12px); color: var(--omf-color-invalid, #c0392b); }
+  .omf-input, .omf-textarea, .omf-select {
+    font-size: var(--omf-font-size-body, 14px);
+    padding: var(--omf-control-padding, 8px);
+    border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    border-radius: var(--omf-border-radius, 4px);
+    min-height: var(--omf-row-min-height, 36px);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .omf-textarea { resize: vertical; }
+  .omf-radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
+  .omf-radio-group.stacked { flex-direction: column; gap: 4px; }
+  .omf-radio-option { display: inline-flex; align-items: center; gap: 6px; font-size: var(--omf-font-size-body, 14px); }
+  .omf-table { width: 100%; border-collapse: collapse; font-size: var(--omf-font-size-body, 14px); }
+  .omf-table th, .omf-table td { border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4); padding: var(--omf-control-padding, 8px); text-align: left; }
+  .omf-domain { background: var(--omf-color-section-bg, #f7f8fa); }
+  .omf-group { border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4); border-radius: var(--omf-border-radius, 4px); padding: var(--omf-section-padding, 16px); margin-bottom: var(--omf-section-gap, 20px); }
+  .omf-group-title { font-size: var(--omf-font-size-section-title, 15px); font-weight: 600; margin: 0 0 8px; }
+  .omf-row { display: flex; gap: var(--omf-grid-gap, 12px); flex-wrap: wrap; }
+  .omf-row > * { flex: 1 1 0; min-width: 120px; }
+`;

@@ -57,3 +57,33 @@ pnpm --filter api start:dev         # Backend only
 - `packages/shared` — shared types (`@openmedform/shared`)
 - `apps/api` — NestJS backend
 - `apps/web` — Next.js frontend
+
+### Dual-engine form platform (JSON Forms + Form.io — see [ADR-003](../ADR/003-dual-engine-json-forms.md))
+- `packages/form-schema-types` — Data/UI/Print schema + FormDefinition contracts
+- `packages/form-core` — framework-independent engine (Ajv 2020-12 validation,
+  `$ref`/scope resolution, binding, conditional rules, i18n, control registry,
+  serialization); no React/Angular imports
+- `packages/form-design-tokens` — shared `--omf-*` CSS variables + TS tokens for
+  cross-framework visual parity
+- `packages/react-form-renderer` — React engine dispatcher: `<FormRenderer
+  definition={...} />` routes `formio` → `@openmedform/renderer` (preserved) and
+  `jsonforms` → `@jsonforms/react` + custom controls
+- `packages/angular-form-renderer` — Angular 20 standalone JSON Forms renderer
+  (`<omf-form [definition]="...">`): custom token-styled renderers over
+  `@jsonforms/angular`, no Angular Material (jsonforms engine only)
+- `packages/form-print-engine` — reconstructs A4 print HTML/CSS (`@page` in mm)
+  from a jsonforms definition + pure visual-diff primitives (`comparePixels`,
+  `runVisualDiffLoop`). HTML→PDF/image rasterization (Playwright/Chromium or
+  WeasyPrint) is injected at deployment, not bundled.
+- `apps/react-demo` — Vite demo rendering one form per engine through the
+  dispatcher: `pnpm --filter @openmedform/react-demo dev` (http://localhost:5175)
+- `apps/angular-demo` — Angular demo (Analog + Vite) rendering the same jsonforms
+  reference the React demo does. It consumes the renderer library as source, and
+  Analog's dev server can't compile cross-package source, so run it as a build +
+  preview: `pnpm --filter @openmedform/angular-demo build` then
+  `pnpm --filter @openmedform/angular-demo preview` (http://localhost:5176)
+
+> Note: a root `pnpm.overrides` pins a single `@types/react` (19.x) across the
+> workspace. This is required — apps/web is on React 19 while the renderer
+> packages target React 18, and two `@types/react` copies otherwise clash
+> (the "bigint ReactNode" JSX type error).
