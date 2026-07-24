@@ -147,4 +147,16 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   (render → compare → AI-patch until threshold/max iterations). The HTML→image
   rasterizer (Playwright/Chromium or WeasyPrint) is injected in deployment, not
   bundled. 14 unit tests (HTML reconstruction + diff/loop with fakes).
-- **Phase 9 (planned):** docker, docs, examples, full-flow verification.
+- **Phase 9 (done):** `poppler-utils` added to the API runtime image (pdftoppm
+  for the vision conversion path); `docs/api/EXAMPLES.md` documents the full §27
+  flow (convert → review/refine → accept → publish → render → submit → sign →
+  print) with sample empty/completed responses. Full-flow verified end-to-end
+  against the live DB + print engine: jsonforms publish + content hash → integrity
+  intact → instance → server-Ajv-validated complete → sign, an invalid payload
+  rejected on complete, A4 print HTML rendered from the definition, and the audit
+  trail written.
+
+All nine phases of the dual-engine build are complete. Remaining productionization
+(documented as gaps): a NestJS+Postgres e2e/HTTP harness; wiring the review surface
+into apps/web; and a deployment-injected Chromium/WeasyPrint rasterizer for the
+print/visual-diff loop.
