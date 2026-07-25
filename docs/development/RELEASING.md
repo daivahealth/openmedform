@@ -13,11 +13,12 @@ in `.changeset/config.json` — they always bump and publish together at the sam
 - `@openmedform/form-design-tokens`
 - `@openmedform/react-form-renderer`
 
-Every other workspace package (`@openmedform/renderer`, `formio-core`, `formio-react`, `shared`,
-`form-print-engine`, `angular-form-renderer`, and the apps) is `private: true`, so **`changeset
-publish` never publishes them**. Private packages that depend on the four may still get a harmless
-version bump in the "Version Packages" PR (to keep internal dependency ranges in sync); this is
-expected and nothing is uploaded. (Angular packaging is tracked in issue #4.)
+Every other workspace package is `private: true`, so **`changeset publish` never publishes them**.
+Private packages that depend on the four (the apps, `form-print-engine`, `angular-form-renderer`)
+are listed in the `ignore` array in `.changeset/config.json`, so the "Version Packages" PR touches
+**only the four publishable packages** — no private-app version churn. (Angular packaging is tracked
+in issue #4; add `@openmedform/angular-form-renderer` to the publishable set and remove it from
+`ignore` when it's ready.)
 
 ## Day-to-day: add a changeset
 
