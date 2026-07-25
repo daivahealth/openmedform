@@ -37,5 +37,14 @@
   "devDependencies": {
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daivahealth/openmedform.git",
+    "directory": "packages/form-core"
+  },
+  "homepage": "https://github.com/daivahealth/openmedform/tree/main/packages/form-core#readme",
+  "bugs": {
+    "url": "https://github.com/daivahealth/openmedform/issues"
   }
 }
