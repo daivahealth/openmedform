@@ -2,7 +2,7 @@
   "name": "@openmedform/renderer",
   "version": "0.1.0",
   "description": "Form renderer for OpenMedForm — render exported form templates in any React app",
-  "private": false,
+  "private": true,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

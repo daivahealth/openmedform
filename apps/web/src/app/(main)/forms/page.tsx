@@ -234,12 +234,12 @@ export default function FormsPage() {
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
-                          {form.status === 'PUBLISHED' && (
+                          {form.status !== 'ARCHIVED' && (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleExport(form.id, form.name)}
-                              title="Export Template"
+                              title="Download form definition"
                             >
                               <Download className="h-4 w-4" />
                             </Button>

@@ -2,9 +2,10 @@
 
 import { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useForm } from '@/hooks/use-forms';
+import { useForm, usePublishForm } from '@/hooks/use-forms';
 import { useJsonFormsRefine } from '@/hooks/use-ai-builder';
 import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
+import { AssetsDialog } from '@/components/forms/assets-dialog';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,13 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowLeft, ImagePlus, Loader2, Pencil, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ImagePlus, Images, Loader2, Pencil, Send, Sparkles, X } from 'lucide-react';
 
 export default function FormPreviewPage() {
   const params = useParams();
   const router = useRouter();
   const formId = params.formId as string;
   const [refineOpen, setRefineOpen] = useState(false);
+  const [assetsOpen, setAssetsOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [progress, setProgress] = useState('');
   const [refineError, setRefineError] = useState('');
@@ -31,6 +33,19 @@ export default function FormPreviewPage() {
 
   const { data: form, isLoading } = useForm(formId);
   const refine = useJsonFormsRefine();
+  const publish = usePublishForm(formId);
+  const [savedNote, setSavedNote] = useState('');
+  const [publishError, setPublishError] = useState('');
+
+  async function handlePublish() {
+    setPublishError('');
+    try {
+      await publish.mutateAsync();
+      setSavedNote('Published');
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : 'Failed to publish');
+    }
+  }
 
   if (isLoading) {
     return (
@@ -80,6 +95,7 @@ export default function FormPreviewPage() {
       setReferenceImage(null);
       setProgress('');
       setRefineOpen(false);
+      setSavedNote('All changes saved');
     } catch (error) {
       setProgress('');
       setRefineError(error instanceof Error ? error.message : 'Failed to refine form');
@@ -126,21 +142,61 @@ export default function FormPreviewPage() {
         {/* The drag-and-drop builder is Form.io-only; JSON Forms forms are
             edited via the prompt-based designer, not this builder. */}
         {isJsonForms ? (
-          <Button variant="outline" size="sm" onClick={() => setRefineOpen(true)}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Refine with AI
-          </Button>
+          <div className="flex items-center gap-3">
+            {savedNote && (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-600">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {savedNote}
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setAssetsOpen(true)}>
+              <Images className="mr-2 h-4 w-4" />
+              Assets
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setRefineOpen(true)}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Refine with AI
+            </Button>
+            {form.status !== 'PUBLISHED' && (
+              <Button size="sm" onClick={() => void handlePublish()} disabled={publish.isPending}>
+                {publish.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Publish
+              </Button>
+            )}
+          </div>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/forms/${formId}/builder`)}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit in Builder
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => setAssetsOpen(true)}>
+              <Images className="mr-2 h-4 w-4" />
+              Assets
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/forms/${formId}/builder`)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit in Builder
+            </Button>
+          </div>
         )}
       </div>
+
+      <AssetsDialog formId={formId} open={assetsOpen} onOpenChange={setAssetsOpen} />
+
+      {isJsonForms && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">
+            Edits made with “Refine with AI” are saved automatically. Publish to make this
+            version available for data entry.
+          </span>
+          {publishError && <span className="text-destructive">{publishError}</span>}
+        </div>
+      )}
 
       <Dialog open={refineOpen} onOpenChange={(open) => !refine.isPending && setRefineOpen(open)}>
         <DialogContent>

@@ -3,11 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { contentHash, verifyContentHash } from '../../common/utils/content-hash';
+import { decodeUploadFilename } from '../../common/utils/filename';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
 
@@ -464,28 +466,231 @@ export class FormService {
     });
   }
 
-  async exportTemplate(tenantId: string, id: string) {
-    const form = await this.findOne(tenantId, id);
+  /**
+   * Export a complete, self-contained, renderer-ready form definition.
+   *
+   * The result is engine-aware: for the jsonforms engine it carries the
+   * separated dataSchema / uiSchema / printSchema / translations (the exact
+   * shape the @openmedform renderers accept as their `definition` prop), so an
+   * external app can render the form and collect responses without this backend.
+   * For formio it carries the coupled schema + scoringRules. Exports the
+   * published version if present, otherwise the latest draft (so designers can
+   * download work in progress).
+   */
+  /**
+   * Load any binary assets stored for a version and inline them as base64
+   * data URIs so the export is fully self-contained (no external fetch needed
+   * to render). Empty until an asset-upload flow populates FormAsset.
+   */
+  private async loadExportAssets(versionId: string) {
+    const assets = await this.prisma.formAsset.findMany({
+      where: { formVersionId: versionId },
+    });
+    return assets.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      checksum: a.checksum ?? undefined,
+      // Inline the bytes when stored in-DB; otherwise expose the storage key.
+      dataUri: a.data
+        ? `data:${a.mimeType};base64,${Buffer.from(a.data).toString('base64')}`
+        : undefined,
+      storageKey: a.storageKey ?? undefined,
+    }));
+  }
 
-    if (!form.currentVersion) {
-      throw new BadRequestException('Form must be published before exporting');
+  // ─── Assets (logos/images referenced by the form) ──────────────────────────
+
+  private assetMeta(a: {
+    id: string;
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    checksum: string | null;
+    createdAt: Date;
+  }) {
+    return {
+      id: a.id,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      checksum: a.checksum ?? undefined,
+      createdAt: a.createdAt,
+    };
+  }
+
+  /** All version ids for a form (assets attach to a specific version). */
+  private async formVersionIds(form: { id: string }): Promise<string[]> {
+    const versions = await this.prisma.formVersion.findMany({
+      where: { formId: form.id },
+      select: { id: true },
+    });
+    return versions.map((v) => v.id);
+  }
+
+  /** Upload a binary asset (stored in-DB) attached to the form's latest version. */
+  async uploadAsset(
+    tenantId: string,
+    id: string,
+    file: Express.Multer.File,
+    actor?: ActorContext,
+  ) {
+    const form = await this.findOne(tenantId, id);
+    const version = form.currentVersion ?? form.versions?.[0];
+    if (!version) {
+      throw new BadRequestException('Form has no version to attach an asset to');
     }
 
-    const schema = form.currentVersion.schema as Record<string, unknown>;
-    const scoringRules = form.currentVersion.scoringRules as Record<string, unknown> | null;
+    const checksum = createHash('sha256').update(file.buffer).digest('hex');
+    const asset = await this.prisma.formAsset.create({
+      data: {
+        tenantId,
+        formVersionId: version.id,
+        filename: decodeUploadFilename(file.originalname),
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        checksum,
+        // Copy into a fresh Uint8Array<ArrayBuffer> for Prisma's Bytes type.
+        data: new Uint8Array(file.buffer),
+      },
+    });
 
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.asset.upload',
+      resourceType: 'form_asset',
+      resourceId: asset.id,
+      details: { formId: id, filename: asset.filename, sizeBytes: asset.sizeBytes },
+    });
+
+    return this.assetMeta(asset);
+  }
+
+  /** List asset metadata (no bytes) for all of a form's versions. */
+  async listAssets(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+    const versionIds = await this.formVersionIds(form);
+    const assets = await this.prisma.formAsset.findMany({
+      where: { tenantId, formVersionId: { in: versionIds } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        filename: true,
+        mimeType: true,
+        sizeBytes: true,
+        checksum: true,
+        createdAt: true,
+      },
+    });
+    return assets.map((a) => this.assetMeta(a));
+  }
+
+  /** Fetch a single asset with its bytes, scoped to the form + tenant. */
+  async getAsset(tenantId: string, id: string, assetId: string) {
+    const form = await this.findOne(tenantId, id);
+    const versionIds = await this.formVersionIds(form);
+    const asset = await this.prisma.formAsset.findFirst({
+      where: { id: assetId, tenantId, formVersionId: { in: versionIds } },
+    });
+    if (!asset || !asset.data) {
+      throw new NotFoundException(`Asset ${assetId} not found`);
+    }
     return {
+      filename: asset.filename,
+      mimeType: asset.mimeType,
+      data: Buffer.from(asset.data),
+    };
+  }
+
+  async deleteAsset(
+    tenantId: string,
+    id: string,
+    assetId: string,
+    actor?: ActorContext,
+  ) {
+    const form = await this.findOne(tenantId, id);
+    const versionIds = await this.formVersionIds(form);
+    const asset = await this.prisma.formAsset.findFirst({
+      where: { id: assetId, tenantId, formVersionId: { in: versionIds } },
+      select: { id: true },
+    });
+    if (!asset) {
+      throw new NotFoundException(`Asset ${assetId} not found`);
+    }
+    await this.prisma.formAsset.delete({ where: { id: asset.id } });
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.asset.delete',
+      resourceType: 'form_asset',
+      resourceId: assetId,
+      details: { formId: id },
+    });
+    return { deleted: true };
+  }
+
+  async exportTemplate(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+    const version = form.currentVersion ?? form.versions?.[0];
+    if (!version) {
+      throw new BadRequestException('Form has no version to export');
+    }
+
+    const assets = await this.loadExportAssets(version.id);
+
+    const base = {
       openmedform: '1.0',
       exportedAt: new Date().toISOString(),
-      form: {
-        name: form.name,
-        description: form.description,
-        category: form.category,
-        formType: form.formType,
-        tags: form.tags,
-      },
-      schema,
-      scoringRules: scoringRules ?? {},
+      engine: version.engine === 'JSONFORMS' ? 'jsonforms' : 'formio',
+      formCode: form.slug,
+      name: form.name,
+      description: form.description ?? undefined,
+      category: form.category ?? undefined,
+      formType: form.formType,
+      tags: form.tags,
+      version: String(version.version),
+      status: form.status,
+    };
+
+    if (version.engine === 'JSONFORMS') {
+      const translations = version.translations as
+        | { defaultLanguage?: string }
+        | null;
+      return {
+        ...base,
+        language: translations?.defaultLanguage ?? 'en',
+        dataSchema: (version.dataSchema ?? {}) as Record<string, unknown>,
+        uiSchema:
+          (version.uiSchema as Record<string, unknown> | null) ?? {
+            schemaVersion: '1.0',
+            layout: { type: 'VerticalLayout', elements: [] },
+          },
+        printSchema: (version.printSchema as Record<string, unknown> | null) ?? null,
+        translations:
+          (version.translations as Record<string, unknown> | null) ?? {
+            defaultLanguage: 'en',
+            languages: ['en'],
+            entries: {},
+          },
+        conversionMetadata:
+          (version.conversionMetadata as Record<string, unknown> | null) ?? undefined,
+        assets,
+      };
+    }
+
+    // formio engine
+    return {
+      ...base,
+      schema: (version.schema ?? { display: 'form', components: [] }) as Record<
+        string,
+        unknown
+      >,
+      scoringRules: (version.scoringRules as Record<string, unknown> | null) ?? {},
+      assets,
       patientContextFields:
         form.formType === 'PATIENT'
           ? ['patientName', 'patientMrn', 'age', 'gender', 'encounterId']
@@ -494,28 +699,68 @@ export class FormService {
   }
 
   async importTemplate(tenantId: string, userId: string, template: Record<string, unknown>) {
-    const version = template.openmedform as string;
-    if (!version) {
+    if (!template.openmedform) {
       throw new BadRequestException('Invalid template: missing openmedform version');
     }
 
-    const formMeta = template.form as Record<string, unknown>;
-    const schema = template.schema as Record<string, unknown>;
-    if (!formMeta?.name || !schema) {
-      throw new BadRequestException('Invalid template: missing form metadata or schema');
+    // Accept the flat bundle (new export) and the legacy { form: {...} } shape.
+    const meta = (template.form as Record<string, unknown> | undefined) ?? template;
+    const baseName = meta.name as string | undefined;
+    if (!baseName) {
+      throw new BadRequestException('Invalid template: missing form name');
     }
 
-    const baseName = formMeta.name as string;
-    const baseSlug = this.toSlug(baseName);
+    // engine defaults to formio for legacy templates that predate the field.
+    const engine: 'FORMIO' | 'JSONFORMS' =
+      String(template.engine ?? 'formio').toUpperCase() === 'JSONFORMS'
+        ? 'JSONFORMS'
+        : 'FORMIO';
 
+    const json = (v: unknown) => v as unknown as Prisma.InputJsonValue;
+
+    // Build the engine-specific version payload, validating required artifacts.
+    let versionData: Prisma.FormVersionUncheckedCreateWithoutFormInput;
+    if (engine === 'JSONFORMS') {
+      const dataSchema = template.dataSchema as Record<string, unknown> | undefined;
+      const uiSchema = template.uiSchema as Record<string, unknown> | undefined;
+      if (!dataSchema || !uiSchema) {
+        throw new BadRequestException(
+          'Invalid jsonforms template: missing dataSchema or uiSchema',
+        );
+      }
+      versionData = {
+        version: 1,
+        engine: 'JSONFORMS',
+        dataSchema: json(dataSchema),
+        uiSchema: json(uiSchema),
+        ...(template.printSchema ? { printSchema: json(template.printSchema) } : {}),
+        ...(template.translations ? { translations: json(template.translations) } : {}),
+        ...(template.conversionMetadata
+          ? { conversionMetadata: json(template.conversionMetadata) }
+          : {}),
+      };
+    } else {
+      const schema = template.schema as Record<string, unknown> | undefined;
+      if (!schema) {
+        throw new BadRequestException('Invalid formio template: missing schema');
+      }
+      const scoringRules = template.scoringRules as Record<string, unknown> | undefined;
+      versionData = {
+        version: 1,
+        engine: 'FORMIO',
+        schema: json(schema),
+        ...(scoringRules && Object.keys(scoringRules).length > 0
+          ? { scoringRules: json(scoringRules) }
+          : {}),
+      };
+    }
+
+    const baseSlug = this.toSlug(baseName);
     const existing = await this.prisma.form.findFirst({
       where: { tenantId, slug: baseSlug },
     });
     const slug = existing ? `${baseSlug}-${Date.now()}` : baseSlug;
     const name = existing ? `${baseName} (Imported)` : baseName;
-
-    const scoringRules = template.scoringRules as Record<string, unknown> | undefined;
-    const hasScoringRules = scoringRules && Object.keys(scoringRules).length > 0;
 
     return this.prisma.$transaction(async (tx) => {
       const form = await tx.form.create({
@@ -523,23 +768,16 @@ export class FormService {
           tenantId,
           name,
           slug,
-          description: (formMeta.description as string) ?? null,
-          category: (formMeta.category as string) ?? null,
-          tags: (formMeta.tags as string[]) ?? [],
-          formType: (formMeta.formType as 'PATIENT' | 'NON_PATIENT') ?? 'PATIENT',
+          description: (meta.description as string) ?? null,
+          category: (meta.category as string) ?? null,
+          tags: (meta.tags as string[]) ?? [],
+          formType: (meta.formType as 'PATIENT' | 'NON_PATIENT') ?? 'PATIENT',
           createdById: userId,
         },
       });
 
       await tx.formVersion.create({
-        data: {
-          formId: form.id,
-          version: 1,
-          schema: schema as unknown as Prisma.InputJsonValue,
-          ...(hasScoringRules
-            ? { scoringRules: scoringRules as unknown as Prisma.InputJsonValue }
-            : {}),
-        },
+        data: { formId: form.id, ...versionData },
       });
 
       return form;
