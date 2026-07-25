@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { Plus, Pencil, Eye, Archive, Inbox, Copy, Download, Upload, FileUp, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Eye, Archive, Inbox, Copy, Download, Upload, FileUp, Trash2, FileJson } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,7 +13,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useForms, useArchiveForm, useCloneForm, useExportForm, useImportForm } from '@/hooks/use-forms';
+import {
+  useForms,
+  useArchiveForm,
+  useCloneForm,
+  useExportForm,
+  useExportNativeFormio,
+  useImportForm,
+} from '@/hooks/use-forms';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { CreateFormDialog } from '@/components/forms/create-form-dialog';
 import { PdfToFormDialog } from '@/components/forms/pdf-to-form-dialog';
@@ -25,6 +32,7 @@ export default function FormsPage() {
   const archiveForm = useArchiveForm();
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
+  const exportNativeFormio = useExportNativeFormio();
   const importForm = useImportForm();
   const [createOpen, setCreateOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
@@ -38,6 +46,17 @@ export default function FormsPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${formName.toLowerCase().replace(/\s+/g, '-')}-template.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleNativeFormioExport(formId: string, formName: string) {
+    const schema = await exportNativeFormio.mutateAsync(formId);
+    const blob = new Blob([JSON.stringify(schema, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${formName.toLowerCase().replace(/\s+/g, '-')}-formio.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -242,6 +261,16 @@ export default function FormsPage() {
                               title="Download form definition"
                             >
                               <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {!isJsonForms && form.status !== 'ARCHIVED' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleNativeFormioExport(form.id, form.name)}
+                              title="Download native Form.io JSON"
+                            >
+                              <FileJson className="h-4 w-4" />
                             </Button>
                           )}
                           {form.status !== 'ARCHIVED' && (

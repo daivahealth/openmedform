@@ -206,6 +206,15 @@ export function useExportForm() {
   });
 }
 
+export function useExportNativeFormio() {
+  return useMutation({
+    mutationFn: async (formId: string) => {
+      const { data } = await api.get(`/api/forms/${formId}/export/formio`);
+      return data;
+    },
+  });
+}
+
 export function useImportForm() {
   const queryClient = useQueryClient();
 
