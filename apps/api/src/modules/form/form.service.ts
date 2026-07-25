@@ -698,6 +698,29 @@ export class FormService {
     };
   }
 
+  /**
+   * Return the stored Form.io definition without the OpenMedForm template
+   * envelope. This is the portable shape expected by Form.io consumers:
+   * `{ display, components }` (plus any other native Form.io properties).
+   */
+  async exportNativeFormioSchema(tenantId: string, id: string) {
+    const form = await this.findOne(tenantId, id);
+    const version = form.currentVersion ?? form.versions?.[0];
+    if (!version) {
+      throw new BadRequestException('Form has no version to export');
+    }
+    if (version.engine === 'JSONFORMS') {
+      throw new BadRequestException(
+        'Native Form.io export is only available for Form.io forms',
+      );
+    }
+
+    return (version.schema ?? {
+      display: 'form',
+      components: [],
+    }) as Record<string, unknown>;
+  }
+
   async importTemplate(tenantId: string, userId: string, template: Record<string, unknown>) {
     if (!template.openmedform) {
       throw new BadRequestException('Invalid template: missing openmedform version');

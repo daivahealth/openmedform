@@ -372,6 +372,14 @@ export class FormController {
     return this.formService.exportTemplate(user.tenantId, id);
   }
 
+  @Get(':id/export/formio')
+  exportNativeFormioSchema(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.formService.exportNativeFormioSchema(user.tenantId, id);
+  }
+
   @Post(':id/assets')
   @UseInterceptors(
     FileInterceptor('file', {
