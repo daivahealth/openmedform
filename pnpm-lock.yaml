@@ -416,8 +416,8 @@ importers:
   packages/formio-core:
     dependencies:
       '@formio/bootstrap':
-        specifier: formio/bootstrap#main
-        version: https://codeload.github.com/formio/bootstrap/tar.gz/ab18fc54df81e719994b21d7070c5f291048bff4
+        specifier: ^4.0.3
+        version: 4.0.3
       '@formio/core':
         specifier: ^2.7.1
         version: 2.7.1
@@ -1988,9 +1988,8 @@ packages:
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
 
-  '@formio/bootstrap@https://codeload.github.com/formio/bootstrap/tar.gz/ab18fc54df81e719994b21d7070c5f291048bff4':
-    resolution: {tarball: https://codeload.github.com/formio/bootstrap/tar.gz/ab18fc54df81e719994b21d7070c5f291048bff4}
-    version: 4.0.3
+  '@formio/bootstrap@4.0.3':
+    resolution: {integrity: sha512-s9oRUviioIK/bw++zsqE9QFc/ZxyCh90fNWxO2zwapk3ySHvdggReFnTYsUCNA1w8zD1sHTm0VEBfbpxbUVVrQ==}
 
   '@formio/core@2.7.1':
     resolution: {integrity: sha512-QcnCl54T0y8yjHsMBVvEIHsMe8bFRYYvT44LHHwwA9G8bpm608Lv3dBTyCBBULu+fufN9tsxC0ax4+EaK3fo7g==}
@@ -11654,7 +11653,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@formio/bootstrap@https://codeload.github.com/formio/bootstrap/tar.gz/ab18fc54df81e719994b21d7070c5f291048bff4': {}
+  '@formio/bootstrap@4.0.3': {}
 
   '@formio/core@2.7.1':
     dependencies:
