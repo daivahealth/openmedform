@@ -56,5 +56,14 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daivahealth/openmedform.git",
+    "directory": "packages/react-form-renderer"
+  },
+  "homepage": "https://github.com/daivahealth/openmedform/tree/main/packages/react-form-renderer#readme",
+  "bugs": {
+    "url": "https://github.com/daivahealth/openmedform/issues"
   }
 }
