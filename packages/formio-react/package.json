@@ -1,6 +1,7 @@
 {
   "name": "@openmedform/formio-react",
   "version": "6.1.0",
+  "private": true,
   "description": "React renderer for form.io forms.",
   "main": "lib/index.js",
   "scripts": {
