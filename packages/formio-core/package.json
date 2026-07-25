@@ -77,7 +77,7 @@
   },
   "homepage": "https://github.com/formio/formio.js#readme",
   "dependencies": {
-    "@formio/bootstrap": "formio/bootstrap#main",
+    "@formio/bootstrap": "^4.0.3",
     "@formio/core": "^2.7.1",
     "@formio/text-mask-addons": "^3.8.0-formio.4",
     "@formio/vanilla-text-mask": "^5.1.1-formio.1",
