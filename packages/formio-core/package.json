@@ -1,6 +1,7 @@
 {
   "name": "@openmedform/formio-core",
   "version": "5.2.1",
+  "private": true,
   "description": "JavaScript powered Forms with JSON Form Builder",
   "main": "lib/cjs/index.js",
   "exports": {
