@@ -22,6 +22,8 @@ import {
   omfInputTester,
   OmfSelectControl,
   omfSelectTester,
+  OmfTableLayoutControl,
+  omfTableTester,
 } from './renderers/omf-controls';
 import {
   ScoringMatrixControl,
@@ -47,6 +49,7 @@ export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfSelectTester, renderer: OmfSelectControl },
   { tester: omfGroupTester, renderer: OmfGroupControl },
   { tester: omfHorizontalTester, renderer: OmfHorizontalLayoutControl },
+  { tester: omfTableTester, renderer: OmfTableLayoutControl },
 ];
 
 /** The six clinical custom controls. */

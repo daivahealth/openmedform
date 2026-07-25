@@ -1,15 +1,34 @@
 {
   "name": "@openmedform/react-form-renderer",
   "version": "0.1.0",
-  "private": true,
-  "description": "React engine dispatcher: renders a FormDefinition with either the Form.io engine (delegating to @openmedform/renderer) or the JSON Forms engine (@jsonforms/react + token-styled clinical controls), behind one stable prop seam.",
+  "private": false,
+  "license": "MIT",
+  "description": "React renderer for OpenMedForm form definitions. Import from '@openmedform/react-form-renderer/jsonforms' for the portable, Form.io-free JSON Forms renderer, or the package root for the dual-engine dispatcher.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "tsc"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./jsonforms": {
+        "types": "./dist/jsonforms.d.ts",
+        "default": "./dist/jsonforms.js"
+      }
+    }
   },
   "dependencies": {
     "@jsonforms/core": "^3.8.0",
@@ -17,12 +36,14 @@
     "@jsonforms/vanilla-renderers": "^3.8.0",
     "@openmedform/form-core": "workspace:*",
     "@openmedform/form-design-tokens": "workspace:*",
-    "@openmedform/form-schema-types": "workspace:*",
+    "@openmedform/form-schema-types": "workspace:*"
+  },
+  "optionalDependencies": {
     "@openmedform/renderer": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",

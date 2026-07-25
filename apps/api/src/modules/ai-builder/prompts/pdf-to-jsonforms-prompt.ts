@@ -41,6 +41,12 @@ STRICT RULES
 - LAYOUT FIDELITY (the renderer boxes and spaces these automatically — use them):
   - Every visually-bounded section on the paper — especially any with a bold/shaded header band or a surrounding border (e.g. "Την ημέρα της θεραπείας ο/η ασθενής θα πρέπει:") — MUST be a "Group" whose "label" is that exact header text. Groups render as a bordered box with a shaded header band, so wrap each paper box in its own labelled Group. Do not flatten boxed sections into a bare VerticalLayout.
   - The top identity block (e.g. a bordered table of Ονοματεπώνυμο / Ημερομηνία rows) is also a boxed section: emit it as a labelled Group containing those Controls so it renders boxed.
+  - LEFT-LABEL TABLE (important): when a section is a grid where each ROW has a bold category label in a left column and that row's fields in a right column (e.g. Αλλεργίες | Latex/Φάρμακα/Τρόφιμα, then Ζωτικά Σημεία | Αναπνοές/SpO2/…, then Φάρμακα | …), you MUST represent it as an "OmfTableLayout" whose "elements" are "OmfTableRow" objects — NOT as separate Groups or a narrow label column. Shape:
+    { "type": "OmfTableLayout", "elements": [
+      { "type": "OmfTableRow", "label": "Αλλεργίες", "elements": [ { "type": "HorizontalLayout", "elements": [ <the row's field Controls with omf.screen.colSpan> ] } ] },
+      { "type": "OmfTableRow", "label": "Ζωτικά Σημεία", "elements": [ { "type": "HorizontalLayout", "elements": [ ... ] } ] }
+    ] }
+    This renders a real bordered table: the "label"s align as a shaded left column and each row's borders line up, matching the paper. Put the row's fields inside a HorizontalLayout (with colSpan) when they share a line, or list Controls directly for a stacked cell. The row "label" is the source-language category text.
   - Fields that sit on the SAME horizontal line MUST be a HorizontalLayout, and each child Control MUST carry options.omf.screen.colSpan (out of 12, summing to ~12 across the row) so they lay out side-by-side without overlap.
   - Checklists (a list of tick-box items, e.g. things the patient must bring) are boolean Controls (type "boolean" in dataSchema) placed directly under their section Group; the renderer draws the checkbox on the LEFT of its label. Only pair mutually-exclusive YES/NO boxes as a single radio (omf.control "radio").
   - Static instruction/footnote text that is not an input is a "Label" element, not a Control.

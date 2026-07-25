@@ -286,3 +286,71 @@ function OmfHorizontalLayout(props: LayoutProps) {
 export const omfHorizontalTester = rankWith(OMF_CONTROL_RANK, uiTypeIs('HorizontalLayout'));
 export const OmfHorizontalLayoutControl: ComponentType<any> =
   withJsonFormsLayoutProps(OmfHorizontalLayout);
+
+// --- table layout (left label column + right field cells, bordered) --------
+//
+// For paper forms built as a grid where each row has a bold category label in a
+// left column and its fields in a right column (e.g. Αλλεργίες | Latex …), the
+// AI emits an `OmfTableLayout` whose `elements` are `OmfTableRow`s. Each row is
+// { label, elements }. This renders a real bordered <table> so the left labels
+// line up as a column and every row's borders align — matching the paper.
+
+interface OmfTableRowShape {
+  label?: string;
+  elements?: UISchemaElement[];
+}
+
+function OmfTableLayout(props: LayoutProps) {
+  const { uischema, schema, path, visible, enabled, renderers, cells } = props;
+  if (!visible) return null;
+  const rows = ((uischema as Layout).elements ?? []) as unknown as OmfTableRowShape[];
+  const border = 'var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4)';
+  const pad = 'var(--omf-control-padding, 8px)';
+  return (
+    <table
+      style={{
+        width: '100%',
+        borderCollapse: 'collapse',
+        marginBottom: 'var(--omf-section-gap, 16px)',
+        tableLayout: 'fixed',
+      }}
+    >
+      <tbody>
+        {rows.map((row, r) => (
+          <tr key={r}>
+            <td
+              style={{
+                border,
+                background: 'var(--omf-color-section-bg, #f7f8fa)',
+                width: 'var(--omf-table-label-width, 16%)',
+                verticalAlign: 'top',
+                padding: pad,
+                fontWeight: 'var(--omf-label-weight, 600)' as never,
+                fontSize: 'var(--omf-font-size-label, 13px)',
+                color: 'var(--omf-color-label, #3a4552)',
+              }}
+            >
+              {row.label}
+            </td>
+            <td style={{ border, verticalAlign: 'top', padding: pad }}>
+              {(row.elements ?? []).map((child, index) => (
+                <JsonFormsDispatch
+                  key={index}
+                  uischema={child}
+                  schema={schema}
+                  path={path}
+                  enabled={enabled}
+                  renderers={renderers}
+                  cells={cells}
+                />
+              ))}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export const omfTableTester = rankWith(OMF_CONTROL_RANK, uiTypeIs('OmfTableLayout'));
+export const OmfTableLayoutControl: ComponentType<any> = withJsonFormsLayoutProps(OmfTableLayout);

@@ -25,6 +25,15 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { AiBuilderService } from '../ai-builder/ai-builder.service';
 
+const ASSET_FILE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+  'application/pdf',
+];
+
 const SUPPORTED_SOURCE_FILE_TYPES = [
   'application/pdf',
   'image/png',
@@ -361,6 +370,76 @@ export class FormController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.formService.exportTemplate(user.tenantId, id);
+  }
+
+  @Post(':id/assets')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        if (!ASSET_FILE_TYPES.includes(file.mimetype)) {
+          cb(
+            new BadRequestException(
+              'Assets must be PNG, JPEG, WebP, GIF, SVG, or PDF',
+            ),
+            false,
+          );
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  uploadAsset(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Ip() ip: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('An asset file is required');
+    }
+    return this.formService.uploadAsset(user.tenantId, id, file, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
+  }
+
+  @Get(':id/assets')
+  listAssets(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.formService.listAssets(user.tenantId, id);
+  }
+
+  @Get(':id/assets/:assetId')
+  async getAsset(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('assetId', ParseUUIDPipe) assetId: string,
+    @Res() res: Response,
+  ) {
+    const asset = await this.formService.getAsset(user.tenantId, id, assetId);
+    res.setHeader('Content-Type', asset.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(asset.filename)}"`,
+    );
+    res.send(asset.data);
+  }
+
+  @Delete(':id/assets/:assetId')
+  deleteAsset(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('assetId', ParseUUIDPipe) assetId: string,
+    @Ip() ip: string,
+  ) {
+    return this.formService.deleteAsset(user.tenantId, id, assetId, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
   }
 
   @Post('import')
