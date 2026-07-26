@@ -145,6 +145,70 @@ export class VitalSignsChartComponent extends JsonFormsControl {
 }
 export const vitalSignsChartTester = rankWith(OMF_CONTROL_RANK, omfControlIs('vitalSignsChart'));
 
+interface MatrixRowCol { key: string; label?: string; }
+type MatrixValue = Record<string, Record<string, boolean>>;
+
+@Component({
+  selector: 'omf-checklist-matrix',
+  standalone: true,
+  template: `
+    @if (!hidden) {
+      <div class="omf-field">
+        <label class="omf-label">{{ label }}</label>
+        <div style="overflow-x:auto">
+          <table class="omf-table">
+            <thead>
+              <tr>
+                <th></th>
+                @for (c of columns; track c.key) { <th style="text-align:center">{{ c.label ?? c.key }}</th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows; track row.key) {
+                <tr>
+                  <td>{{ row.label ?? row.key }}</td>
+                  @for (c of columns; track c.key) {
+                    <td style="text-align:center">
+                      <input
+                        type="checkbox"
+                        [checked]="isChecked(row.key, c.key)"
+                        [disabled]="!enabled"
+                        [attr.aria-label]="(row.label ?? row.key) + ' — ' + (c.label ?? c.key)"
+                        (change)="toggle(row.key, c.key, $any($event.target).checked)"
+                      />
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  `,
+  styles: [FIELD_STYLES],
+})
+export class ChecklistMatrixComponent extends JsonFormsControl {
+  get rows(): MatrixRowCol[] {
+    return (readOmf(this.uischema)?.['rows'] as MatrixRowCol[] | undefined) ?? [];
+  }
+  get columns(): MatrixRowCol[] {
+    return (readOmf(this.uischema)?.['columns'] as MatrixRowCol[] | undefined) ?? [];
+  }
+  get value(): MatrixValue {
+    return (this.data as MatrixValue) ?? {};
+  }
+  isChecked(rowKey: string, colKey: string): boolean {
+    return !!this.value[rowKey]?.[colKey];
+  }
+  toggle(rowKey: string, colKey: string, checked: boolean): void {
+    const nextRow = { ...(this.value[rowKey] ?? {}), [colKey]: checked };
+    if (!checked) delete nextRow[colKey];
+    this.onChange({ value: { ...this.value, [rowKey]: nextRow } });
+  }
+}
+export const checklistMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('checklistMatrix'));
+
 interface ColorRow { label?: string; range?: string; color?: string; }
 
 @Component({

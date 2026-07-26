@@ -136,6 +136,28 @@ identically in the React and Angular renderers via the shared design tokens and
 point-value palette. These extensions live under `options.omf` in
 [`packages/form-schema-types`](../../packages/form-schema-types/src/ui-schema.ts).
 
+#### Periodic / reassessment matrix
+
+A grid where each **row** is an item and each **column** a repeated period — e.g.
+a *Nursing Diagnosis × Day 1–5* reassessment table with a checkbox in every cell —
+is a single `omf.control: "checklistMatrix"` control (not dozens of scattered
+booleans). Config rides on `options.omf.rows` / `options.omf.columns`
+(`{ key, label }[]`); the control binds to an **object** property and stores a
+nested value `{ [rowKey]: { [colKey]: true } }`. One compact control keeps the
+conversion output small (which helps the model finish dense multi-page forms) and
+renders the same scrollable grid in React and Angular.
+
+#### Multi-page completeness
+
+Conversion extracts **every section and option across all pages** — side-by-side
+boxes (e.g. *Anticoagulant* + *SCD contraindications*, or *Mechanical* +
+*Pharmacologic* orders) become a `HorizontalLayout` of two fully-populated Groups,
+and long medication lists keep every row (with dose/qualifier text in the label).
+A section that is only a header band on the paper is never emitted empty. Because
+completeness on dense forms ultimately depends on the LLM, anything the model is
+unsure it captured is surfaced as a `POTENTIAL_MISSING_FIELD` warning in review
+rather than silently dropped — re-run or refine if a section still looks thin.
+
 #### Total score & risk stratification
 
 Many scored forms sum the ticked points across every box into a grand total and

@@ -221,8 +221,10 @@ export class FormConversionService {
       const pageImages = provider.generateWithImages
         ? await renderPdfPagesToImages(input.fileBuffer, MAX_VISION_PAGES)
         : [];
+      // Keep enough embedded text that later pages/sections aren't cut off on a
+      // multi-page form (the page images remain the layout authority).
       const reference = text.trim()
-        ? text.substring(0, 8000)
+        ? text.substring(0, 24000)
         : 'No reliable embedded text; rely on the attached page images.';
       let userPrompt = `Convert this clinical form PDF (${pages} page(s)) into the jsonforms engine format.\n\nExtracted text for reference:\n${reference}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;

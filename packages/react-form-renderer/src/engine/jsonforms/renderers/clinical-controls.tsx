@@ -188,6 +188,74 @@ function VitalSignsChart(props: ControlProps) {
 export const vitalSignsChartTester = rankWith(OMF_CONTROL_RANK, omfControlIs('vitalSignsChart'));
 export const VitalSignsChartControl: ComponentType<any> = withJsonFormsControlProps(VitalSignsChart);
 
+// --- checklistMatrix (interactive rows × columns checkbox grid) -------------
+//
+// For a periodic-reassessment grid where each ROW is an item and each COLUMN a
+// period/day (e.g. "Nursing diagnosis × Day 1–5"), with a checkbox in every
+// cell. Config (rows/columns) rides on options.omf; the value is a nested
+// object { [rowKey]: { [colKey]: true } }. One compact control instead of dozens
+// of scattered booleans.
+
+interface MatrixRowCol {
+  key: string;
+  label?: string;
+}
+type MatrixValue = Record<string, Record<string, boolean>>;
+
+function ChecklistMatrix(props: ControlProps) {
+  const { id, label, data, enabled, visible, errors, path, handleChange, uischema } = props;
+  if (!visible) return null;
+  const omf = readOmf(uischema);
+  const rows = (omf?.rows as MatrixRowCol[] | undefined) ?? [];
+  const columns = (omf?.columns as MatrixRowCol[] | undefined) ?? [];
+  const value = (data as MatrixValue) ?? {};
+
+  const toggle = (rowKey: string, colKey: string, checked: boolean) => {
+    const nextRow = { ...(value[rowKey] ?? {}), [colKey]: checked };
+    if (!checked) delete nextRow[colKey];
+    handleChange(path, { ...value, [rowKey]: nextRow });
+  };
+
+  return (
+    <FieldFrame id={id} label={label} errors={errors}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={{ ...cellStyle, textAlign: 'left' }} />
+              {columns.map((c) => (
+                <th key={c.key} style={{ ...cellStyle, textAlign: 'center' }}>
+                  {c.label ?? c.key}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td style={cellStyle}>{row.label ?? row.key}</td>
+                {columns.map((c) => (
+                  <td key={c.key} style={{ ...cellStyle, textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!value[row.key]?.[c.key]}
+                      disabled={!enabled}
+                      aria-label={`${row.label ?? row.key} — ${c.label ?? c.key}`}
+                      onChange={(e) => toggle(row.key, c.key, e.target.checked)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </FieldFrame>
+  );
+}
+export const checklistMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('checklistMatrix'));
+export const ChecklistMatrixControl: ComponentType<any> = withJsonFormsControlProps(ChecklistMatrix);
+
 // --- colorCodedGrid (reference display) -------------------------------------
 
 interface ColorRow {
