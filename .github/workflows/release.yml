@@ -17,6 +17,12 @@ jobs:
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Use a PAT so the changesets "Version Packages" PR can be created:
+          # the default GITHUB_TOKEN is blocked from opening PRs when the org/repo
+          # policy "Allow GitHub Actions to create and approve pull requests" is
+          # off. Falls back to GITHUB_TOKEN if the PAT secret isn't set.
+          token: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -44,6 +50,9 @@ jobs:
           commit: 'chore: version packages'
           title: 'chore: version packages'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT (Contents: write + Pull requests: write) so the action can open
+          # the "Version Packages" PR; falls back to the default token, which
+          # only works if the repo/org allows Actions to create PRs.
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
