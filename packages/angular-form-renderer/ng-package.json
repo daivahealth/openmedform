@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
+  "dest": "dist",
+  "allowedNonPeerDependencies": [
+    "@jsonforms/angular",
+    "@jsonforms/core",
+    "@openmedform/form-core",
+    "@openmedform/form-design-tokens",
+    "@openmedform/form-schema-types",
+    "tslib"
+  ],
+  "lib": {
+    "entryFile": "src/index.ts"
+  }
+}

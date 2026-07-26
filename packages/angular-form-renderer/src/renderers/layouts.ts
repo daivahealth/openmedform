@@ -81,7 +81,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
   template: `
     @if (isSubsection) {
       <div class="omf-subsection">
-        @if (uischema?.label) { <div class="omf-subsection-title">{{ uischema.label }}</div> }
+        @if (groupLabel) { <div class="omf-subsection-title">{{ groupLabel }}</div> }
         <div class="omf-subsection-body" [style.border-left-color]="accentColor || '#c8cdd4'">
           @for (element of elements; track $index) {
             <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
@@ -90,10 +90,10 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
       </div>
     } @else {
       <fieldset class="omf-group" [style.border-color]="accentColor">
-        @if (uischema?.label) {
+        @if (groupLabel) {
           <legend class="omf-group-header" [style.color]="accentColor">
             @if (icon) { <span class="omf-icon">{{ icon }}</span> }
-            <span class="omf-group-title">{{ uischema.label }}</span>
+            <span class="omf-group-title">{{ groupLabel }}</span>
             @if (legend.length) {
               <span class="omf-legend">
                 @for (p of legend; track p) {
@@ -127,6 +127,10 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
   /** Live section subtotal; null when this box has no scored descendants. */
   subtotal: number | null = null;
 
+  get groupLabel(): string {
+    const l = (this.uischema as { label?: unknown })?.label;
+    return typeof l === 'string' ? l : '';
+  }
   get isSubsection(): boolean {
     return readOmf(this.uischema)?.['variant'] === 'subsection';
   }
