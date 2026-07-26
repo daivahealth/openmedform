@@ -59,6 +59,54 @@ describe('JsonFormsAssemblerService', () => {
     expect(form?.sourcePage).toBe(2);
   });
 
+  it('repairs a dangling $ref instead of hard-failing the whole conversion', () => {
+    const out = JSON.stringify({
+      dataSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          // References a $def the model never defined — used to crash Ajv compile.
+          age: { $ref: '#/$defs/age', title: 'Age band' },
+          spo2: { type: 'integer', minimum: 0, maximum: 100 },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Control', scope: '#/properties/age' },
+            { type: 'Control', scope: '#/properties/spo2' },
+          ],
+        },
+      },
+    });
+
+    const r = service.assemble(out);
+    // The dangling $ref is stripped; the field keeps its sibling title.
+    const age = (r.dataSchema.properties as Record<string, Record<string, unknown>>).age;
+    expect(age.$ref).toBeUndefined();
+    expect(age.title).toBe('Age band');
+    // A warning surfaces the repair for the reviewer.
+    const w = r.warnings.find((x) => x.type === 'UNCERTAIN_FIELD_BINDING');
+    expect(w?.message).toContain('#/$defs/age');
+  });
+
+  it('keeps a $ref that resolves to a real $def', () => {
+    const out = JSON.stringify({
+      dataSchema: {
+        type: 'object',
+        $defs: { yesNo: { type: 'string', enum: ['YES', 'NO'] } },
+        properties: { chf: { $ref: '#/$defs/yesNo', title: 'CHF' } },
+      },
+      uiSchema: { schemaVersion: '1.0', layout: { type: 'Control', scope: '#/properties/chf' } },
+    });
+    const r = service.assemble(out);
+    const chf = (r.dataSchema.properties as Record<string, Record<string, unknown>>).chf;
+    expect(chf.$ref).toBe('#/$defs/yesNo');
+    expect(r.warnings.some((x) => x.type === 'UNCERTAIN_FIELD_BINDING')).toBe(false);
+  });
+
   it('derives sum + threshold scoring rules from omf.points and scoreSummary bands', () => {
     const out = JSON.stringify({
       dataSchema: {

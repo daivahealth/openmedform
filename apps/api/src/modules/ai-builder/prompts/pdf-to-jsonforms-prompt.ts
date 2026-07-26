@@ -25,7 +25,8 @@ You MUST return a single JSON object with EXACTLY these top-level keys:
 
 STRICT RULES
 - Separation of concerns: dataSchema carries type/enum/format/min/max/required/if-then — NEVER layout. uiSchema carries layout — NEVER validation.
-- dataSchema MUST be valid Draft 2020-12 and MUST compile under Ajv: use $defs + $ref for repeated value sets, "type":"object" with "properties", "required", "additionalProperties": false where appropriate.
+- dataSchema MUST be valid Draft 2020-12 and MUST compile under Ajv: "type":"object" with "properties", "required", "additionalProperties": false where appropriate.
+- $ref DISCIPLINE (critical — a dangling ref breaks the whole schema): only use "$ref" to point at a "$defs" entry you ACTUALLY define in the SAME dataSchema (e.g. define "$defs": { "yesNo": {...} } then reference "#/$defs/yesNo"). NEVER reference a $def you did not create (e.g. "#/$defs/age" with no $defs.age). When in doubt, INLINE the schema (e.g. { "type": "string", "enum": ["YES","NO"] }) instead of using $ref. Reserve $ref for value sets reused 2+ times.
 - Saved values use stable, language-independent CODES (e.g. enum "ALERT"), never translated labels.
 - LABELS (critical): every field's visible label MUST be present as the dataSchema property "title" (and every Group "label" and Label "text"), set to the EXACT source-language text from the document (e.g. Greek "Σφύξεις < 40"). A Control with no title and no label renders an AUTO-GENERATED ENGLISH label derived from its key (e.g. key "pulseLessThan40" → "Pulse Less Than 40"), which is WRONG. Never leave a field without its source-language title/label, and never rely on "translations" for the primary label.
 - "translations" is ONLY for alternate-language strings and enum-option display text (keyed by the stable code) — it is not a substitute for the primary title/label, which the renderer shows by default.
