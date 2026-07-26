@@ -39,6 +39,7 @@ import {
   RiskStratificationControl,
   riskStratificationTester,
 } from './renderers/clinical-controls';
+import { ScoreSummaryControl, scoreSummaryTester } from './renderers/score-controls';
 
 /** omf-aware standard controls (textarea, radio). */
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
@@ -60,6 +61,7 @@ export const clinicalRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: colorCodedGridTester, renderer: ColorCodedGridControl },
   { tester: clinicalReferenceTableTester, renderer: ClinicalReferenceTableControl },
   { tester: riskStratificationTester, renderer: RiskStratificationControl },
+  { tester: scoreSummaryTester, renderer: ScoreSummaryControl },
 ];
 
 /** Complete renderer registry: vanilla defaults + platform custom controls. */

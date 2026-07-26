@@ -56,9 +56,44 @@ export interface OmfPrintOptions {
 export interface OmfOptions {
   /** Custom control/layout type resolved via the renderer's registry (e.g. 'scoringMatrix'). */
   control?: string;
+  /**
+   * Group rendering style. 'section' (default) is a bordered box with a shaded
+   * header band. 'subsection' is an indented sub-heading with its children
+   * nested beneath it and NO box — for a heading-plus-indented-list inside a
+   * section (e.g. "Immobility … PLUS one or more of:" followed by its factors).
+   */
+  variant?: 'section' | 'subsection';
   readOnly?: boolean;
   screen?: OmfScreenOptions;
   print?: OmfPrintOptions;
+  /**
+   * Accent colour (hex, e.g. '#c0392b') for a boxed clinical section. The
+   * renderer draws the section border and header icon/text in this colour to
+   * reproduce colour-coded paper domains (e.g. a red CARDIOVASCULAR box).
+   */
+  accentColor?: string;
+  /**
+   * A leading glyph/emoji shown in a section header (e.g. '❤️' for
+   * CARDIOVASCULAR, '🎂' for AGE) to reproduce the source form's iconography.
+   */
+  icon?: string;
+  /**
+   * Point value for a scored checkbox row. The renderer shows a colour-coded
+   * badge (1→blue, 2→green, 3→amber, 5→red) on the right of the row, matching
+   * the paper form's points column. Server-side scoring stays authoritative.
+   */
+  points?: number;
+  /**
+   * Distinct point values present in a section, rendered as small chips in the
+   * section header (e.g. [1, 2, 3]) mirroring a paper legend band.
+   */
+  pointLegend?: number[];
+  /**
+   * Risk-stratification bands for a scoreSummary element: the total maps to the
+   * band whose [minScore, maxScore] range contains it (both bounds inclusive
+   * and optional). Mirrors a paper "score → risk level" table.
+   */
+  bands?: Array<{ minScore?: number; maxScore?: number; label: string; color?: string }>;
   [key: string]: unknown;
 }
 

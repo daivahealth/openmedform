@@ -59,6 +59,83 @@ describe('JsonFormsAssemblerService', () => {
     expect(form?.sourcePage).toBe(2);
   });
 
+  it('derives sum + threshold scoring rules from omf.points and scoreSummary bands', () => {
+    const out = JSON.stringify({
+      dataSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          age: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { age75plus: { type: 'boolean', title: 'Age ≥75' } },
+          },
+          cardiovascular: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { acuteMI: { type: 'boolean', title: 'Acute MI' } },
+          },
+          totalScore: { type: 'number' },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Group',
+              label: 'AGE',
+              elements: [
+                { type: 'Control', scope: '#/properties/age/properties/age75plus', options: { omf: { points: 3 } } },
+              ],
+            },
+            {
+              type: 'Group',
+              label: 'CARDIOVASCULAR',
+              elements: [
+                { type: 'Control', scope: '#/properties/cardiovascular/properties/acuteMI', options: { omf: { points: 1 } } },
+              ],
+            },
+            {
+              type: 'Control',
+              scope: '#/properties/totalScore',
+              options: {
+                omf: {
+                  control: 'scoreSummary',
+                  bands: [
+                    { maxScore: 1, label: 'Low', color: '#1e8e5a' },
+                    { minScore: 2, maxScore: 4, label: 'Moderate' },
+                    { minScore: 5, label: 'High' },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const r = service.assemble(out);
+    const rules = r.scoringRules as {
+      totalScore: { type: string; items: Array<{ field: string; points: number }> };
+      riskLevel: { type: string; scoreField: string; thresholds: Array<{ max: number; label: string }> };
+    };
+    expect(rules.totalScore.type).toBe('sum');
+    expect(rules.totalScore.items).toEqual([
+      { field: 'age.age75plus', points: 3 },
+      { field: 'cardiovascular.acuteMI', points: 1 },
+    ]);
+    expect(rules.riskLevel).toMatchObject({ type: 'threshold', scoreField: 'totalScore' });
+    // Bands sorted ascending by max; open-ended top band gets a large ceiling.
+    expect(rules.riskLevel.thresholds.map((t) => t.label)).toEqual(['Low', 'Moderate', 'High']);
+    expect(rules.riskLevel.thresholds[2].max).toBeGreaterThan(1000);
+  });
+
+  it('emits no scoring rules when no control carries omf.points', () => {
+    expect(service.assemble(goodOutput).scoringRules).toEqual({});
+  });
+
   it('strips markdown fences before parsing', () => {
     const fenced = '```json\n' + goodOutput + '\n```';
     expect(() => service.assemble(fenced)).not.toThrow();
