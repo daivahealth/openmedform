@@ -65,6 +65,27 @@ export const vteSample: FormDefinition = {
         },
       },
       totalScore: { type: 'number', title: 'TOTAL VTE RISK SCORE' },
+      contra: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          activeBleeding: { type: 'boolean', title: 'Active bleeding (e.g., GI, CNS)' },
+          coagulopathy: { type: 'boolean', title: 'Coagulopathy (INR >1.5 or aPTT >40 sec)' },
+          severePad: { type: 'boolean', title: 'Severe peripheral arterial disease' },
+          acuteChf: { type: 'boolean', title: 'Congestive Heart Failure (acute)' },
+        },
+      },
+      orders: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          stockings: { type: 'boolean', title: 'Graduated (anti-embolic) compression stockings' },
+          ipc: { type: 'boolean', title: 'Intermittent Pneumatic Compression (IPC) device' },
+          enoxaparin40: { type: 'boolean', title: 'Enoxaparin 40 mg SC once daily (CrCl >30, wt <150 kg)' },
+          ufh5000: { type: 'boolean', title: 'UFH 5000 IU SC every 8–12 hours' },
+        },
+      },
+      nursingReassessment: { type: 'object', title: 'Nursing diagnosis & daily reassessment' },
     },
   },
   uiSchema: {
@@ -148,6 +169,90 @@ export const vteSample: FormDefinition = {
               ],
             },
           },
+        },
+        // Section 5: two contraindication boxes side by side.
+        {
+          type: 'HorizontalLayout',
+          elements: [
+            {
+              type: 'Group',
+              label: 'ANTICOAGULANT CONTRAINDICATIONS',
+              options: { omf: { accentColor: '#c0392b', icon: '⚠️' } },
+              elements: [
+                { type: 'Control', scope: '#/properties/contra/properties/activeBleeding' },
+                { type: 'Control', scope: '#/properties/contra/properties/coagulopathy' },
+              ],
+            },
+            {
+              type: 'Group',
+              label: 'SCD CONTRAINDICATIONS',
+              options: { omf: { accentColor: '#b8860b', icon: '⚡' } },
+              elements: [
+                { type: 'Control', scope: '#/properties/contra/properties/severePad' },
+                { type: 'Control', scope: '#/properties/contra/properties/acuteChf' },
+              ],
+            },
+          ],
+        },
+        // Section 6: mechanical vs pharmacologic, two columns.
+        {
+          type: 'Group',
+          label: "PHYSICIAN'S PROPHYLAXIS ORDERS",
+          elements: [
+            {
+              type: 'HorizontalLayout',
+              elements: [
+                {
+                  type: 'Group',
+                  label: 'MECHANICAL PROPHYLAXIS',
+                  options: { omf: { variant: 'subsection' } },
+                  elements: [
+                    { type: 'Control', scope: '#/properties/orders/properties/stockings' },
+                    { type: 'Control', scope: '#/properties/orders/properties/ipc' },
+                  ],
+                },
+                {
+                  type: 'Group',
+                  label: 'PHARMACOLOGIC PROPHYLAXIS',
+                  options: { omf: { variant: 'subsection' } },
+                  elements: [
+                    { type: 'Control', scope: '#/properties/orders/properties/enoxaparin40' },
+                    { type: 'Control', scope: '#/properties/orders/properties/ufh5000' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        // Section 7: nursing diagnosis × Day 1–5 checkbox matrix.
+        {
+          type: 'Group',
+          label: 'NURSING DIAGNOSIS & DAILY REASSESSMENT',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/nursingReassessment',
+              label: false,
+              options: {
+                omf: {
+                  control: 'checklistMatrix',
+                  rows: [
+                    { key: 'potentialVte', label: 'Potential risk for VTE' },
+                    { key: 'impairedGasExchange', label: 'Risk for impaired gas exchange (PE suspected / diagnosed)' },
+                    { key: 'skinInjury', label: 'Risk of skin injury and pressure ulcer' },
+                    { key: 'bleedingRisk', label: 'Risk for bleeding related to anticoagulant therapy' },
+                  ],
+                  columns: [
+                    { key: 'day1', label: 'Day 1' },
+                    { key: 'day2', label: 'Day 2' },
+                    { key: 'day3', label: 'Day 3' },
+                    { key: 'day4', label: 'Day 4' },
+                    { key: 'day5', label: 'Day 5' },
+                  ],
+                },
+              },
+            },
+          ],
         },
       ],
     },
