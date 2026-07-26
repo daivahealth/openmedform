@@ -1,21 +1,41 @@
 {
   "name": "@openmedform/angular-form-renderer",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
   "description": "Angular (standalone) JSON Forms renderer: custom token-styled control/layout renderers over @jsonforms/angular, sharing form-core and form-design-tokens with the React renderer so the same jsonforms FormDefinition renders equivalently in both frameworks.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc --noEmit -p tsconfig.json",
+    "build": "ng-packagr -p ng-package.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "ng-packagr -p ng-package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/fesm2022/openmedform-angular-form-renderer.mjs",
+    "module": "./dist/fesm2022/openmedform-angular-form-renderer.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/fesm2022/openmedform-angular-form-renderer.mjs"
+      }
+    }
   },
   "dependencies": {
     "@jsonforms/angular": "3.8.0",
     "@jsonforms/core": "3.8.0",
     "@openmedform/form-core": "workspace:*",
     "@openmedform/form-design-tokens": "workspace:*",
-    "@openmedform/form-schema-types": "workspace:*"
+    "@openmedform/form-schema-types": "workspace:*",
+    "tslib": "^2.7.0"
   },
   "peerDependencies": {
     "@angular/common": "^20.0.0",
@@ -25,12 +45,24 @@
   },
   "devDependencies": {
     "@angular/common": "20.3.26",
+    "@angular/compiler": "20.3.26",
+    "@angular/compiler-cli": "20.3.26",
     "@angular/core": "20.3.26",
     "@angular/forms": "20.3.26",
     "@angular/platform-browser": "20.3.26",
+    "ng-packagr": "^20.3.0",
     "rxjs": "^7.8.0",
     "tslib": "^2.7.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daivahealth/openmedform.git",
+    "directory": "packages/angular-form-renderer"
+  },
+  "homepage": "https://github.com/daivahealth/openmedform/tree/main/packages/angular-form-renderer#readme",
+  "bugs": {
+    "url": "https://github.com/daivahealth/openmedform/issues"
   }
 }

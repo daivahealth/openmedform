@@ -193,27 +193,78 @@ clean, responsive approximation of the source document.
 
 ## Angular
 
-The same definition is designed to render in Angular via `@openmedform/angular-form-renderer` (built on
-the same `form-core` + `form-design-tokens`). **Status:** the Angular library is present in the repo but
-is not yet packaged for npm — publishing it requires an `ng-packagr` build (follow-up). Until then, the
-React path above is the supported third-party integration.
+The same FormDefinition renders in Angular via `@openmedform/angular-form-renderer` — built on the same
+`form-core` + `form-design-tokens`, so the output matches the React renderer. It ships as a standard
+Angular library (ng-packagr / Angular Package Format: partial-Ivy FESM2022 + typings), for **standalone
+Angular 20** apps.
+
+### Install
+
+```bash
+npm install @openmedform/angular-form-renderer \
+  @openmedform/form-core @openmedform/form-design-tokens @openmedform/form-schema-types
+# peers (you almost certainly already have these):
+npm install @angular/core @angular/common @angular/forms rxjs
+```
+
+`@jsonforms/angular` + `@jsonforms/core` come in as dependencies — no need to install them yourself.
+
+### Use
+
+`OmfFormComponent` is standalone; import it directly and drop `<omf-form>` into a template:
+
+```ts
+import { Component } from '@angular/core';
+import { OmfFormComponent } from '@openmedform/angular-form-renderer';
+import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [OmfFormComponent],
+  template: `
+    <omf-form
+      [definition]="definition"
+      [data]="data"
+      (dataChange)="data = $event"
+    ></omf-form>
+  `,
+})
+export class AppComponent {
+  definition!: JsonFormsFormDefinition; // the exported jsonforms FormDefinition
+  data: Record<string, unknown> = {};
+}
+```
+
+Load the design tokens once (e.g. in `styles.css`) so the `--omf-*` custom properties are available —
+or rely on the built-in fallbacks the renderer ships with:
+
+```css
+@import '@openmedform/form-design-tokens/tokens.css';
+```
+
+`(dataChange)` emits the response object as the clinician edits (language-independent codes, same shape
+as the React renderer). Recompute the authoritative score server-side on submit — the on-screen total is
+a display aid.
 
 ---
 
 ## Publishing the packages (for OpenMedForm maintainers)
 
-The four JSON Forms packages are configured to publish (dist-based `main`/`types`/`exports` via
-`publishConfig`, `workspace:*` rewritten to versions at pack time):
+The published packages are configured for dist-based `main`/`types`/`exports` via `publishConfig`, with
+`workspace:*` rewritten to versions at pack time. The React/shared packages build with `tsc`; the Angular
+library builds with `ng-packagr` (Angular Package Format). Normally releases go through Changesets (`pnpm
+release`), but to publish manually:
 
 ```bash
 # bump versions together first (they depend on each other by version), then:
-for p in form-schema-types form-core form-design-tokens react-form-renderer; do
+for p in form-schema-types form-core form-design-tokens react-form-renderer angular-form-renderer; do
   ( cd packages/$p && pnpm publish --access public --no-git-checks )
 done
 ```
 
-Publish `form-schema-types` and `form-core` before the packages that depend on them. `prepack` runs
-the build, so `dist/` is always fresh in the artifact.
+Publish `form-schema-types` and `form-core` before the packages that depend on them. `prepack` runs the
+build (`tsc`, or `ng-packagr` for the Angular library), so `dist/` is always fresh in the artifact.
 
 ---
 
@@ -222,7 +273,6 @@ the build, so `dist/` is always fresh in the artifact.
 - **Assets**: upload logos/images via the **Assets** dialog on a form's Preview screen; they are
   stored with the form and bundled (as base64 `dataUri`) into the export's `assets[]`. AI-converted
   forms start with none — add them in the Assets dialog. (Assets attach to the form's latest version.)
-- **Angular packaging**: renderer exists; npm packaging via `ng-packagr` is a follow-up.
 - **Form.io engine**: not the portable target. Importing the package root pulls the Form.io stack;
   use the `/jsonforms` entry for external apps.
 - **Exact print fidelity**: screen rendering is a faithful *structural* reproduction, not pixel-exact;
