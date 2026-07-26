@@ -102,6 +102,66 @@ transition PENDING → RUNNING → REVIEW \| FAILED; poll `GET /api/conversions/
 A successful job creates a **draft form in REVIEW status** for the chosen engine;
 `ai.convert` is audit-logged. The review/publish UI is Phase 7.
 
+### Scored clinical checklists (colour-coded domain boxes)
+
+Many clinical forms group tick-box risk factors into **coloured, icon-headed
+domain boxes** where each row reads `<risk factor> …… <points>` (e.g. a VTE risk
+assessment with AGE / CARDIOVASCULAR / SURGICAL boxes). The jsonforms conversion
+reproduces these faithfully:
+
+- Each domain box → a **`Group`** whose `label` is the box header, carrying
+  `options.omf.accentColor` (a hex approximating the box's border/header colour),
+  `options.omf.icon` (an emoji matching the box's pictogram, e.g. `❤️`), and
+  `options.omf.pointLegend` (the distinct point values shown as header chips).
+- Each row → a **boolean `Control`** whose Data Schema `title` is the exact
+  source-language label, carrying `options.omf.points` (the printed point value).
+  The renderer draws the checkbox on the left, the label, and a **colour-coded
+  point badge** on the right (1→blue, 2→green, 3→amber, 5→red).
+
+Every row is extracted as its own field — the prompt explicitly forbids emitting
+an empty `scoringMatrix` (which would drop the risk factors). Saved data is a set
+of clean booleans. A **YES/NO (or question-then-answer) row** where the paper
+prints the options to the right of the label renders label-left / options-right:
+set `options.omf.screen.labelPosition: "left"` (a two-option radio defaults to
+this). The section icon belongs only in `options.omf.icon`, never also prepended
+to the Group label (the renderer de-duplicates a doubled glyph defensively).
+
+Nested groupings are preserved, not flattened: a heading that introduces an
+indented sub-list (e.g. "Immobility … PLUS one or more of:" followed by its
+dependent factors) becomes a nested `Group` with `options.omf.variant:
+"subsection"` — an indented sub-heading with its items nested beneath it (no
+box). A heading line with no options printed beside it is a `Label` or a
+subsection heading and never receives its own input. The same `accentColor` / `icon` / `points` extensions render
+identically in the React and Angular renderers via the shared design tokens and
+point-value palette. These extensions live under `options.omf` in
+[`packages/form-schema-types`](../../packages/form-schema-types/src/ui-schema.ts).
+
+#### Total score & risk stratification
+
+Many scored forms sum the ticked points across every box into a grand total and
+map that total to a risk level. This is **data-driven and computed from a single
+source of truth** — the `options.omf.points` on each checkbox:
+
+- **Live, on screen (clinician aid):** each domain box header shows a running
+  section subtotal (`Σ N`), and a `omf.control: "scoreSummary"` element shows the
+  grand total, the per-section breakdown, and the risk band. The renderers derive
+  this with `collectScoreItems` / `computeScore` from
+  [`@openmedform/form-core`](../../packages/form-core/src/scoring/score.ts) as the
+  clinician ticks boxes. Risk bands ride on the scoreSummary under
+  `options.omf.bands` (`{ minScore?, maxScore?, label, color }`, both bounds
+  inclusive).
+- **Authoritative (stored):** at conversion (and again on every prompt-designer
+  refine) the backend derives `form_version.scoring_rules` from the same
+  `omf.points` — a `sum` rule over each scored field's data path, plus a
+  `threshold` rule from the bands. On `POST /submissions/:id/complete` the
+  `ScoringService` recomputes the total and risk level from the **saved** data and
+  stores `submission.scores` / `submission.risk_level`. **Client totals are never
+  trusted** (Form Engine Rules); the on-screen figure is display only.
+
+Because the live aid and the stored rules both read the same `omf.points`, they
+cannot drift — and re-deriving on refine keeps scoring correct when a reviewer
+adds or removes scored items.
+
 ## Limitations
 
 - Scanned PDFs with only images require page-image rendering plus a vision-capable provider. Text-only providers need embedded text or future OCR support.

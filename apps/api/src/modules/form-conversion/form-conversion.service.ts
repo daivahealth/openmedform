@@ -277,6 +277,7 @@ export class FormConversionService {
       printSchema: assembled.printSchema as unknown as Prisma.InputJsonValue,
       translations: assembled.translations as unknown as Prisma.InputJsonValue,
       conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
+      scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
     });
 
     if (assembled.warnings.length > 0) {

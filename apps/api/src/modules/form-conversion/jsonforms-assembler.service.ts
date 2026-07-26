@@ -25,6 +25,13 @@ export interface AssembledJsonForms {
   printSchema: Record<string, unknown>;
   translations: Record<string, unknown>;
   conversionMetadata: Record<string, unknown>;
+  /**
+   * Authoritative scoring rules derived from the UI schema's `options.omf.points`
+   * (+ any scoreSummary `options.omf.bands`). Stored on the form version and
+   * recomputed server-side on submission completion — the client total is a
+   * display aid only. Empty when the form has no scored controls.
+   */
+  scoringRules: Record<string, unknown>;
   /** Flattened field + form warnings for persistence into conversion_warning. */
   warnings: ConversionWarningData[];
 }
@@ -69,8 +76,76 @@ export class JsonFormsAssemblerService {
       printSchema,
       translations,
       conversionMetadata,
+      scoringRules: this.deriveScoringRules(uiSchema),
       warnings: this.extractWarnings(conversionMetadata),
     };
+  }
+
+  /**
+   * Derive the authoritative scoring rules from the UI schema, reading the same
+   * `options.omf.points` the renderer shows as badges (single source of truth,
+   * so the live client total and the stored score can't diverge). Produces:
+   *   - `totalScore` — a `sum` over every scored Control's data path;
+   *   - `riskLevel` — a `threshold` mapping the total to a band, when a
+   *     scoreSummary element declares `options.omf.bands`.
+   * Mirrors form-core's `collectScoreItems`/`stratify`; kept in the CJS backend
+   * because form-core ships ESM-only (same precedent as SchemaValidationService).
+   */
+  deriveScoringRules(uiSchema: Record<string, unknown>): Record<string, unknown> {
+    const root = (uiSchema.layout as Record<string, unknown>) ?? uiSchema;
+    const items: Array<{ field: string; points: number }> = [];
+    let bands: Array<Record<string, unknown>> | undefined;
+
+    const visit = (el: unknown): void => {
+      if (!el || typeof el !== 'object' || Array.isArray(el)) return;
+      const node = el as Record<string, unknown>;
+      const omf = ((node.options as Record<string, unknown>)?.omf ?? {}) as Record<string, unknown>;
+      const scope = node.scope;
+      if (typeof scope === 'string' && typeof omf.points === 'number') {
+        items.push({ field: this.scopeToDataPath(scope), points: omf.points });
+      }
+      if (omf.control === 'scoreSummary' && Array.isArray(omf.bands)) {
+        bands = omf.bands as Array<Record<string, unknown>>;
+      }
+      if (Array.isArray(node.elements)) node.elements.forEach(visit);
+    };
+    visit(root);
+
+    if (items.length === 0) return {};
+
+    const rules: Record<string, unknown> = {
+      totalScore: { type: 'sum', items },
+    };
+    if (bands?.length) {
+      // The scoring engine's threshold picks the first band (ascending by `max`)
+      // whose `max >= total`; the open-ended top band gets a large ceiling.
+      const thresholds = bands
+        .map((b) => ({
+          max: typeof b.maxScore === 'number' ? b.maxScore : 999999,
+          label: typeof b.label === 'string' ? b.label : 'Unknown',
+          color: typeof b.color === 'string' ? b.color : undefined,
+        }))
+        .sort((a, b) => a.max - b.max);
+      rules.riskLevel = { type: 'threshold', scoreField: 'totalScore', thresholds };
+    }
+    return rules;
+  }
+
+  /**
+   * JSON Forms scope → dotted data path: keep every other segment (the property
+   * names), dropping the `properties`/`items` keyword segments.
+   * `#/properties/age/properties/age75plus` → `age.age75plus`.
+   */
+  private scopeToDataPath(scope: string): string {
+    const segments = scope
+      .replace(/^#/, '')
+      .split('/')
+      .filter((s) => s.length > 0);
+    const out: string[] = [];
+    for (let i = 1; i < segments.length; i += 2) {
+      out.push(segments[i].replace(/~1/g, '/').replace(/~0/g, '~'));
+    }
+    return out.join('.');
   }
 
   /** Collect field-level + form-level warnings into a flat, persistable list. */

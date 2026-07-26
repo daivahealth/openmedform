@@ -23,6 +23,7 @@ export * from './rules/evaluate-rule';
 export * from './i18n/translate';
 export * from './registry/control-registry';
 export * from './serialization/response';
+export * from './scoring/score';
 
 export { rrtSbarReference } from './fixtures/rrt-sbar.reference';
 export {

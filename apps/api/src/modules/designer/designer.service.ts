@@ -114,6 +114,9 @@ export class DesignerService {
       printSchema: assembled.printSchema as unknown as Prisma.InputJsonValue,
       translations: assembled.translations as unknown as Prisma.InputJsonValue,
       conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
+      // Re-derive so scoring stays in sync when refinement adds/removes scored
+      // items — the stored authoritative rules never drift from the UI schema.
+      scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
     };
 
     // Immutability: only an unpublished draft is edited in place.

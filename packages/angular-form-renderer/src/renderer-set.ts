@@ -49,6 +49,7 @@ import {
   RiskStratificationComponent,
   riskStratificationTester,
 } from './renderers/clinical-controls';
+import { ScoreSummaryComponent, scoreSummaryTester } from './renderers/score-controls';
 
 /** Standard layout + input renderers. */
 export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
@@ -78,6 +79,7 @@ export const clinicalRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: colorCodedGridTester, renderer: ColorCodedGridComponent },
   { tester: clinicalReferenceTableTester, renderer: ClinicalReferenceTableComponent },
   { tester: riskStratificationTester, renderer: RiskStratificationComponent },
+  { tester: scoreSummaryTester, renderer: ScoreSummaryComponent },
 ];
 
 /** Complete registry consumed by <omf-form> / <jsonforms>. */

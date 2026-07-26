@@ -21,6 +21,7 @@ import {
 } from '@jsonforms/core';
 import { FIELD_STYLES } from '../styles';
 import { STANDARD_RANK } from '../testers';
+import { pointColor, readOmf } from '../point-value';
 
 const ENUM_DATE_RANK = STANDARD_RANK + 1;
 
@@ -84,23 +85,39 @@ export const integerControlTester = rankWith(STANDARD_RANK, isIntegerControl);
   template: `
     @if (!hidden) {
       <div class="omf-field">
-        <label class="omf-radio-option">
-          <input
-            type="checkbox"
-            [id]="id"
-            [checked]="!!data"
-            [disabled]="!enabled"
-            (change)="onChange({ value: $any($event.target).checked })"
-          />
-          {{ label }}
-        </label>
+        <div class="omf-check-row">
+          <label class="omf-radio-option">
+            <input
+              type="checkbox"
+              [id]="id"
+              [checked]="!!data"
+              [disabled]="!enabled"
+              (change)="onChange({ value: $any($event.target).checked })"
+            />
+            {{ label }}
+          </label>
+          @if (points !== null) {
+            <span class="omf-point-badge" [style.color]="badgeFg" [style.background]="badgeBg">{{ points }}</span>
+          }
+        </div>
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
   `,
   styles: [FIELD_STYLES],
 })
-export class BooleanControlComponent extends JsonFormsControl {}
+export class BooleanControlComponent extends JsonFormsControl {
+  get points(): number | null {
+    const p = readOmf(this.uischema)?.['points'];
+    return typeof p === 'number' ? p : null;
+  }
+  get badgeFg(): string {
+    return pointColor(this.points ?? 1).fg;
+  }
+  get badgeBg(): string {
+    return pointColor(this.points ?? 1).bg;
+  }
+}
 export const booleanControlTester = rankWith(STANDARD_RANK, isBooleanControl);
 
 @Component({

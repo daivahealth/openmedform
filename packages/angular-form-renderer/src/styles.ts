@@ -37,4 +37,15 @@ export const FIELD_STYLES = `
   .omf-group-title { font-size: var(--omf-font-size-section-title, 15px); font-weight: 600; margin: 0 0 8px; }
   .omf-row { display: flex; gap: var(--omf-grid-gap, 12px); flex-wrap: wrap; }
   .omf-row > * { flex: 1 1 0; min-width: 120px; }
+  .omf-check-row { display: flex; align-items: center; gap: 8px; }
+  .omf-check-row .omf-radio-option { flex: 1 1 auto; }
+  .omf-point-badge {
+    flex: 0 0 auto; min-width: 22px; text-align: center; padding: 1px 7px;
+    border-radius: var(--omf-border-radius, 4px); border: 1px solid currentColor;
+    font-size: var(--omf-font-size-help, 12px); font-weight: 700; line-height: 1.6;
+  }
+  .omf-group-header { display: flex; align-items: center; gap: 8px; }
+  .omf-group-header .omf-icon { flex: 0 0 auto; font-size: 1.1em; line-height: 1; }
+  .omf-group-header .omf-group-title { flex: 1 1 auto; margin: 0; }
+  .omf-legend { display: inline-flex; gap: 4px; flex: 0 0 auto; }
 `;

@@ -3,14 +3,16 @@ import { FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
 import { rrtSbarReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { formioSample } from './formio-sample';
+import { vteSample } from './vte-sample';
 
-type Mode = 'jsonforms' | 'formio' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'formio' | 'review';
 
-const definitions: Record<'jsonforms' | 'formio', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'formio', FormDefinition> = {
   jsonforms: rrtSbarReference,
+  vte: vteSample,
   formio: formioSample,
 };
-const modes: Mode[] = ['jsonforms', 'formio', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'formio', 'review'];
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -96,7 +98,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : `${key} engine`}
         </button>
       ))}
     </div>

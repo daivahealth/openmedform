@@ -7,8 +7,9 @@
  * the shared design tokens, so a two-column HorizontalLayout matches React.
  */
 
-import { Component, Directive } from '@angular/core';
+import { Component, Directive, inject, type OnDestroy, type OnInit } from '@angular/core';
 import {
+  JsonFormsAngularService,
   JsonFormsBaseRenderer,
   JsonFormsOutlet,
 } from '@jsonforms/angular';
@@ -21,8 +22,11 @@ import {
   uiTypeIs,
   type UISchemaElement,
 } from '@jsonforms/core';
+import { collectScoreItems, computeScore } from '@openmedform/form-core';
+import type { Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
 import { STANDARD_RANK } from '../testers';
+import { pointColor, readOmf } from '../point-value';
 
 /** Shared base: exposes the child elements and builds outlet render props. */
 @Directive()
@@ -75,18 +79,92 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
   standalone: true,
   imports: [JsonFormsOutlet],
   template: `
-    <fieldset class="omf-group">
-      @if (uischema?.label) {
-        <legend class="omf-group-title">{{ uischema.label }}</legend>
-      }
-      @for (element of elements; track $index) {
-        <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
-      }
-    </fieldset>
+    @if (isSubsection) {
+      <div class="omf-subsection">
+        @if (uischema?.label) { <div class="omf-subsection-title">{{ uischema.label }}</div> }
+        <div class="omf-subsection-body" [style.border-left-color]="accentColor || '#c8cdd4'">
+          @for (element of elements; track $index) {
+            <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+          }
+        </div>
+      </div>
+    } @else {
+      <fieldset class="omf-group" [style.border-color]="accentColor">
+        @if (uischema?.label) {
+          <legend class="omf-group-header" [style.color]="accentColor">
+            @if (icon) { <span class="omf-icon">{{ icon }}</span> }
+            <span class="omf-group-title">{{ uischema.label }}</span>
+            @if (legend.length) {
+              <span class="omf-legend">
+                @for (p of legend; track p) {
+                  <span class="omf-point-badge" [style.color]="badgeFg(p)" [style.background]="badgeBg(p)">{{ p }}</span>
+                }
+              </span>
+            }
+            @if (subtotal !== null) {
+              <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
+            }
+          </legend>
+        }
+        @for (element of elements; track $index) {
+          <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+        }
+      </fieldset>
+    }
   `,
-  styles: [FIELD_STYLES],
+  styles: [
+    FIELD_STYLES,
+    `
+    .omf-subsection { margin-bottom: var(--omf-section-gap, 20px); }
+    .omf-subsection-title { font-weight: var(--omf-label-weight, 600); font-size: var(--omf-font-size-label, 13px); color: var(--omf-color-label, #3a4552); margin-bottom: var(--omf-field-gap, 12px); }
+    .omf-subsection-body { margin-left: var(--omf-subsection-indent, 20px); border-left: 2px solid #c8cdd4; padding-left: var(--omf-control-padding, 8px); }
+    `,
+  ],
 })
-export class GroupLayoutComponent extends OmfLayoutBase {}
+export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDestroy {
+  private readonly jsonForms = inject(JsonFormsAngularService);
+  private sub?: Subscription;
+  /** Live section subtotal; null when this box has no scored descendants. */
+  subtotal: number | null = null;
+
+  get isSubsection(): boolean {
+    return readOmf(this.uischema)?.['variant'] === 'subsection';
+  }
+  get accentColor(): string | null {
+    const c = readOmf(this.uischema)?.['accentColor'];
+    return typeof c === 'string' ? c : null;
+  }
+  get icon(): string | null {
+    const i = readOmf(this.uischema)?.['icon'];
+    if (typeof i !== 'string') return null;
+    // Avoid a double glyph when the AI also embedded the icon in the label text.
+    const rawLabel = (this.uischema as { label?: unknown })?.label;
+    const label = typeof rawLabel === 'string' ? rawLabel : '';
+    return label.includes(i) ? null : i;
+  }
+  get legend(): number[] {
+    const l = readOmf(this.uischema)?.['pointLegend'];
+    return Array.isArray(l) ? (l as number[]) : [];
+  }
+  badgeFg(points: number): string {
+    return pointColor(points).fg;
+  }
+  badgeBg(points: number): string {
+    return pointColor(points).bg;
+  }
+
+  ngOnInit(): void {
+    const items = this.uischema ? collectScoreItems(this.uischema as never) : [];
+    if (items.length === 0) return;
+    this.sub = this.jsonForms.$state.subscribe((state) => {
+      this.subtotal = computeScore(items, state?.jsonforms?.core?.data ?? {}).total;
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
+  }
+}
 export const groupTester = rankWith(STANDARD_RANK, uiTypeIs('Group'));
 
 @Component({
