@@ -6,7 +6,7 @@
  * radio group without leaving the JSON Forms vocabulary.
  */
 
-import type { ComponentType } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import type { ControlProps, LayoutProps, GroupLayout, Layout, UISchemaElement } from '@jsonforms/core';
 import {
   rankWith,
@@ -280,8 +280,20 @@ export const OmfCheckboxControl: ComponentType<any> = withJsonFormsControlProps(
 function OmfGroup(props: LayoutProps) {
   const { uischema, schema, path, visible, enabled, renderers, cells } = props;
   const ctx = useJsonForms();
-  if (!visible) return null;
   const group = uischema as GroupLayout;
+  const data = ctx.core?.data ?? {};
+
+  // Live section subtotal: sum this box's own scored (omf.points) descendants
+  // against the whole-form data. Memoized so the tree walk runs only when the
+  // schema changes and the sum only when data changes — not on every JsonForms
+  // state emission (validation/focus/…) that re-renders this component.
+  const scoreItems = useMemo(() => collectScoreItems(group as never), [group]);
+  const subtotal = useMemo(
+    () => (scoreItems.length ? computeScore(scoreItems, data).total : undefined),
+    [scoreItems, data],
+  );
+
+  if (!visible) return null;
   const elements = group.elements ?? [];
   const omf = readOmf(uischema);
   const accent = typeof omf?.accentColor === 'string' ? (omf.accentColor as string) : undefined;
@@ -292,13 +304,6 @@ function OmfGroup(props: LayoutProps) {
   const labelText = typeof group.label === 'string' ? group.label : '';
   const icon = rawIcon && !labelText.includes(rawIcon) ? rawIcon : undefined;
   const isSubsection = omf?.variant === 'subsection';
-
-  // Live section subtotal: sum this box's own scored (omf.points) descendants
-  // against the whole-form data. Only shown when the box actually scores.
-  const scoreItems = collectScoreItems(group as never);
-  const subtotal = scoreItems.length
-    ? computeScore(scoreItems, ctx.core?.data ?? {}).total
-    : undefined;
 
   const childNodes = elements.map((child, index) => (
     <JsonFormsDispatch

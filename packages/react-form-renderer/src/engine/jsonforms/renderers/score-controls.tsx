@@ -9,7 +9,7 @@
  * aid — the server recomputes the authoritative score on submission.
  */
 
-import type { ComponentType } from 'react';
+import { useMemo, type ComponentType } from 'react';
 import type { ControlProps, UISchemaElement } from '@jsonforms/core';
 import { rankWith } from '@jsonforms/core';
 import { useJsonForms, withJsonFormsControlProps } from '@jsonforms/react';
@@ -20,14 +20,21 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 function OmfScoreSummary(props: ControlProps) {
   const { label, visible, uischema } = props;
   const ctx = useJsonForms();
-  if (!visible) return null;
 
   const rootUi = ctx.core?.uischema as unknown as UiSchema | UISchemaElement | undefined;
   const data = ctx.core?.data ?? {};
   const bands = (readOmf(uischema)?.bands as RiskBand[] | undefined) ?? undefined;
-  const items = rootUi ? collectScoreItems(rootUi as never) : [];
-  const { total, bySection, riskLabel, riskColor } = computeScore(items, data, bands);
+  // The UI schema is static; only re-walk it when its reference changes. The
+  // component re-renders on every JsonForms state change (validation/focus/…),
+  // so memoizing keeps the work to actual data/schema changes.
+  const items = useMemo(() => (rootUi ? collectScoreItems(rootUi as never) : []), [rootUi]);
+  const { total, bySection, riskLabel, riskColor } = useMemo(
+    () => computeScore(items, data, bands),
+    [items, data, bands],
+  );
   const sections = Object.entries(bySection);
+
+  if (!visible) return null;
 
   return (
     <div
