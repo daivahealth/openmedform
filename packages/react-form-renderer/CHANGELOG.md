@@ -1,5 +1,23 @@
 # @openmedform/react-form-renderer
 
+## 0.4.1
+
+### Patch Changes
+
+- 454223a: Memoize live-scoring work in the React renderer.
+
+  `OmfScoreSummary` re-walked the entire UI schema (`collectScoreItems`) and
+  `OmfGroup` re-walked its subtree on every render — and `useJsonForms()` re-renders
+  these on every JsonForms state change (validation/focus/config, not just data
+  edits). Both are now wrapped in `useMemo`: the tree walk runs only when the UI
+  schema reference changes and the sum only when the response data changes.
+  Behaviour is unchanged (same totals/subtotals/risk band) — this mirrors the
+  equivalent Angular renderer fix so both stay cheap on large scored forms.
+
+  - @openmedform/form-schema-types@0.4.1
+  - @openmedform/form-core@0.4.1
+  - @openmedform/form-design-tokens@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
