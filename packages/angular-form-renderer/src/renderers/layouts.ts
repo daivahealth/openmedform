@@ -23,7 +23,7 @@ import {
   type UISchemaElement,
 } from '@jsonforms/core';
 import { collectScoreItems, computeScore } from '@openmedform/form-core';
-import type { Subscription } from 'rxjs';
+import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
 import { STANDARD_RANK } from '../testers';
 import { pointColor, readOmf } from '../point-value';
@@ -159,10 +159,18 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
 
   ngOnInit(): void {
     const items = this.uischema ? collectScoreItems(this.uischema as never) : [];
-    if (items.length === 0) return;
-    this.sub = this.jsonForms.$state.subscribe((state) => {
-      this.subtotal = computeScore(items, state?.jsonforms?.core?.data ?? {}).total;
-    });
+    if (items.length === 0) return; // non-scored boxes never subscribe.
+    // Recompute the subtotal only when the response data changes — not on every
+    // $state emission (validation/config/focus), which multiplied across every
+    // scored group was a perf hot-spot.
+    this.sub = this.jsonForms.$state
+      .pipe(
+        map((state) => state?.jsonforms?.core?.data),
+        distinctUntilChanged(),
+      )
+      .subscribe((data) => {
+        this.subtotal = computeScore(items, data ?? {}).total;
+      });
   }
 
   ngOnDestroy(): void {
