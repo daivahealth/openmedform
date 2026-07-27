@@ -12,7 +12,7 @@ import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { JsonFormsAngularService, JsonFormsBaseRenderer } from '@jsonforms/angular';
 import { rankWith, type ControlElement, type UISchemaElement } from '@jsonforms/core';
 import { collectScoreItems, computeScore, type RiskBand, type ScoreItem } from '@openmedform/form-core';
-import type { Subscription } from 'rxjs';
+import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
@@ -66,6 +66,7 @@ export class ScoreSummaryComponent
   private readonly jsonForms = inject(JsonFormsAngularService);
   private sub?: Subscription;
   private items: ScoreItem[] = [];
+  private lastUi: unknown;
   total = 0;
   bySection: Record<string, number> = {};
   riskLabel?: string;
@@ -83,16 +84,27 @@ export class ScoreSummaryComponent
   }
 
   ngOnInit(): void {
-    this.sub = this.jsonForms.$state.subscribe((state) => {
-      const core = state?.jsonforms?.core;
-      const rootUi = core?.uischema as unknown as UISchemaElement | undefined;
-      this.items = rootUi ? collectScoreItems(rootUi as never) : [];
-      const r = computeScore(this.items, core?.data ?? {}, this.bands);
-      this.total = r.total;
-      this.bySection = r.bySection;
-      this.riskLabel = r.riskLabel;
-      this.riskColor = r.riskColor;
-    });
+    // Recompute only when the response data (or the UI schema) actually changes —
+    // JsonForms' $state also emits on validation/config/focus, and re-walking the
+    // whole UI tree + re-summing on every one of those was the perf hot-spot.
+    this.sub = this.jsonForms.$state
+      .pipe(
+        map((state) => state?.jsonforms?.core),
+        distinctUntilChanged((a, b) => a?.data === b?.data && a?.uischema === b?.uischema),
+      )
+      .subscribe((core) => {
+        const rootUi = core?.uischema as unknown as UISchemaElement | undefined;
+        // The UI schema is static in practice; only re-collect items if it changed.
+        if (rootUi !== this.lastUi) {
+          this.lastUi = rootUi;
+          this.items = rootUi ? collectScoreItems(rootUi as never) : [];
+        }
+        const r = computeScore(this.items, core?.data ?? {}, this.bands);
+        this.total = r.total;
+        this.bySection = r.bySection;
+        this.riskLabel = r.riskLabel;
+        this.riskColor = r.riskColor;
+      });
   }
 
   ngOnDestroy(): void {

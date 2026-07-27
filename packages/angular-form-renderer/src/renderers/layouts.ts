@@ -23,7 +23,7 @@ import {
   type UISchemaElement,
 } from '@jsonforms/core';
 import { collectScoreItems, computeScore } from '@openmedform/form-core';
-import type { Subscription } from 'rxjs';
+import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
 import { STANDARD_RANK } from '../testers';
 import { pointColor, readOmf } from '../point-value';
@@ -89,9 +89,9 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
         </div>
       </div>
     } @else {
-      <fieldset class="omf-group" [style.border-color]="accentColor">
+      <div class="omf-group" [style.border-color]="accentColor">
         @if (groupLabel) {
-          <legend class="omf-group-header" [style.color]="accentColor">
+          <div class="omf-group-header" [style.color]="accentColor" [style.border-bottom-color]="accentColor">
             @if (icon) { <span class="omf-icon">{{ icon }}</span> }
             <span class="omf-group-title">{{ groupLabel }}</span>
             @if (legend.length) {
@@ -104,12 +104,14 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
             @if (subtotal !== null) {
               <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
             }
-          </legend>
+          </div>
         }
-        @for (element of elements; track $index) {
-          <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
-        }
-      </fieldset>
+        <div class="omf-group-body">
+          @for (element of elements; track $index) {
+            <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+          }
+        </div>
+      </div>
     }
   `,
   styles: [
@@ -159,10 +161,18 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
 
   ngOnInit(): void {
     const items = this.uischema ? collectScoreItems(this.uischema as never) : [];
-    if (items.length === 0) return;
-    this.sub = this.jsonForms.$state.subscribe((state) => {
-      this.subtotal = computeScore(items, state?.jsonforms?.core?.data ?? {}).total;
-    });
+    if (items.length === 0) return; // non-scored boxes never subscribe.
+    // Recompute the subtotal only when the response data changes — not on every
+    // $state emission (validation/config/focus), which multiplied across every
+    // scored group was a perf hot-spot.
+    this.sub = this.jsonForms.$state
+      .pipe(
+        map((state) => state?.jsonforms?.core?.data),
+        distinctUntilChanged(),
+      )
+      .subscribe((data) => {
+        this.subtotal = computeScore(items, data ?? {}).total;
+      });
   }
 
   ngOnDestroy(): void {
