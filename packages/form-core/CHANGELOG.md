@@ -1,5 +1,11 @@
 # @openmedform/form-core
 
+## 0.4.1
+
+### Patch Changes
+
+- @openmedform/form-schema-types@0.4.1
+
 ## 0.4.0
 
 ### Patch Changes
