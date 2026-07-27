@@ -89,9 +89,9 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
         </div>
       </div>
     } @else {
-      <fieldset class="omf-group" [style.border-color]="accentColor">
+      <div class="omf-group" [style.border-color]="accentColor">
         @if (groupLabel) {
-          <legend class="omf-group-header" [style.color]="accentColor">
+          <div class="omf-group-header" [style.color]="accentColor" [style.border-bottom-color]="accentColor">
             @if (icon) { <span class="omf-icon">{{ icon }}</span> }
             <span class="omf-group-title">{{ groupLabel }}</span>
             @if (legend.length) {
@@ -104,12 +104,14 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
             @if (subtotal !== null) {
               <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
             }
-          </legend>
+          </div>
         }
-        @for (element of elements; track $index) {
-          <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
-        }
-      </fieldset>
+        <div class="omf-group-body">
+          @for (element of elements; track $index) {
+            <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+          }
+        </div>
+      </div>
     }
   `,
   styles: [
