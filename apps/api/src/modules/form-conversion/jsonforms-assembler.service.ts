@@ -57,6 +57,13 @@ export class JsonFormsAssemblerService {
       throw new BadRequestException('AI output is missing a dataSchema');
     }
 
+    // Models occasionally emit a local `$ref` to a `$defs` entry they never
+    // defined (e.g. "#/$defs/age"), which makes Ajv refuse to compile the WHOLE
+    // schema. Rather than hard-fail an otherwise good multi-section form, strip
+    // the dangling refs (the field then validates permissively) and surface a
+    // warning so the reviewer can tighten it.
+    const repairedRefs = this.repairDanglingRefs(dataSchema);
+
     const compileError = this.validation.checkCompiles(dataSchema);
     if (compileError) {
       throw new BadRequestException(
@@ -70,6 +77,14 @@ export class JsonFormsAssemblerService {
     const translations = this.normalizeTranslations(parsed.translations);
     const conversionMetadata = this.asObject(parsed.conversionMetadata) ?? {};
 
+    const warnings = this.extractWarnings(conversionMetadata);
+    for (const ref of repairedRefs) {
+      warnings.push({
+        type: 'UNCERTAIN_FIELD_BINDING',
+        message: `Removed an unresolved schema reference "${ref}" (the AI referenced a $def it did not define). The affected field now validates permissively — review its type/constraints.`,
+      });
+    }
+
     return {
       dataSchema,
       uiSchema,
@@ -77,8 +92,36 @@ export class JsonFormsAssemblerService {
       translations,
       conversionMetadata,
       scoringRules: this.deriveScoringRules(uiSchema),
-      warnings: this.extractWarnings(conversionMetadata),
+      warnings,
     };
+  }
+
+  /**
+   * Strip local `$ref`s whose target does not exist in the schema. Returns the
+   * list of removed (unique) ref pointers. Deleting only the `$ref` keyword keeps
+   * any sibling keywords; a node left empty (`{}`) accepts any value, which is a
+   * safe permissive fallback for a draft under review.
+   */
+  private repairDanglingRefs(root: Record<string, unknown>): string[] {
+    const removed = new Set<string>();
+
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (!node || typeof node !== 'object') return;
+      const obj = node as Record<string, unknown>;
+      const ref = obj.$ref;
+      if (typeof ref === 'string' && ref.startsWith('#/') && !this.resolveLocalPointer(root, ref)) {
+        delete obj.$ref;
+        removed.add(ref);
+      }
+      for (const value of Object.values(obj)) walk(value);
+    };
+
+    walk(root);
+    return [...removed];
   }
 
   /**

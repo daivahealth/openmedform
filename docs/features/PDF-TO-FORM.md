@@ -158,6 +158,13 @@ completeness on dense forms ultimately depends on the LLM, anything the model is
 unsure it captured is surfaced as a `POTENTIAL_MISSING_FIELD` warning in review
 rather than silently dropped — re-run or refine if a section still looks thin.
 
+The Data Schema must compile under Ajv or the job fails. One common LLM slip —
+a local `$ref` to a `$defs` entry it never defined (e.g. `#/$defs/age`) — would
+otherwise reject the whole schema; the assembler instead **strips the dangling
+`$ref`** (the field then validates permissively, keeping any sibling keywords)
+and records an `UNCERTAIN_FIELD_BINDING` warning so the reviewer can tighten it,
+so one bad reference no longer sinks an otherwise-complete conversion.
+
 #### Total score & risk stratification
 
 Many scored forms sum the ticked points across every box into a grand total and
