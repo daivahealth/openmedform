@@ -8,7 +8,14 @@
  * Display aid only — the server recomputes the authoritative score.
  */
 
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  inject,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { JsonFormsAngularService, JsonFormsBaseRenderer } from '@jsonforms/angular';
 import { rankWith, type ControlElement, type UISchemaElement } from '@jsonforms/core';
 import { collectScoreItems, computeScore, type RiskBand, type ScoreItem } from '@openmedform/form-core';
@@ -19,6 +26,7 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 @Component({
   selector: 'omf-score-summary',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="omf-score">
       <div class="omf-score-head">
@@ -64,6 +72,7 @@ export class ScoreSummaryComponent
   implements OnInit, OnDestroy
 {
   private readonly jsonForms = inject(JsonFormsAngularService);
+  private readonly cdr = inject(ChangeDetectorRef);
   private sub?: Subscription;
   private items: ScoreItem[] = [];
   private lastUi: unknown;
@@ -104,6 +113,7 @@ export class ScoreSummaryComponent
         this.bySection = r.bySection;
         this.riskLabel = r.riskLabel;
         this.riskColor = r.riskColor;
+        this.cdr.markForCheck(); // OnPush: mark the view when the async total updates.
       });
   }
 
