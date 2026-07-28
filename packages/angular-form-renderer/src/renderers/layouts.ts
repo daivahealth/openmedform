@@ -5,9 +5,31 @@
  * `<jsonforms-outlet>`, which resolves the right renderer via the registered
  * testers (same dispatch model as the React tree). Spacing/typography come from
  * the shared design tokens, so a two-column HorizontalLayout matches React.
+ *
+ * CHANGE DETECTION: these containers use OnPush. On a large clinical form this
+ * is the difference between re-checking the WHOLE tree on every keystroke and
+ * re-checking only the path from root to the edited control. It is safe because:
+ * - the edited control's own DOM event marks its path to root dirty, so the
+ *   active field always re-renders;
+ * - the only containers with live, data-driven state (scored Group subtotals and
+ *   the score summary) subscribe to the store and call markForCheck themselves;
+ * - `childProps` returns a memoized reference so re-checks don't churn outlets.
+ * Known limitation: JSON Forms `rule`-driven visibility/enablement or cross-field
+ * validation on a NON-edited control in a sibling branch may not refresh until
+ * that control is next interacted with (the @jsonforms/angular base control does
+ * not markForCheck). Current forms carry no conditional rules; if that changes,
+ * the leaf control wrappers would need their own markForCheck on state updates.
  */
 
-import { Component, Directive, inject, type OnDestroy, type OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Directive,
+  inject,
+  type OnDestroy,
+  type OnInit,
+} from '@angular/core';
 import {
   JsonFormsAngularService,
   JsonFormsBaseRenderer,
@@ -31,12 +53,31 @@ import { pointColor, readOmf } from '../point-value';
 /** Shared base: exposes the child elements and builds outlet render props. */
 @Directive()
 export abstract class OmfLayoutBase extends JsonFormsBaseRenderer<Layout> {
+  // Cache the render-props object per child element so the same reference is
+  // returned across change-detection passes. The <jsonforms-outlet> [renderProps]
+  // @Input setter only fires when the bound value's reference changes, so a
+  // stable reference stops container re-checks (esp. under OnPush, when a scored
+  // group re-checks on a subtotal update) from re-running the outlet's dispatch.
+  private readonly propsCache = new Map<UISchemaElement, OwnPropsOfRenderer>();
+  private cacheKey?: string;
+
   get elements(): UISchemaElement[] {
     return this.uischema?.elements ?? [];
   }
 
   childProps(element: UISchemaElement): OwnPropsOfRenderer {
-    return { uischema: element, schema: this.schema, path: this.path };
+    // Invalidate if this layout instance is reused for a different scope/schema.
+    const key = `${this.path ?? ''}`;
+    if (key !== this.cacheKey) {
+      this.propsCache.clear();
+      this.cacheKey = key;
+    }
+    let cached = this.propsCache.get(element);
+    if (!cached) {
+      cached = { uischema: element, schema: this.schema, path: this.path };
+      this.propsCache.set(element, cached);
+    }
+    return cached;
   }
 }
 
@@ -44,6 +85,7 @@ export abstract class OmfLayoutBase extends JsonFormsBaseRenderer<Layout> {
   selector: 'omf-vertical-layout',
   standalone: true,
   imports: [JsonFormsOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="omf-vertical">
       @for (element of elements; track $index) {
@@ -60,6 +102,7 @@ export const verticalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('VerticalLa
   selector: 'omf-horizontal-layout',
   standalone: true,
   imports: [JsonFormsOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="omf-row">
       @for (element of elements; track $index) {
@@ -78,6 +121,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
   selector: 'omf-group-layout',
   standalone: true,
   imports: [JsonFormsOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (isSubsection) {
       <div class="omf-subsection">
@@ -125,6 +169,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
 })
 export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDestroy {
   private readonly jsonForms = inject(JsonFormsAngularService);
+  private readonly cdr = inject(ChangeDetectorRef);
   private sub?: Subscription;
   /** Live section subtotal; null when this box has no scored descendants. */
   subtotal: number | null = null;
@@ -172,6 +217,7 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
       )
       .subscribe((data) => {
         this.subtotal = computeScore(items, data ?? {}).total;
+        this.cdr.markForCheck(); // OnPush: the async subtotal update must mark the view.
       });
   }
 
@@ -184,6 +230,7 @@ export const groupTester = rankWith(STANDARD_RANK, uiTypeIs('Group'));
 @Component({
   selector: 'omf-label',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<p class="omf-group-title">{{ text }}</p>`,
   styles: [FIELD_STYLES],
 })
