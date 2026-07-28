@@ -4,6 +4,7 @@ docs
 **/node_modules
 **/.next
 **/dist
+packages/*/lib
 **/.turbo
 **/coverage
 *.log
