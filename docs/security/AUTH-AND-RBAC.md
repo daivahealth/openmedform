@@ -6,6 +6,12 @@
 - Token expiry: 24 hours (configurable via `JWT_EXPIRY` env var)
 - Password hashing: bcrypt (cost factor 10)
 
+## Google SSO
+- Optional OAuth2 login via `passport-google-oauth20`: `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` → app JWT → redirect to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>`.
+- Tenant mapping is **invite-only match-by-email**: the Google email must match exactly one existing active user (provisioned by a tenant admin). No auto-provisioning; ambiguous (multi-tenant) emails are rejected and must use password login.
+- The strategy registers only when `GOOGLE_CLIENT_ID` is configured; without it the SSO routes return 503 and password login is unaffected.
+- SSO failures redirect to `<FRONTEND_ORIGIN>/login?error=google_sso&message=...` — never raw JSON, since the browser is mid-redirect.
+
 ## Roles
 | Role | Permissions |
 |------|------------|

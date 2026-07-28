@@ -21,7 +21,7 @@ OpenMedForm is an **AI-powered clinical form builder platform**. It enables heal
 - `docs/api/`: API contracts, endpoints, DTOs
 - `docs/features/`: form builder, AI builder, scoring engine
 - `docs/development/`: dev setup, commands, coding patterns
-- `docs/deployment/`: Docker Compose
+- `docs/deployment/`: Docker Compose, GCP Cloud Run (production)
 - `docs/security/`: auth, RBAC, audit logging, LLM key handling
 
 ## Core Rules
@@ -82,7 +82,7 @@ OpenMedForm is an **AI-powered clinical form builder platform**. It enables heal
 | UI | Radix UI + Tailwind CSS | Latest |
 | State | Zustand + React Query v5 | Latest |
 | Monorepo | Turborepo + pnpm | Latest |
-| Deployment | Docker Compose | v2 |
+| Deployment | Docker Compose (local), GCP Cloud Run (production) | v2 |
 
 ## Dos
 

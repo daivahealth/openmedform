@@ -1,0 +1,14 @@
+.git
+.github
+docs
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+*.log
+.env
+**/.env
+apps/api/.env
+pgadmin
+scripts

@@ -1,17 +1,63 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Request, Response } from 'express';
+import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { GoogleAuthExceptionFilter } from './google-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { GoogleAuthGuard } from '../../common/guards/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Public()
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  /** Starts the Google OAuth2 handshake (redirects to Google). */
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  googleLogin() {
+    // Guard performs the redirect; nothing to do here.
+  }
+
+  /**
+   * Google OAuth2 callback. On success, issues an app JWT and redirects to the
+   * web callback page with the token. On any failure, the filter redirects to
+   * the web login page with an error message instead.
+   */
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @UseFilters(GoogleAuthExceptionFilter)
+  async googleCallback(
+    @Req() req: Request & { user: User & { tenant: Tenant } },
+    @Res() res: Response,
+  ) {
+    const session = await this.authService.googleLogin(req.user);
+    const frontendOrigin =
+      this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3000';
+    const target = new URL('/auth/callback', frontendOrigin);
+    target.searchParams.set('token', session.accessToken);
+    res.redirect(target.toString());
   }
 
   @Get('me')

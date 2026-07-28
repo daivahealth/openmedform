@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './google.strategy';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
@@ -27,6 +28,20 @@ import { RolesGuard } from '../../common/guards/roles.guard';
   providers: [
     AuthService,
     JwtStrategy,
+    // Google SSO is optional: the strategy is only constructed (and registered
+    // with passport) when GOOGLE_CLIENT_ID is present, so local dev and
+    // password-only deployments boot without Google config.
+    {
+      provide: GoogleStrategy,
+      inject: [ConfigService, AuthService],
+      useFactory: (config: ConfigService, authService: AuthService) => {
+        const clientId = config.get<string>('GOOGLE_CLIENT_ID');
+        if (!clientId || clientId === 'CHANGE_ME') {
+          return null;
+        }
+        return new GoogleStrategy(config, authService);
+      },
+    },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

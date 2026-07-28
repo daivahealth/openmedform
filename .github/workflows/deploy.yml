@@ -1,0 +1,97 @@
+name: Deploy
+
+# Builds and deploys the API and Web images to Cloud Run on every push to
+# main. Auth is keyless via Workload Identity Federation (no JSON keys).
+# One-time GCP setup: scripts/gcp-setup.sh (see docs/deployment/GCP-CLOUD-RUN.md).
+# Kept separate from release.yml, which only publishes npm packages.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+# Required GitHub Actions variables (Settings > Secrets and variables > Actions):
+#   GCP_PROJECT_ID, GCP_REGION, GCP_WORKLOAD_IDENTITY_PROVIDER,
+#   GCP_SERVICE_ACCOUNT, API_URL (https://api.<domain>), WEB_URL (https://app.<domain>)
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  AR_REPO: openmedform
+  API_SERVICE: openmedform-api
+  WEB_SERVICE: openmedform-web
+  IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/openmedform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push API image
+        run: |
+          docker build -f apps/api/Dockerfile \
+            -t ${{ env.IMAGE_BASE }}/api:${{ github.sha }} \
+            -t ${{ env.IMAGE_BASE }}/api:latest .
+          docker push ${{ env.IMAGE_BASE }}/api:${{ github.sha }}
+          docker push ${{ env.IMAGE_BASE }}/api:latest
+
+      - name: Build and push Web image
+        run: |
+          docker build -f apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL=${{ vars.API_URL }} \
+            -t ${{ env.IMAGE_BASE }}/web:${{ github.sha }} \
+            -t ${{ env.IMAGE_BASE }}/web:latest .
+          docker push ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
+          docker push ${{ env.IMAGE_BASE }}/web:latest
+
+      # Secrets are sourced from Secret Manager (created by scripts/gcp-setup.sh);
+      # update their values there — never in this file.
+      - name: Deploy API to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.API_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_BASE }}/api:${{ github.sha }}
+          service_account: openmedform-runtime@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          secrets: |
+            DATABASE_URL=DATABASE_URL:latest
+            JWT_SECRET=JWT_SECRET:latest
+            AI_ENCRYPTION_KEY=AI_ENCRYPTION_KEY:latest
+            FRONTEND_ORIGIN=FRONTEND_ORIGIN:latest
+            GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
+            GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest
+            GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest
+
+      - name: Deploy Web to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.WEB_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
