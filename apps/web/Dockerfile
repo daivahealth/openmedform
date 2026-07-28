@@ -35,16 +35,17 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:3100
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 WORKDIR /app
-# Build order matters:
+# Build order matters (topological):
+#  - @openmedform/formio-core is consumed via its lib/cjs build (webpack alias
+#    in next.config.mjs) and its types are needed by the renderer dts build,
+#    so it must be built FIRST. Only the `lib` step is needed (doc/dist are
+#    docs and browser bundles — the CSS is vendored under apps/web/public/).
 #  - @openmedform/renderer ships as compiled dist/ (tsup), so it must be built
 #    here (first-party packages ship as TS source and need no build).
-#  - @openmedform/formio-core is consumed via its lib/cjs build (webpack alias
-#    in next.config.mjs); only the `lib` step is needed (doc/dist are docs and
-#    browser bundles — the CSS is vendored under apps/web/public/vendor/).
 #  - The vendored @openmedform/formio-react fork is intentionally NOT built:
 #    nothing imports it.
-RUN pnpm --filter @openmedform/renderer run build
 RUN pnpm --filter @openmedform/formio-core run lib
+RUN pnpm --filter @openmedform/renderer run build
 RUN pnpm --filter @openmedform/web run build
 
 # --- runtime ---
