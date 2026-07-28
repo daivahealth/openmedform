@@ -4,7 +4,7 @@
 `http://localhost:3100/api`
 
 ## Authentication
-All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
+All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
 
 ## Endpoints
 
@@ -12,6 +12,8 @@ All endpoints except `/api/auth/login` and `/api/public/*` require a valid JWT i
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /api/auth/login | Login, returns JWT |
+| GET | /api/auth/google | Start Google OAuth2 handshake (redirect) |
+| GET | /api/auth/google/callback | Google OAuth2 callback, redirects to web with JWT |
 | POST | /api/auth/register | Create user (admin only) |
 | GET | /api/auth/me | Current user profile |
 

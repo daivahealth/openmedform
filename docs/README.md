@@ -11,7 +11,7 @@ AI-powered clinical form builder platform.
 | API | [api/](api/) | API contracts, endpoints, DTOs |
 | Features | [features/](features/) | Form builder, AI builder, scoring engine |
 | Development | [development/](development/) | Dev setup, commands, coding patterns |
-| Deployment | [deployment/](deployment/) | Local deployment, Docker Compose, production setup |
+| Deployment | [deployment/](deployment/) | Local deployment, Docker Compose, GCP Cloud Run (production) |
 | Security | [security/](security/) | Auth, RBAC, audit logging, LLM key handling |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) | Documentation standards and contribution guidance |
 
@@ -25,3 +25,4 @@ AI-powered clinical form builder platform.
 - [Developer Onboarding](development/DEVELOPER-ONBOARDING.md)
 - [Local Deployment Guide](deployment/LOCAL-DEPLOYMENT.md)
 - [Docker Compose](deployment/DOCKER-COMPOSE.md)
+- [GCP Cloud Run (production)](deployment/GCP-CLOUD-RUN.md)

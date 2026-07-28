@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, type FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,6 +53,23 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* SSO errors arrive as ?error=...&message=... after the API redirect */}
+        <Suspense>
+          <SsoErrorNotice />
+        </Suspense>
+        <Button variant="outline" className="mb-4 w-full" asChild>
+          <a href={`${apiBase}/api/auth/google`}>Sign in with Google</a>
+        </Button>
+        <div className="relative mb-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              or with email
+            </span>
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -91,5 +110,19 @@ export default function LoginPage() {
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+function SsoErrorNotice() {
+  const searchParams = useSearchParams();
+  if (searchParams.get('error') !== 'google_sso') {
+    return null;
+  }
+  const message =
+    searchParams.get('message') || 'Google sign-in failed. Please try again.';
+  return (
+    <div className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      {message}
+    </div>
   );
 }

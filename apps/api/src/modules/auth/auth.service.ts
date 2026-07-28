@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Tenant, User } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../../common/types/jwt-payload.interface';
@@ -34,6 +35,40 @@ export class AuthService {
       throw new UnauthorizedException('Tenant is inactive');
     }
 
+    return this.issueSession(user);
+  }
+
+  /**
+   * Invite-only match-by-email for Google SSO. Returns the matching active
+   * user; never creates one (tenant admins provision users explicitly).
+   */
+  async validateGoogleUser(email: string): Promise<User & { tenant: Tenant }> {
+    const users = await this.prisma.user.findMany({
+      where: { email, isActive: true },
+      include: { tenant: true },
+    });
+
+    const activeTenantUsers = users.filter((u) => u.tenant.isActive);
+
+    if (activeTenantUsers.length === 0) {
+      throw new UnauthorizedException(
+        'No account exists for this Google email. Ask your administrator for an invite.',
+      );
+    }
+    if (activeTenantUsers.length > 1) {
+      // Email exists under more than one tenant — SSO cannot disambiguate.
+      throw new UnauthorizedException(
+        'This email belongs to multiple organizations. Sign in with email and password instead.',
+      );
+    }
+    return activeTenantUsers[0];
+  }
+
+  async googleLogin(user: User & { tenant: Tenant }) {
+    return this.issueSession(user);
+  }
+
+  private async issueSession(user: User & { tenant: Tenant }) {
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },

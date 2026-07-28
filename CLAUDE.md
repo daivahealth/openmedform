@@ -45,7 +45,7 @@ OpenMedForm is an **AI-powered clinical form builder platform**. It enables heal
 - [docs/api/](docs/api): API contracts, endpoint behavior, and integration references.
 - [docs/features/](docs/features): feature behavior, form builder, AI builder, scoring engine.
 - [docs/development/](docs/development): engineering workflow, commands, and implementation guidance.
-- [docs/deployment/](docs/deployment): Docker Compose, nginx configuration.
+- [docs/deployment/](docs/deployment): Docker Compose, GCP Cloud Run (production), nginx configuration.
 - [docs/security/](docs/security): security, RBAC, audit logging, LLM API key handling.
 
 ## Documentation First Policy
@@ -66,7 +66,7 @@ When a change is made, update the correct documentation family.
 - API shape, endpoint semantics, auth/header expectations, request/response changes: `docs/api/`
 - Feature behavior, form builder, AI builder, scoring rules: `docs/features/`
 - Developer setup, local workflow, commands, coding patterns: `docs/development/`
-- Docker Compose, nginx changes: `docs/deployment/`
+- Docker Compose, nginx, Cloud Run / CI-CD changes: `docs/deployment/`
 - Auth, RBAC, audit logging, LLM API key handling: `docs/security/`
 
 ## No Silent Drift
@@ -198,7 +198,7 @@ openmedform/
 | UI | Radix UI + Tailwind CSS | Latest |
 | State | Zustand + React Query v5 | Latest |
 | Monorepo | Turborepo + pnpm | Latest |
-| Deployment | Docker Compose | v2 |
+| Deployment | Docker Compose (local), GCP Cloud Run (production) | v2 |
 
 ## Development Workflow
 
