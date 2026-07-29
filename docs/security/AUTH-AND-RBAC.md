@@ -8,13 +8,17 @@
 
 ## Self-Service Signup
 - Public `POST /api/auth/register` (`{ fullName, organizationName, email, password }`) provisions a **new tenant** and its first `TENANT_ADMIN` in one transaction, then issues a session — the true SaaS "new organization per signup" model.
-- Email must be **globally unique**: registration is rejected (409) if the email already exists in any tenant. This keeps Google SSO's invite-only match-by-email unambiguous (a single-tenant email always resolves).
+- Email must be **globally unique**: registration is rejected (409) if the email already exists in any tenant. This keeps Google SSO's match-by-email unambiguous (a single-tenant email always resolves).
 - The org name is slugified into a unique tenant slug (a short random suffix is appended on collision).
 - Audit-logged as `auth.register`.
+- **Google signup** (`GET /api/auth/google?mode=signup`) provisions a new tenant the same way — see Google SSO below.
 
 ## Google SSO
-- Optional OAuth2 login via `passport-google-oauth20`: `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` → app JWT → redirect to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>`.
-- Tenant mapping is **invite-only match-by-email**: the Google email must match exactly one existing active user (provisioned by a tenant admin). No auto-provisioning; ambiguous (multi-tenant) emails are rejected and must use password login.
+- OAuth2 via `passport-google-oauth20`: `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` → app JWT → redirect to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>`.
+- **Login vs signup intent** is carried through the OAuth `state` param, set by `GoogleAuthGuard` from `?mode=signup` (default `login`) and read back in `GoogleStrategy.validate`:
+  - **login** (default): invite-only match-by-email — the Google email must match exactly one existing active user; unknown emails are rejected.
+  - **signup**: if no account exists, a **new tenant + first `TENANT_ADMIN`** is auto-provisioned from the Google profile (display name → `fullName`; org name derived from a company email domain, else `"<First>'s Organization"` — editable later). Password login is disabled for these accounts (random hash). Audited as `auth.register` (`method: google`).
+- Either intent rejects an ambiguous multi-tenant email; a signup whose email already exists (even inactive) is rejected with "please sign in instead". Email stays globally unique.
 - The strategy registers only when `GOOGLE_CLIENT_ID` is configured; without it the SSO routes return 503 and password login is unaffected.
 - SSO failures redirect to `<FRONTEND_ORIGIN>/login?error=google_sso&message=...` — never raw JSON, since the browser is mid-redirect.
 

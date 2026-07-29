@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { Tenant, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -140,21 +141,29 @@ export class AuthService {
   }
 
   /**
-   * Invite-only match-by-email for Google SSO. Returns the matching active
-   * user; never creates one (tenant admins provision users explicitly).
+   * Resolve a Google identity to an app user.
+   *
+   * - An existing single active account signs in (either intent).
+   * - With `mode='signup'` and no existing account, a new tenant + first
+   *   TENANT_ADMIN is auto-provisioned from the Google profile (mirrors the
+   *   email/password `register` flow; password login is disabled for it).
+   * - With `mode='login'` and no account, or an ambiguous multi-tenant email,
+   *   it is rejected — SSO stays invite-only for plain login.
    */
-  async validateGoogleUser(email: string): Promise<User & { tenant: Tenant }> {
+  async resolveGoogleUser(
+    email: string,
+    displayName: string | undefined,
+    mode: 'login' | 'signup',
+    ipAddress?: string | null,
+  ): Promise<User & { tenant: Tenant }> {
     const users = await this.prisma.user.findMany({
       where: { email, isActive: true },
       include: { tenant: true },
     });
-
     const activeTenantUsers = users.filter((u) => u.tenant.isActive);
 
-    if (activeTenantUsers.length === 0) {
-      throw new UnauthorizedException(
-        'No account exists for this Google email. Ask your administrator for an invite.',
-      );
+    if (activeTenantUsers.length === 1) {
+      return activeTenantUsers[0];
     }
     if (activeTenantUsers.length > 1) {
       // Email exists under more than one tenant — SSO cannot disambiguate.
@@ -162,7 +171,91 @@ export class AuthService {
         'This email belongs to multiple organizations. Sign in with email and password instead.',
       );
     }
-    return activeTenantUsers[0];
+
+    if (mode !== 'signup') {
+      throw new UnauthorizedException(
+        'No account exists for this Google email. Sign up first, or ask your administrator for an invite.',
+      );
+    }
+
+    // Signup intent, no active account. Keep email globally unique (matches the
+    // password register rule) so a future login stays unambiguous.
+    const anyExisting = await this.prisma.user.findFirst({
+      where: { email },
+      select: { id: true },
+    });
+    if (anyExisting) {
+      throw new UnauthorizedException(
+        'An account with this email already exists. Please sign in instead.',
+      );
+    }
+
+    return this.provisionGoogleTenant(email, displayName, ipAddress);
+  }
+
+  /** Create a new tenant + first TENANT_ADMIN for a Google signup. */
+  private async provisionGoogleTenant(
+    email: string,
+    displayName: string | undefined,
+    ipAddress?: string | null,
+  ): Promise<User & { tenant: Tenant }> {
+    const fullName = displayName?.trim() || email.split('@')[0];
+    const orgName = this.defaultOrgName(fullName, email);
+    const slug = await this.uniqueTenantSlug(orgName);
+    // Random hash: the account authenticates via Google, not a password.
+    const passwordHash = await bcrypt.hash(randomBytes(24).toString('hex'), BCRYPT_COST);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({ data: { name: orgName, slug } });
+      return tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          email,
+          passwordHash,
+          fullName,
+          role: UserRole.TENANT_ADMIN,
+        },
+        include: { tenant: true },
+      });
+    });
+
+    await this.audit.record({
+      tenantId: user.tenantId,
+      userId: user.id,
+      ipAddress,
+      action: 'auth.register',
+      resourceType: 'tenant',
+      resourceId: user.tenantId,
+      details: { email, organizationName: orgName, method: 'google' },
+    });
+
+    return user;
+  }
+
+  /**
+   * Derive a starting organization name for a Google signup (the user can
+   * rename it later): a company domain becomes its label, a consumer inbox
+   * becomes "<First>'s Organization".
+   */
+  private defaultOrgName(fullName: string, email: string): string {
+    const domain = email.split('@')[1]?.toLowerCase() ?? '';
+    const consumer = new Set([
+      'gmail.com',
+      'googlemail.com',
+      'yahoo.com',
+      'outlook.com',
+      'hotmail.com',
+      'icloud.com',
+      'live.com',
+      'proton.me',
+      'protonmail.com',
+    ]);
+    if (domain && !consumer.has(domain)) {
+      const label = domain.split('.')[0];
+      return label.charAt(0).toUpperCase() + label.slice(1);
+    }
+    const first = fullName.split(' ')[0] || 'My';
+    return `${first}'s Organization`;
   }
 
   async googleLogin(user: User & { tenant: Tenant }, ipAddress?: string | null) {

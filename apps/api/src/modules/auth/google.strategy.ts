@@ -2,15 +2,20 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 
 /**
- * Google OAuth2 strategy (invite-only match-by-email).
+ * Google OAuth2 strategy.
  *
- * Tenant mapping is deliberate: Google accounts are matched against EXISTING
- * active users by email — no user is auto-provisioned. A tenant admin must
- * create the user first (user module). This keeps tenant assignment explicit
- * and audit-safe for clinical data.
+ * The `mode` intent (login vs signup) is carried through the OAuth `state`
+ * parameter set by GoogleAuthGuard, so the same callback serves both:
+ * - login: match an EXISTING active user by email (invite-only; unknown emails
+ *   are rejected).
+ * - signup: auto-provision a new tenant + first TENANT_ADMIN when no account
+ *   exists (see AuthService.resolveGoogleUser).
+ *
+ * `passReqToCallback` gives validate() access to `req.query.state`.
  */
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -23,10 +28,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: config.getOrThrow<string>('GOOGLE_CLIENT_SECRET'),
       callbackURL: config.getOrThrow<string>('GOOGLE_CALLBACK_URL'),
       scope: ['email', 'profile'],
+      passReqToCallback: true,
     });
   }
 
   async validate(
+    req: Request,
     _accessToken: string,
     _refreshToken: string,
     profile: Profile,
@@ -39,7 +46,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
           'Google account did not return an email address',
         );
       }
-      const user = await this.authService.validateGoogleUser(email);
+      const mode = req.query?.state === 'signup' ? 'signup' : 'login';
+      const user = await this.authService.resolveGoogleUser(
+        email,
+        profile.displayName,
+        mode,
+        req.ip,
+      );
       done(null, user);
     } catch (err) {
       done(err as Error, false);
