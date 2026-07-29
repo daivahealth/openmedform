@@ -172,12 +172,15 @@ export class FormController {
     if (!body?.prompt?.trim()) {
       throw new BadRequestException('A prompt describing the form is required');
     }
+    if (!body?.category?.trim()) {
+      throw new BadRequestException('A category is required');
+    }
 
     const result = await this.aiBuilderService.generate(
       user.tenantId,
       body.prompt.trim(),
       body.provider,
-      body.category?.trim() || undefined,
+      body.category.trim(),
       undefined,
       user.userId,
     );
@@ -188,7 +191,7 @@ export class FormController {
       {
         name: body.name.trim(),
         description: body.description?.trim() || undefined,
-        category: body.category?.trim() || undefined,
+        category: body.category.trim(),
         formType: body.formType ?? FormType.PATIENT,
       },
       result.schema,
@@ -212,6 +215,9 @@ export class FormController {
     }
     if (!name?.trim()) {
       throw new BadRequestException('Form name is required');
+    }
+    if (!category?.trim()) {
+      throw new BadRequestException('A category is required');
     }
 
     const result =
