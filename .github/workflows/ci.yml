@@ -29,6 +29,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # API tests import services that pull in @prisma/client, which needs the
+      # generated client (CI runners start from a clean checkout).
+      - name: Generate Prisma client
+        run: pnpm --filter @openmedform/api exec prisma generate
+
       # Only the first-party publishable packages are built here; the vendored
       # Form.io forks (formio-core/formio-react) are not part of the release set.
       - name: Build packages
