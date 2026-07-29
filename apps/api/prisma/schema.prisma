@@ -71,6 +71,7 @@ model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @db.VarChar(255)
   slug      String   @unique @db.VarChar(100)
+  country   String?  @db.VarChar(100)
   isActive  Boolean  @default(true) @map("is_active")
   settings  Json?    @default("{}")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)

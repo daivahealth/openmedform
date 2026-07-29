@@ -4,16 +4,15 @@
 `http://localhost:3100/api`
 
 ## Authentication
-All endpoints except `/api/auth/register`, `/api/auth/login`, `/api/auth/google*` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
+All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
 
 ## Endpoints
 
 ### Auth
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/auth/register | **Public** self-service signup: creates a new tenant (organization) + its first `TENANT_ADMIN`, returns JWT. Body: `{ fullName, organizationName, email, password }`. Email must be globally unique. |
 | POST | /api/auth/login | Login, returns JWT (audit-logged as `auth.login`) |
-| GET | /api/auth/google | Start Google OAuth2 handshake (redirect). `?mode=signup` provisions a new tenant on first sign-in; default `login` is invite-only. |
+| GET | /api/auth/google | Start Google OAuth2 handshake (redirect). `?mode=signup&org=...&country=...` provisions a new tenant on first sign-in (org + country mandatory); default `login` is invite-only |
 | GET | /api/auth/google/callback | Google OAuth2 callback, redirects to web with JWT |
 | GET | /api/auth/me | Current user profile |
 

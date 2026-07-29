@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,7 +9,7 @@ import { Tenant, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { GoogleSignupDetails } from './google.strategy';
 import { JwtPayload } from '../../common/types/jwt-payload.interface';
 
 const BCRYPT_COST = 10;
@@ -22,52 +21,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly audit: AuditService,
   ) {}
-
-  /**
-   * Self-service signup: provisions a new tenant and its first TENANT_ADMIN,
-   * then issues a session. Email must be globally unique so Google SSO stays
-   * unambiguous (invite-only match-by-email, see AUTH-AND-RBAC.md).
-   */
-  async register(dto: RegisterDto, ipAddress?: string | null) {
-    const existing = await this.prisma.user.findFirst({
-      where: { email: dto.email },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new ConflictException('An account with this email already exists.');
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
-    const slug = await this.uniqueTenantSlug(dto.organizationName);
-
-    const { user, tenant } = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({
-        data: { name: dto.organizationName.trim(), slug },
-      });
-      const user = await tx.user.create({
-        data: {
-          tenantId: tenant.id,
-          email: dto.email,
-          passwordHash,
-          fullName: dto.fullName.trim(),
-          role: UserRole.TENANT_ADMIN,
-        },
-      });
-      return { user, tenant };
-    });
-
-    await this.audit.record({
-      tenantId: tenant.id,
-      userId: user.id,
-      ipAddress,
-      action: 'auth.register',
-      resourceType: 'tenant',
-      resourceId: tenant.id,
-      details: { email: user.email, organizationName: tenant.name },
-    });
-
-    return this.issueSession({ ...user, tenant });
-  }
 
   async login(dto: LoginDto, ipAddress?: string | null) {
     const user = await this.prisma.user.findFirst({
@@ -145,8 +98,8 @@ export class AuthService {
    *
    * - An existing single active account signs in (either intent).
    * - With `mode='signup'` and no existing account, a new tenant + first
-   *   TENANT_ADMIN is auto-provisioned from the Google profile (mirrors the
-   *   email/password `register` flow; password login is disabled for it).
+   *   TENANT_ADMIN is provisioned using the organization name and country
+   *   collected before the OAuth handshake (both mandatory).
    * - With `mode='login'` and no account, or an ambiguous multi-tenant email,
    *   it is rejected — SSO stays invite-only for plain login.
    */
@@ -154,6 +107,7 @@ export class AuthService {
     email: string,
     displayName: string | undefined,
     mode: 'login' | 'signup',
+    signup?: GoogleSignupDetails,
     ipAddress?: string | null,
   ): Promise<User & { tenant: Tenant }> {
     const users = await this.prisma.user.findMany({
@@ -178,8 +132,8 @@ export class AuthService {
       );
     }
 
-    // Signup intent, no active account. Keep email globally unique (matches the
-    // password register rule) so a future login stays unambiguous.
+    // Signup intent, no active account. Keep email globally unique so a
+    // future login stays unambiguous.
     const anyExisting = await this.prisma.user.findFirst({
       where: { email },
       select: { id: true },
@@ -190,23 +144,42 @@ export class AuthService {
       );
     }
 
-    return this.provisionGoogleTenant(email, displayName, ipAddress);
+    const organizationName = signup?.organizationName?.trim();
+    const country = signup?.country?.trim();
+    if (!organizationName || !country) {
+      // Should not happen — GoogleAuthGuard validates before the handshake —
+      // but state can be hand-crafted, so enforce it here too.
+      throw new UnauthorizedException(
+        'Organization and country are required to sign up.',
+      );
+    }
+
+    return this.provisionGoogleTenant(
+      email,
+      displayName,
+      organizationName,
+      country,
+      ipAddress,
+    );
   }
 
   /** Create a new tenant + first TENANT_ADMIN for a Google signup. */
   private async provisionGoogleTenant(
     email: string,
     displayName: string | undefined,
+    organizationName: string,
+    country: string,
     ipAddress?: string | null,
   ): Promise<User & { tenant: Tenant }> {
     const fullName = displayName?.trim() || email.split('@')[0];
-    const orgName = this.defaultOrgName(fullName, email);
-    const slug = await this.uniqueTenantSlug(orgName);
+    const slug = await this.uniqueTenantSlug(organizationName);
     // Random hash: the account authenticates via Google, not a password.
     const passwordHash = await bcrypt.hash(randomBytes(24).toString('hex'), BCRYPT_COST);
 
     const user = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({ data: { name: orgName, slug } });
+      const tenant = await tx.tenant.create({
+        data: { name: organizationName, slug, country },
+      });
       return tx.user.create({
         data: {
           tenantId: tenant.id,
@@ -226,36 +199,10 @@ export class AuthService {
       action: 'auth.register',
       resourceType: 'tenant',
       resourceId: user.tenantId,
-      details: { email, organizationName: orgName, method: 'google' },
+      details: { email, organizationName, country, method: 'google' },
     });
 
     return user;
-  }
-
-  /**
-   * Derive a starting organization name for a Google signup (the user can
-   * rename it later): a company domain becomes its label, a consumer inbox
-   * becomes "<First>'s Organization".
-   */
-  private defaultOrgName(fullName: string, email: string): string {
-    const domain = email.split('@')[1]?.toLowerCase() ?? '';
-    const consumer = new Set([
-      'gmail.com',
-      'googlemail.com',
-      'yahoo.com',
-      'outlook.com',
-      'hotmail.com',
-      'icloud.com',
-      'live.com',
-      'proton.me',
-      'protonmail.com',
-    ]);
-    if (domain && !consumer.has(domain)) {
-      const label = domain.split('.')[0];
-      return label.charAt(0).toUpperCase() + label.slice(1);
-    }
-    const first = fullName.split(' ')[0] || 'My';
-    return `${first}'s Organization`;
   }
 
   async googleLogin(user: User & { tenant: Tenant }, ipAddress?: string | null) {
