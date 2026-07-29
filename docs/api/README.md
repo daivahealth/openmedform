@@ -19,7 +19,7 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 ### Admin (SUPER_ADMIN only)
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/admin/stats | Platform-wide analytics: totals, per-tenant and per-user breakdown (forms, submissions, last login, AI token usage), usage by provider, recent logins. Gated to `SUPER_ADMIN` by the global `RolesGuard`; other roles receive 403. |
+| GET | /api/admin/stats | Platform-wide analytics: totals, per-tenant (incl. country) and per-user breakdown (forms, submissions, last login, AI token usage), users by country, usage by provider, recent logins. Gated to `SUPER_ADMIN` by the global `RolesGuard`; other roles receive 403. |
 | PATCH | /api/admin/users/:userId/form-limit | Set a user's form creation quota (`{ formLimit: number | null }`; null resets to the default of 5). SUPER_ADMIN only |
 
 ### Forms
