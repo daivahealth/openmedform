@@ -43,7 +43,7 @@ export class AdminService {
         _sum: { totalTokens: true, inputTokens: true, outputTokens: true },
       }),
       this.prisma.tenant.findMany({
-        select: { id: true, name: true, slug: true, isActive: true, createdAt: true },
+        select: { id: true, name: true, slug: true, country: true, isActive: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.groupBy({ by: ['tenantId'], _count: { _all: true } }),
@@ -104,6 +104,7 @@ export class AdminService {
         id: t.id,
         name: t.name,
         slug: t.slug,
+        country: t.country,
         isActive: t.isActive,
         createdAt: t.createdAt,
         users: usersCountMap.get(t.id) ?? 0,
@@ -111,6 +112,7 @@ export class AdminService {
         submissions: submissionsCountMap.get(t.id) ?? 0,
         totalTokens: tokensTenantMap.get(t.id) ?? 0,
       })),
+      usersByCountry: aggregateUsersByCountry(tenants, usersCountMap),
       users: users.map((u) => ({
         id: u.id,
         email: u.email,
@@ -149,4 +151,24 @@ function toMap<T, V>(
   const map = new Map<string, V>();
   for (const r of rows) map.set(key(r), value(r));
   return map;
+}
+
+/** Country-wise user counts, derived from each tenant's country and its
+ *  per-tenant user count. Tenants predating the country column (or without
+ *  one) bucket under 'Unknown'. Sorted by count desc. */
+function aggregateUsersByCountry(
+  tenants: { id: string; country: string | null }[],
+  usersCountMap: Map<string, number>,
+): { country: string; users: number }[] {
+  const byCountry = new Map<string, number>();
+  for (const t of tenants) {
+    const country = t.country ?? 'Unknown';
+    byCountry.set(
+      country,
+      (byCountry.get(country) ?? 0) + (usersCountMap.get(t.id) ?? 0),
+    );
+  }
+  return [...byCountry.entries()]
+    .map(([country, users]) => ({ country, users }))
+    .sort((a, b) => b.users - a.users || a.country.localeCompare(b.country));
 }

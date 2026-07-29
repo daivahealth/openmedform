@@ -27,6 +27,7 @@ interface AdminStats {
     id: string;
     name: string;
     slug: string;
+    country: string | null;
     isActive: boolean;
     createdAt: string;
     users: number;
@@ -34,6 +35,7 @@ interface AdminStats {
     submissions: number;
     totalTokens: number;
   }>;
+  usersByCountry: Array<{ country: string; users: number }>;
   users: Array<{
     id: string;
     email: string;
@@ -172,6 +174,7 @@ export default function AdminPage() {
             <thead className="bg-muted/50 text-left text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 font-medium">Organization</th>
+                <th className="px-4 py-2 font-medium">Country</th>
                 <th className="px-4 py-2 font-medium">Created</th>
                 <th className="px-4 py-2 text-right font-medium">Users</th>
                 <th className="px-4 py-2 text-right font-medium">Forms</th>
@@ -186,6 +189,9 @@ export default function AdminPage() {
                     <div className="font-medium">{t.name}</div>
                     <div className="text-xs text-muted-foreground">{t.slug}</div>
                   </td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {t.country ?? '—'}
+                  </td>
                   <td className="px-4 py-2 text-muted-foreground">{dt(t.createdAt)}</td>
                   <td className="px-4 py-2 text-right">{nf(t.users)}</td>
                   <td className="px-4 py-2 text-right">{nf(t.forms)}</td>
@@ -199,6 +205,36 @@ export default function AdminPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Users by country */}
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Users by country</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Country</th>
+                  <th className="px-4 py-2 text-right font-medium">Users</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.usersByCountry.map((c) => (
+                  <tr key={c.country} className="border-t">
+                    <td className="px-4 py-2 font-medium">{c.country}</td>
+                    <td className="px-4 py-2 text-right">{nf(c.users)}</td>
+                  </tr>
+                ))}
+                {data.usersByCountry.length === 0 && (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-6 text-center text-muted-foreground">
+                      No users yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         {/* Usage by provider */}
         <section>
           <h2 className="mb-3 text-lg font-semibold">AI usage by provider</h2>
