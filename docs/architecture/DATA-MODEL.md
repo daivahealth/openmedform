@@ -130,7 +130,8 @@ binding?, source_page?, confidence?, created_at.
 
 ### audit_log
 Now actively written (closes issue #1) by `AuditService` on form create/publish/
-delete and submission complete/sign. Best-effort: a logging failure is logged and
+delete, submission complete/sign, and authentication (`auth.register`,
+`auth.login`, `auth.login.failed`). Best-effort: a logging failure is logged and
 swallowed so it can never roll back the audited clinical operation.
 
 | Column | Type | Notes |
@@ -138,9 +139,29 @@ swallowed so it can never roll back the audited clinical operation.
 | id | BIGSERIAL PK | |
 | tenant_id | UUID | |
 | user_id | UUID | |
-| action | VARCHAR(100) | e.g. "form.publish", "submission.sign" |
+| action | VARCHAR(100) | e.g. "form.publish", "submission.sign", "auth.login" |
 | resource_type | VARCHAR(50) | |
 | resource_id | UUID | |
 | details | JSONB | |
 | ip_address | VARCHAR(45) | |
+| created_at | TIMESTAMP | |
+
+### ai_usage
+One row per LLM call (generate / refine / convert), written best-effort by
+`AiUsageService` via a metering wrapper around every provider. Aggregated by the
+SUPER_ADMIN analytics console (`GET /api/admin/stats`) for per-tenant / per-user
+token totals. Operational metering — not tenant-query-scoped for domain reads,
+but carries `tenant_id`/`user_id` for attribution.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | BIGSERIAL PK | |
+| tenant_id | UUID | |
+| user_id | UUID (nullable) | |
+| provider | VARCHAR(50) | e.g. "claude", "openai" |
+| model | VARCHAR(100) | model that reported the usage |
+| operation | VARCHAR(50) | e.g. "ai.generate", "ai.refine", "conversion.jsonforms" |
+| input_tokens | INT | |
+| output_tokens | INT | |
+| total_tokens | INT | |
 | created_at | TIMESTAMP | |

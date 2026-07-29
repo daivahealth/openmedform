@@ -13,7 +13,19 @@ import api from '@/lib/api';
 interface User {
   id: string;
   email: string;
-  name: string;
+  /** API returns `fullName`; `name` kept for backwards compatibility. */
+  name?: string;
+  fullName?: string;
+  role?: string;
+  tenantId?: string;
+  tenantName?: string;
+}
+
+export interface RegisterInput {
+  fullName: string;
+  organizationName: string;
+  email: string;
+  password: string;
 }
 
 interface AuthContextValue {
@@ -21,6 +33,7 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
 }
@@ -55,6 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   }, []);
 
+  const register = useCallback(async (input: RegisterInput) => {
+    const response = await api.post('/api/auth/register', input);
+    const { accessToken: access_token, user: userData } = response.data;
+    localStorage.setItem('auth_token', access_token);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
+    setToken(access_token);
+    setUser(userData);
+  }, []);
+
   // Google SSO entry point: the API has already issued a JWT; persist it and
   // hydrate the user profile from /auth/me.
   const loginWithToken = useCallback(async (accessToken: string) => {
@@ -78,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, loginWithToken, logout }}
+      value={{ user, token, isLoading, login, register, loginWithToken, logout }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,5 +1,188 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function Home() {
-  redirect('/dashboard');
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  ClipboardList,
+  Sparkles,
+  Boxes,
+  Database,
+  Globe2,
+  ShieldCheck,
+  Workflow,
+  Calculator,
+  ArrowRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/providers/auth-provider';
+import { ArchitectureDiagram } from '@/components/marketing/architecture-diagram';
+
+export default function LandingPage() {
+  const { token, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Logged-in users skip the marketing page and go straight to the app.
+  useEffect(() => {
+    if (!isLoading && token) {
+      router.replace('/dashboard');
+    }
+  }, [token, isLoading, router]);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Nav */}
+      <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-6 w-6 text-primary" />
+            <span className="text-lg font-bold">OpenMedForm</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/signup">Get started</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="mx-auto max-w-6xl px-6 pb-16 pt-20 text-center">
+        <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4 text-primary" />
+          AI-powered clinical form platform
+        </div>
+        <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
+          Dynamic clinical forms for every EMR, every geography.
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
+          EMRs and EHRs need endless forms — for compliance, assessments, and daily care.
+          Building them by hand is slow, and every region needs different ones, so the static
+          forms baked into an EHR never keep up. OpenMedForm lets you generate dynamic forms
+          with AI, drop them into your product with React or Angular renderers, and store every
+          response as JSON in your own database.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Button size="lg" asChild>
+            <Link href="/signup">
+              Start free <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href="/login">Sign in</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Problem */}
+      <section className="border-y bg-muted/30">
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-3">
+          {[
+            {
+              icon: Workflow,
+              title: 'Too many forms',
+              body: 'Every EMR/EHR needs dozens of forms for compliance, risk assessments, consent and daily workflows. Authoring each one by hand does not scale.',
+            },
+            {
+              icon: Globe2,
+              title: 'Every geography differs',
+              body: 'Regulations, languages and clinical practice vary by region — the same form needs many variants. One static set can never fit them all.',
+            },
+            {
+              icon: Boxes,
+              title: 'Static EHR forms break',
+              body: 'Forms hard-coded into an EHR are rigid and slow to change. Clinical teams end up waiting on engineering for every small update.',
+            },
+          ].map((c) => (
+            <div key={c.title} className="rounded-lg border bg-card p-6">
+              <c.icon className="mb-3 h-6 w-6 text-primary" />
+              <h3 className="mb-1 font-semibold">{c.title}</h3>
+              <p className="text-sm text-muted-foreground">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Solution + diagram */}
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Build once. Render anywhere. Own your data.
+          </h2>
+          <p className="mt-4 text-muted-foreground">
+            OpenMedForm sits alongside your EMR. Describe a form or upload a PDF, and AI generates
+            a versioned JSON schema. Embed it with our React or Angular renderer, and every
+            submission is scored server-side and stored as JSON — in your database, not ours.
+          </p>
+        </div>
+
+        <div className="mt-12 overflow-x-auto rounded-xl border bg-card p-6 shadow-sm">
+          <ArchitectureDiagram />
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-t bg-muted/30">
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              icon: Sparkles,
+              title: 'AI form builder',
+              body: 'Generate complex clinical forms from a prompt, PDF, or image — with multiple LLM providers.',
+            },
+            {
+              icon: Boxes,
+              title: 'React & Angular renderers',
+              body: 'Drop-in renderers for both frameworks share one schema, so your EMR integration is trivial.',
+            },
+            {
+              icon: Database,
+              title: 'JSON in your database',
+              body: 'Schemas and submissions are plain JSON. Keep them in your own store — full data ownership.',
+            },
+            {
+              icon: Calculator,
+              title: 'Server-side scoring',
+              body: 'Clinical risk scores are recalculated on the server at submission — never trusting the client.',
+            },
+          ].map((c) => (
+            <div key={c.title} className="rounded-lg border bg-card p-6">
+              <c.icon className="mb-3 h-6 w-6 text-primary" />
+              <h3 className="mb-1 font-semibold">{c.title}</h3>
+              <p className="text-sm text-muted-foreground">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="mx-auto max-w-6xl px-6 py-20 text-center">
+        <div className="mx-auto flex max-w-2xl flex-col items-center rounded-2xl border bg-card p-10">
+          <ShieldCheck className="mb-4 h-8 w-8 text-primary" />
+          <h2 className="text-2xl font-bold">Ready to modernise your clinical forms?</h2>
+          <p className="mt-2 text-muted-foreground">
+            Create your organization in seconds. No credit card required.
+          </p>
+          <Button size="lg" className="mt-6" asChild>
+            <Link href="/signup">
+              Create your account <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            <span>OpenMedForm</span>
+          </div>
+          <span>AI-powered clinical form builder platform</span>
+        </div>
+      </footer>
+    </div>
+  );
 }

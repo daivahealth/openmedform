@@ -1,7 +1,8 @@
 'use client';
 
-import { Suspense, useState, type FormEvent } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,16 +14,17 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from '@/providers/auth-provider';
+import axios from 'axios';
 
-export default function LoginPage() {
+export default function SignupPage() {
+  const [fullName, setFullName] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { register } = useAuth();
   const router = useRouter();
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -30,11 +32,19 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await register({ fullName, organizationName, email, password });
       router.push('/dashboard');
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Invalid email or password';
+      let message = 'Could not create your account. Please try again.';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { message?: string | string[] } | undefined;
+        const apiMessage = data?.message;
+        message = Array.isArray(apiMessage)
+          ? apiMessage.join(', ')
+          : apiMessage ?? message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       setError(message);
     } finally {
       setIsLoading(false);
@@ -47,29 +57,12 @@ export default function LoginPage() {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
           <ClipboardList className="h-6 w-6 text-primary" />
         </div>
-        <CardTitle className="text-2xl">OpenMedForm</CardTitle>
+        <CardTitle className="text-2xl">Create your organization</CardTitle>
         <CardDescription>
-          Sign in to the clinical form management platform
+          Start building dynamic clinical forms in minutes
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* SSO errors arrive as ?error=...&message=... after the API redirect */}
-        <Suspense>
-          <SsoErrorNotice />
-        </Suspense>
-        <Button variant="outline" className="mb-4 w-full" asChild>
-          <a href={`${apiBase}/api/auth/google`}>Sign in with Google</a>
-        </Button>
-        <div className="relative mb-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              or with email
-            </span>
-          </div>
-        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -77,8 +70,36 @@ export default function LoginPage() {
             </div>
           )}
           <div className="space-y-2">
+            <label htmlFor="fullName" className="text-sm font-medium">
+              Full name
+            </label>
+            <Input
+              id="fullName"
+              type="text"
+              placeholder="Dr. Jane Doe"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              autoComplete="name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="organizationName" className="text-sm font-medium">
+              Organization name
+            </label>
+            <Input
+              id="organizationName"
+              type="text"
+              placeholder="General Hospital"
+              value={organizationName}
+              onChange={(e) => setOrganizationName(e.target.value)}
+              required
+              autoComplete="organization"
+            />
+          </div>
+          <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium">
-              Email
+              Work email
             </label>
             <Input
               id="email"
@@ -97,38 +118,25 @@ export default function LoginPage() {
             <Input
               id="password"
               type="password"
-              placeholder="Enter your password"
+              placeholder="At least 8 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          New to OpenMedForm?{' '}
-          <a href="/signup" className="font-medium text-primary hover:underline">
-            Create an organization
-          </a>
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            Sign in
+          </Link>
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-function SsoErrorNotice() {
-  const searchParams = useSearchParams();
-  if (searchParams.get('error') !== 'google_sso') {
-    return null;
-  }
-  const message =
-    searchParams.get('message') || 'Google sign-in failed. Please try again.';
-  return (
-    <div className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-      {message}
-    </div>
   );
 }

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { ProviderRegistry } from './providers/provider-registry';
+import { AiUsageService } from './ai-usage.service';
 import { SchemaAssemblerService } from './schema-assembler.service';
 import { SchemaValidatorService } from './schema-validator.service';
 import { SchemaPreviewRendererService } from './schema-preview-renderer.service';
@@ -31,6 +32,7 @@ export class AiBuilderService {
 
   constructor(
     private readonly providerRegistry: ProviderRegistry,
+    private readonly aiUsage: AiUsageService,
     private readonly assembler: SchemaAssemblerService,
     private readonly validator: SchemaValidatorService,
     private readonly previewRenderer: SchemaPreviewRendererService,
@@ -42,24 +44,30 @@ export class AiBuilderService {
     providerName?: string,
     category?: string,
     onProgress?: ProgressCallback,
+    userId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string }> {
     const progress = onProgress ?? (() => {});
 
     progress('Loading AI provider configuration...');
     const providerSet =
       await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(
+    const baseProvider = this.providerRegistry.getProvider(
       providerSet,
       providerName,
     );
 
-    if (!provider) {
+    if (!baseProvider) {
       throw new BadRequestException(
         providerName
           ? `Provider "${providerName}" is not configured`
           : 'No AI providers are configured. Add a provider in Settings > AI Providers.',
       );
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'ai.generate',
+    });
 
     progress('Building system prompt and component catalog...');
     const systemPrompt = this.buildSystemPrompt(category);
@@ -91,20 +99,26 @@ export class AiBuilderService {
     conversationHistory?: Array<{ role: string; content: string }>,
     providerName?: string,
     onProgress?: ProgressCallback,
+    userId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string; changeSummary?: string }> {
     const progress = onProgress ?? (() => {});
 
     progress('Loading AI provider configuration...');
     const providerSet =
       await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(
+    const baseProvider = this.providerRegistry.getProvider(
       providerSet,
       providerName,
     );
 
-    if (!provider) {
+    if (!baseProvider) {
       throw new BadRequestException('No AI providers are configured');
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'ai.refine',
+    });
 
     progress('Preparing form context and conversation history...');
     const systemPrompt = this.buildSystemPrompt();
@@ -154,6 +168,7 @@ export class AiBuilderService {
     conversationHistory?: Array<{ role: string; content: string }>,
     providerName?: string,
     onProgress?: ProgressCallback,
+    userId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string; changeSummary?: string }> {
     const progress = onProgress ?? (() => {});
 
@@ -166,20 +181,25 @@ export class AiBuilderService {
     progress('Loading AI provider configuration...');
     const providerSet =
       await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(
+    const baseProvider = this.providerRegistry.getProvider(
       providerSet,
       providerName,
     );
 
-    if (!provider) {
+    if (!baseProvider) {
       throw new BadRequestException('No AI providers are configured');
     }
 
-    if (!provider.generateWithImages) {
+    if (!baseProvider.generateWithImages) {
       throw new BadRequestException(
-        `Provider "${provider.name}" does not support image-based refinement.`,
+        `Provider "${baseProvider.name}" does not support image-based refinement.`,
       );
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'ai.refine_image',
+    });
 
     progress('Encoding image and preparing form context...');
     const systemPrompt = this.buildSystemPrompt();
@@ -202,7 +222,8 @@ export class AiBuilderService {
     this.logger.log(`Refining form with image using provider: ${provider.name}`);
     progress(`Sending image + schema to ${provider.name} for visual analysis — this may take 30–60 seconds...`);
 
-    const rawOutput = await provider.generateWithImages(
+    // capability verified on baseProvider above; the metered wrapper preserves it
+    const rawOutput = await provider.generateWithImages!(
       userPrompt,
       [
         {
@@ -231,21 +252,27 @@ export class AiBuilderService {
     pdfBuffer: Buffer,
     providerName?: string,
     additionalInstructions?: string,
+    userId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string }> {
     const providerSet =
       await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(
+    const baseProvider = this.providerRegistry.getProvider(
       providerSet,
       providerName,
     );
 
-    if (!provider) {
+    if (!baseProvider) {
       throw new BadRequestException(
         providerName
           ? `Provider "${providerName}" is not configured`
           : 'No AI providers are configured. Add a provider in Settings > AI Providers.',
       );
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'ai.generate_pdf',
+    });
 
     const systemPrompt = this.buildPdfSystemPrompt();
 
@@ -364,6 +391,7 @@ export class AiBuilderService {
     mimeType: string,
     providerName?: string,
     additionalInstructions?: string,
+    userId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string }> {
     if (!SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
       throw new BadRequestException('Only PNG, JPEG, WebP, or GIF images are accepted');
@@ -371,12 +399,12 @@ export class AiBuilderService {
 
     const providerSet =
       await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(
+    const baseProvider = this.providerRegistry.getProvider(
       providerSet,
       providerName,
     );
 
-    if (!provider) {
+    if (!baseProvider) {
       throw new BadRequestException(
         providerName
           ? `Provider "${providerName}" is not configured`
@@ -384,11 +412,16 @@ export class AiBuilderService {
       );
     }
 
-    if (!provider.generateWithImages) {
+    if (!baseProvider.generateWithImages) {
       throw new BadRequestException(
-        `Provider "${provider.name}" does not support image-based form generation.`,
+        `Provider "${baseProvider.name}" does not support image-based form generation.`,
       );
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'ai.generate_image',
+    });
 
     const systemPrompt = this.buildPdfSystemPrompt();
     const image = imageBuffer.toString('base64');
@@ -401,7 +434,8 @@ export class AiBuilderService {
     this.logger.log(
       `Generating form from image using provider: ${provider.name}`,
     );
-    const generateWithImages = provider.generateWithImages.bind(provider);
+    // capability verified on baseProvider above; the metered wrapper preserves it
+    const generateWithImages = provider.generateWithImages!.bind(provider);
     const rawOutput = await generateWithImages(
       userPrompt,
       [{ type: 'image', mediaType: mimeType as ImageContent['mediaType'], data: image }],

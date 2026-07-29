@@ -21,7 +21,7 @@ export function Topbar() {
             <button className="flex items-center gap-2 rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <Avatar.Root className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                 <Avatar.Fallback className="text-sm font-medium text-primary">
-                  {user?.name
+                  {(user?.fullName || user?.name)
                     ?.split(' ')
                     .map((n) => n[0])
                     .join('')
@@ -29,7 +29,7 @@ export function Topbar() {
                 </Avatar.Fallback>
               </Avatar.Root>
               <span className="text-sm font-medium">
-                {user?.name || 'User'}
+                {user?.fullName || user?.name || 'User'}
               </span>
             </button>
           </DropdownMenu.Trigger>

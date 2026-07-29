@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmProvider, LlmOptions, ImageContent } from './llm-provider.interface';
+import { emitUsage } from './usage.util';
 
 export class ClaudeProvider implements LlmProvider {
   readonly name = 'claude';
@@ -20,6 +21,7 @@ export class ClaudeProvider implements LlmProvider {
       messages: [{ role: 'user', content: prompt }],
     });
 
+    emitUsage(options, this.model, response.usage);
     const textBlock = response.content.find((block) => block.type === 'text');
     return textBlock?.text ?? '';
   }
@@ -56,6 +58,7 @@ export class ClaudeProvider implements LlmProvider {
       messages: [{ role: 'user', content: contentBlocks }],
     });
 
+    emitUsage(options, this.model, response.usage);
     const textBlock = response.content.find((block) => block.type === 'text');
     return textBlock?.text ?? '';
   }

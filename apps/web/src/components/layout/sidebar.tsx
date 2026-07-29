@@ -7,14 +7,16 @@ import {
   FileText,
   Inbox,
   Settings,
+  ShieldCheck,
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/lib/stores/sidebar-store';
+import { useAuth } from '@/providers/auth-provider';
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/forms', label: 'Forms', icon: FileText },
   { href: '/submissions', label: 'Records', icon: Inbox },
@@ -24,6 +26,13 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebarStore();
+  const { user } = useAuth();
+
+  // The platform analytics console is SUPER_ADMIN-only, matching the API guard.
+  const navItems =
+    user?.role === 'SUPER_ADMIN'
+      ? [...baseNavItems, { href: '/admin', label: 'Admin', icon: ShieldCheck }]
+      : baseNavItems;
 
   return (
     <aside

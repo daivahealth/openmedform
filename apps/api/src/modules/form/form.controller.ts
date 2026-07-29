@@ -171,6 +171,7 @@ export class FormController {
             file.buffer,
             provider,
             instructions,
+            user.userId,
           )
         : await this.aiBuilderService.generateFromImage(
             user.tenantId,
@@ -178,6 +179,7 @@ export class FormController {
             file.mimetype,
             provider,
             instructions,
+            user.userId,
           );
 
     const form = await this.formService.createWithSchema(
@@ -280,6 +282,7 @@ export class FormController {
           conversationHistory,
           dto.provider,
           onProgress,
+          user.userId,
         );
       } else {
         result = await this.aiBuilderService.refine(
@@ -289,6 +292,7 @@ export class FormController {
           conversationHistory,
           dto.provider,
           onProgress,
+          user.userId,
         );
       }
 

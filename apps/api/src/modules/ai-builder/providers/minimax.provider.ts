@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { LlmProvider, LlmOptions } from './llm-provider.interface';
+import { emitUsage } from './usage.util';
 
 export class MinimaxProvider implements LlmProvider {
   readonly name = 'minimax';
@@ -25,6 +26,7 @@ export class MinimaxProvider implements LlmProvider {
       ],
     });
 
+    emitUsage(options, this.model, response.usage);
     return response.choices[0]?.message?.content ?? '';
   }
 }

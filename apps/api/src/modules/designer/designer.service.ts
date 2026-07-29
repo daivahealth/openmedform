@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
+import { AiUsageService } from '../ai-builder/ai-usage.service';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
 import { JsonFormsAssemblerService } from '../form-conversion/jsonforms-assembler.service';
 import {
@@ -32,6 +33,7 @@ export class DesignerService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly providerRegistry: ProviderRegistry,
+    private readonly aiUsage: AiUsageService,
     private readonly assembler: JsonFormsAssemblerService,
   ) {}
 
@@ -60,8 +62,13 @@ export class DesignerService {
 
     progress('Loading provider and current form definition...');
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(providerSet, providerName);
-    if (!provider) throw new BadRequestException('No AI providers are configured');
+    const baseProvider = this.providerRegistry.getProvider(providerSet, providerName);
+    if (!baseProvider) throw new BadRequestException('No AI providers are configured');
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'designer.refine',
+    });
     if (image && !provider.generateWithImages) {
       throw new BadRequestException(
         `Provider "${provider.name}" does not support image-based refinement.`,

@@ -25,6 +25,8 @@ export class AiBuilderController {
       dto.prompt,
       dto.provider,
       dto.category,
+      undefined,
+      user.userId,
     );
   }
 
@@ -56,6 +58,7 @@ export class AiBuilderController {
       file.buffer,
       provider,
       instructions,
+      user.userId,
     );
   }
 
@@ -67,6 +70,8 @@ export class AiBuilderController {
       dto.instruction,
       dto.conversationHistory,
       dto.provider,
+      undefined,
+      user.userId,
     );
   }
 
