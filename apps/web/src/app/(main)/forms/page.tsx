@@ -21,7 +21,7 @@ import {
   useExportNativeFormio,
 } from '@/hooks/use-forms';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
-import { CreateFormDialog } from '@/components/forms/create-form-dialog';
+import { PromptToFormDialog } from '@/components/forms/prompt-to-form-dialog';
 import { PdfToFormDialog } from '@/components/forms/pdf-to-form-dialog';
 
 export default function FormsPage() {
@@ -31,7 +31,7 @@ export default function FormsPage() {
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
   const exportNativeFormio = useExportNativeFormio();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
 
   async function handleExport(formId: string, formName: string) {
@@ -70,7 +70,7 @@ export default function FormsPage() {
             <FileUp className="mr-2 h-4 w-4" />
             From File
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setPromptOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Form
           </Button>
@@ -248,7 +248,7 @@ export default function FormsPage() {
         </CardContent>
       </Card>
 
-      <CreateFormDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <PromptToFormDialog open={promptOpen} onOpenChange={setPromptOpen} />
       <PdfToFormDialog open={pdfOpen} onOpenChange={setPdfOpen} />
     </div>
   );

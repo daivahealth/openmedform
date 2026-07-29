@@ -147,6 +147,56 @@ export class FormController {
     );
   }
 
+  /**
+   * Create a form from a natural-language prompt (e.g. "build a pre-anaesthesia
+   * checkup form"). Mirrors from-file: AI generates a Form.io schema, then a
+   * draft form is created (subject to the per-user quota) and opened in the
+   * builder.
+   */
+  @Post('from-prompt')
+  async createFromPrompt(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      name: string;
+      prompt: string;
+      description?: string;
+      category?: string;
+      formType?: FormType;
+      provider?: string;
+    },
+  ) {
+    if (!body?.name?.trim()) {
+      throw new BadRequestException('Form name is required');
+    }
+    if (!body?.prompt?.trim()) {
+      throw new BadRequestException('A prompt describing the form is required');
+    }
+
+    const result = await this.aiBuilderService.generate(
+      user.tenantId,
+      body.prompt.trim(),
+      body.provider,
+      body.category?.trim() || undefined,
+      undefined,
+      user.userId,
+    );
+
+    const form = await this.formService.createWithSchema(
+      user.tenantId,
+      user.userId,
+      {
+        name: body.name.trim(),
+        description: body.description?.trim() || undefined,
+        category: body.category?.trim() || undefined,
+        formType: body.formType ?? FormType.PATIENT,
+      },
+      result.schema,
+    );
+
+    return { form, schema: result.schema, provider: result.provider };
+  }
+
   private async createFromSourceFile(
     user: RequestUser,
     file: Express.Multer.File,

@@ -36,6 +36,7 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 | PUT | /api/forms/:id/schema | Save form schema (auto-save) |
 | POST | /api/forms/from-file | Upload PDF/image, generate schema, and create draft form |
 | POST | /api/forms/from-pdf | Compatibility alias for PDF/image generation |
+| POST | /api/forms/from-prompt | JSON `{ name, prompt, description?, category?, formType?, provider? }`: AI generates a Form.io schema from the prompt and creates a draft form (subject to the creation quota). Returns `{ form, schema, provider }` |
 | POST | /api/forms/:id/ai/refine | Refine a form schema with AI chat; accepts JSON or multipart image reference |
 | POST | /api/forms/:id/publish | Publish current draft (stores an immutable SHA-256 `content_hash`; audit-logged) |
 | GET | /api/forms/:id/versions | List versions |

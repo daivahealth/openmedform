@@ -42,6 +42,11 @@ interface CreateFormFromFileInput extends CreateFormInput {
   instructions?: string;
 }
 
+interface CreateFormFromPromptInput extends CreateFormInput {
+  prompt: string;
+  provider?: string;
+}
+
 interface UpdateFormInput {
   name?: string;
   description?: string;
@@ -125,6 +130,26 @@ export function useCreateFormFromFile() {
 
       const { data } = await api.post('/api/forms/from-file', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      });
+      return data as {
+        form: Form;
+        schema: Record<string, unknown>;
+        provider: string;
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['forms'] });
+    },
+  });
+}
+
+export function useCreateFormFromPrompt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateFormFromPromptInput) => {
+      const { data } = await api.post('/api/forms/from-prompt', input, {
         timeout: 120000,
       });
       return data as {
