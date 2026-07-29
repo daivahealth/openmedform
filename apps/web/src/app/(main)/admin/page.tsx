@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
@@ -103,11 +104,19 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Platform analytics</h1>
-        <p className="text-sm text-muted-foreground">
-          Cross-organization overview of usage, forms, and AI token consumption.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Platform analytics</h1>
+          <p className="text-sm text-muted-foreground">
+            Cross-organization overview of usage, forms, and AI token consumption.
+          </p>
+        </div>
+        <Link
+          href="/admin/limits"
+          className="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+        >
+          User form limits
+        </Link>
       </div>
 
       {/* Totals */}

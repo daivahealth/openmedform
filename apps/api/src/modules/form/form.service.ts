@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
@@ -18,6 +19,14 @@ export interface ActorContext {
   userId: string;
   ipAddress?: string | null;
 }
+
+/**
+ * Per-user form creation quota. Users start with DEFAULT_FORM_LIMIT; a
+ * SUPER_ADMIN can raise an individual limit via /api/admin (stored on
+ * user.formLimit; null = default). SUPER_ADMIN is exempt.
+ */
+export const DEFAULT_FORM_LIMIT = 5;
+export const FORM_LIMIT_CONTACT_EMAIL = 'sajithchandran@gmail.com';
 
 /** The immutable content of a version, used for the published content hash. */
 type VersionLike = {
@@ -62,6 +71,7 @@ export class FormService {
     dto: CreateFormDto,
     ipAddress?: string | null,
   ) {
+    await this.assertFormLimit(userId);
     const slug = this.toSlug(dto.name);
 
     const form = await this.prisma.$transaction(async (tx) => {
@@ -113,6 +123,7 @@ export class FormService {
     dto: CreateFormDto,
     schema: Record<string, unknown>,
   ) {
+    await this.assertFormLimit(userId);
     const slug = await this.uniqueSlug(tenantId, dto.name);
     const jsonSchema = schema as unknown as Prisma.InputJsonValue;
 
@@ -428,6 +439,7 @@ export class FormService {
   }
 
   async clone(tenantId: string, userId: string, formId: string) {
+    await this.assertFormLimit(userId);
     const source = await this.findOne(tenantId, formId);
 
     const timestamp = Date.now();
@@ -840,6 +852,25 @@ export class FormService {
       where: { tenantId, formId },
     });
     return { cleared: true };
+  }
+
+  /** Enforce the per-user form creation quota (see DEFAULT_FORM_LIMIT). */
+  private async assertFormLimit(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { role: true, formLimit: true },
+    });
+    if (user.role === 'SUPER_ADMIN') return;
+
+    const limit = user.formLimit ?? DEFAULT_FORM_LIMIT;
+    const created = await this.prisma.form.count({
+      where: { createdById: userId },
+    });
+    if (created >= limit) {
+      throw new ForbiddenException(
+        `You have reached the maximum of ${limit} forms. Please contact the admin at ${FORM_LIMIT_CONTACT_EMAIL} to increase your limit.`,
+      );
+    }
   }
 
   private toSlug(name: string): string {
