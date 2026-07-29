@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateFormFromPrompt } from '@/hooks/use-forms';
 import { useAiProviders } from '@/hooks/use-ai-builder';
+import { CategorySelect } from '@/components/forms/category-select';
 import { cn } from '@/lib/utils';
 import { AlertCircle, Loader2, UserRound, ClipboardList } from 'lucide-react';
 import axios from 'axios';
@@ -59,14 +60,14 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
   }
 
   async function handleSubmit() {
-    if (!name.trim() || !prompt.trim()) return;
+    if (!name.trim() || !prompt.trim() || !category.trim()) return;
     setStep('processing');
     setErrorMsg('');
     try {
       const result = await createFromPrompt.mutateAsync({
         name: name.trim(),
         prompt: prompt.trim(),
-        category: category.trim() || undefined,
+        category: category.trim(),
         formType,
         provider: provider || undefined,
       });
@@ -79,7 +80,7 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
   }
 
   const providers = providerData?.providers ?? [];
-  const canSubmit = !!name.trim() && !!prompt.trim();
+  const canSubmit = !!name.trim() && !!prompt.trim() && !!category.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -153,15 +154,7 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
               </p>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="prompt-form-cat">Category</Label>
-              <Input
-                id="prompt-form-cat"
-                placeholder="e.g., Assessment, Checklist, Consent"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
-            </div>
+            <CategorySelect id="prompt-form-cat" value={category} onChange={setCategory} />
 
             {providers.length > 1 && (
               <div className="grid gap-2">
