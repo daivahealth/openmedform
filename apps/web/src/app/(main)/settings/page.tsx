@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/auth-provider';
 import {
   Card,
   CardContent,
@@ -45,10 +47,24 @@ function getDefaultModel(value: string) {
 }
 
 export default function SettingsPage() {
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const { data: configs, isLoading } = useAiProviderConfigs();
   const createMutation = useCreateAiProvider();
   const updateMutation = useUpdateAiProvider();
   const deleteMutation = useDeleteAiProvider();
+
+  // Global AI provider configuration is SUPER_ADMIN-only (the API enforces
+  // the same via RolesGuard); everyone else is bounced to the dashboard.
+  useEffect(() => {
+    if (!authLoading && user && user.role !== 'SUPER_ADMIN') {
+      router.replace('/dashboard');
+    }
+  }, [authLoading, user, router]);
+
+  if (!authLoading && user && user.role !== 'SUPER_ADMIN') {
+    return null;
+  }
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editConfig, setEditConfig] = useState<AiProviderConfig | null>(null);
@@ -148,9 +164,10 @@ export default function SettingsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
-                <CardTitle>AI Providers</CardTitle>
+                <CardTitle>Global AI Providers</CardTitle>
                 <CardDescription>
-                  Configure LLM providers for AI-powered form generation
+                  LLM providers for AI-powered form generation. These apply to
+                  every organization on the platform.
                 </CardDescription>
               </div>
               {availableProviders.length > 0 && (

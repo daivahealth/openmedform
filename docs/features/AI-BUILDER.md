@@ -60,9 +60,12 @@ The PDF/image generation prompt ([prompts/pdf-to-form-prompt.ts](../../apps/api/
 Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields), not pixel-exact. Exact borders, fonts, and spacing are not reproduced — Form.io's open-source renderer is a data-entry engine, not a PDF layout replicator. The relevant layout properties (`inline`, `labelPosition`, `table`/`columns` structures) pass through the schema assembler and validator unchanged.
 
 ## Security
-- LLM API keys can come from two sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant`:
-  1. **Tenant-configured providers** (Settings → AI Providers): keys are encrypted at rest (AES-256-GCM, via `AI_ENCRYPTION_KEY`) and decrypted only in-memory when instantiating a provider client. When a tenant has any configured providers, these take priority over env vars.
-  2. **Org-wide env vars** (`AI_CLAUDE_API_KEY`, `AI_OPENAI_API_KEY`, etc.): used as a fallback only when a tenant has no provider configured in the database.
+- LLM API keys can come from three sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant` (first match wins):
+  1. **Tenant-configured providers** (legacy per-tenant rows in `ai_provider_config`): when a tenant has any configured providers, these take priority.
+  2. **Global providers** (Settings → AI Providers, `SUPER_ADMIN` only): the platform-wide set that applies to every tenant without its own configuration. Stored in `ai_provider_config` under a sentinel tenant id (`00000000-0000-0000-0000-000000000000`).
+  3. **Org-wide env vars** (`AI_CLAUDE_API_KEY`, `AI_OPENAI_API_KEY`, etc.): fallback when no database configuration exists at all.
+- The settings API (`/api/settings/ai-providers*`) is gated to `SUPER_ADMIN` via `@Roles('SUPER_ADMIN')` and always operates on the global set; the Settings UI is hidden from other roles.
+- Keys are encrypted at rest (AES-256-GCM, via `AI_ENCRYPTION_KEY`) and decrypted only in-memory when instantiating a provider client.
 - API keys are never logged; the API only ever returns a masked form (`sk-t****xxxx`) to the client.
 - On create/update, `AiProviderConfigService` rejects keys that are empty (except optional for Ollama), exceed 300 characters, or contain whitespace/line breaks/non-ASCII characters — this catches paste mistakes (e.g. pasting terminal output instead of a key) before they reach the LLM SDK, where a malformed `Authorization` header would otherwise fail with an opaque 500.
 - Generated schemas validated before client delivery
