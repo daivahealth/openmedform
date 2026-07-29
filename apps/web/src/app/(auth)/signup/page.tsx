@@ -25,6 +25,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const router = useRouter();
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -63,6 +64,21 @@ export default function SignupPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Google signup: ?mode=signup tells the API callback to provision a
+            new organization when no account exists yet. */}
+        <Button variant="outline" className="mb-4 w-full" asChild>
+          <a href={`${apiBase}/api/auth/google?mode=signup`}>Sign up with Google</a>
+        </Button>
+        <div className="relative mb-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              or with email
+            </span>
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
+import { Request } from 'express';
 
 /**
  * Guard for the Google OAuth2 handshake routes. Short-circuits with a clear
@@ -27,5 +28,16 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       );
     }
     return super.canActivate(context);
+  }
+
+  /**
+   * Carry the login/signup intent to Google via the OAuth `state` param, so the
+   * callback (GoogleStrategy.validate) knows whether to auto-provision. Started
+   * from `GET /api/auth/google?mode=signup`; anything else defaults to login.
+   */
+  getAuthenticateOptions(context: ExecutionContext) {
+    const req = context.switchToHttp().getRequest<Request>();
+    const mode = req.query?.mode === 'signup' ? 'signup' : 'login';
+    return { state: mode };
   }
 }
