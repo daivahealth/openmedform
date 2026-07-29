@@ -71,7 +71,7 @@ export class AiBuilderService {
 
     progress('Building system prompt and component catalog...');
     const systemPrompt = this.buildSystemPrompt(category);
-    const userPrompt = `Create a clinical form based on this description:\n\n${prompt}`;
+    const userPrompt = `Create a clinical JSON form schema based on this description:\n\n${prompt}`;
 
     this.logger.log(`Generating form with provider: ${provider.name}`);
     progress(`Sending request to ${provider.name} — this may take 30–60 seconds...`);
