@@ -16,8 +16,12 @@ Production deployment: **API + Web on Cloud Run**, **Supabase Postgres**,
 ## 1. Supabase (manual)
 
 1. Create a Supabase project.
-2. Copy the **direct** connection string (port `5432`, not the pooler) — the
-   API is a long-lived server, so no pgbouncer is needed.
+2. Copy the connection string. **Note:** Supabase now serves direct
+   connections (`db.<ref>.supabase.co:5432`) over **IPv6 only** — this works
+   from Cloud Run but NOT from IPv4-only networks (e.g. the dev Mac). For
+   local CLI access (migrate/seed), use the **Session pooler** string from
+   Dashboard → Connect (port 6543, IPv4-reachable). `DATABASE_URL` in Secret
+   Manager keeps the direct string.
 3. Store it as the `DATABASE_URL` secret (step below). Migrations run
    automatically on API boot: the Dockerfile CMD is
    `prisma migrate deploy && node dist/main.js`.

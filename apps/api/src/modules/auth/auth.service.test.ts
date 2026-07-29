@@ -11,6 +11,8 @@ describe('AuthService.resolveGoogleUser', () => {
   let audit: any;
   let service: AuthService;
 
+  const signup = { organizationName: 'Acme Health', country: 'India' };
+
   const activeUser = (over: Record<string, unknown> = {}) => ({
     id: 'u1',
     email: 'jane@acme.com',
@@ -65,18 +67,56 @@ describe('AuthService.resolveGoogleUser', () => {
   });
 
   it('provisions a new tenant + admin on signup intent for an unknown email', async () => {
-    const result = await service.resolveGoogleUser('new@acme.com', 'New Person', 'signup');
+    const result = await service.resolveGoogleUser('new@acme.com', 'New Person', 'signup', signup);
     expect(result.id).toBe('u-new');
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'auth.register', details: expect.objectContaining({ method: 'google' }) }),
+      expect.objectContaining({
+        action: 'auth.register',
+        details: expect.objectContaining({
+          method: 'google',
+          organizationName: 'Acme Health',
+          country: 'India',
+        }),
+      }),
     );
+  });
+
+  it('rejects signup without organization and country', async () => {
+    await expect(
+      service.resolveGoogleUser('new@acme.com', 'New Person', 'signup'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('stores the requested organization name and country on the new tenant', async () => {
+    let created: { name?: string; country?: string } = {};
+    prisma.$transaction.mockImplementation(async (fn: any) =>
+      fn({
+        tenant: {
+          create: vi.fn(async ({ data }: any) => {
+            created = data;
+            return { id: 't-new' };
+          }),
+        },
+        user: {
+          create: vi.fn().mockResolvedValue({
+            id: 'u-new',
+            tenantId: 't-new',
+            tenant: { id: 't-new', isActive: true },
+          }),
+        },
+      }),
+    );
+    await service.resolveGoogleUser('ceo@acme.com', 'The CEO', 'signup', signup);
+    expect(created.name).toBe('Acme Health');
+    expect(created.country).toBe('India');
   });
 
   it('rejects signup when the email already exists (even inactive)', async () => {
     prisma.user.findFirst.mockResolvedValue({ id: 'existing' });
     await expect(
-      service.resolveGoogleUser('taken@acme.com', 'Taken', 'signup'),
+      service.resolveGoogleUser('taken@acme.com', 'Taken', 'signup', signup),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -87,53 +127,7 @@ describe('AuthService.resolveGoogleUser', () => {
       activeUser({ id: 'u2', tenantId: 't2', tenant: { id: 't2', isActive: true } }),
     ]);
     await expect(
-      service.resolveGoogleUser('jane@acme.com', 'Jane', 'signup'),
+      service.resolveGoogleUser('jane@acme.com', 'Jane', 'signup', signup),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-  });
-
-  it('derives a company org name from a business email domain', async () => {
-    let createdName: string | undefined;
-    prisma.$transaction.mockImplementation(async (fn: any) =>
-      fn({
-        tenant: {
-          create: vi.fn(async ({ data }: any) => {
-            createdName = data.name;
-            return { id: 't-new' };
-          }),
-        },
-        user: {
-          create: vi.fn().mockResolvedValue({
-            id: 'u-new',
-            tenantId: 't-new',
-            tenant: { id: 't-new', isActive: true },
-          }),
-        },
-      }),
-    );
-    await service.resolveGoogleUser('ceo@acme.com', 'The CEO', 'signup');
-    expect(createdName).toBe('Acme');
-  });
-
-  it('falls back to a personal org name for a consumer email', async () => {
-    let createdName: string | undefined;
-    prisma.$transaction.mockImplementation(async (fn: any) =>
-      fn({
-        tenant: {
-          create: vi.fn(async ({ data }: any) => {
-            createdName = data.name;
-            return { id: 't-new' };
-          }),
-        },
-        user: {
-          create: vi.fn().mockResolvedValue({
-            id: 'u-new',
-            tenantId: 't-new',
-            tenant: { id: 't-new', isActive: true },
-          }),
-        },
-      }),
-    );
-    await service.resolveGoogleUser('sajithchandran@gmail.com', 'Sajith Chandran', 'signup');
-    expect(createdName).toBe("Sajith's Organization");
   });
 });

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,43 +12,26 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuth } from '@/providers/auth-provider';
-import axios from 'axios';
+import { COUNTRIES } from '@/lib/countries';
 
 export default function SignupPage() {
-  const [fullName, setFullName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [country, setCountry] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
-  const router = useRouter();
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      await register({ fullName, organizationName, email, password });
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      let message = 'Could not create your account. Please try again.';
-      if (axios.isAxiosError(err)) {
-        const data = err.response?.data as { message?: string | string[] } | undefined;
-        const apiMessage = data?.message;
-        message = Array.isArray(apiMessage)
-          ? apiMessage.join(', ')
-          : apiMessage ?? message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      setError(message);
-    } finally {
-      setIsLoading(false);
+  // Signup is Google-only. Organization and country are mandatory and travel
+  // through the OAuth handshake (state param) so the API can provision the
+  // new tenant with them — they cannot be derived from a Google profile.
+  function handleGoogleSignup() {
+    const org = organizationName.trim();
+    if (!org || !country) {
+      setError('Organization and country are required.');
+      return;
     }
+    setError('');
+    const params = new URLSearchParams({ mode: 'signup', org, country });
+    window.location.href = `${apiBase}/api/auth/google?${params.toString()}`;
   }
 
   return (
@@ -60,45 +42,16 @@ export default function SignupPage() {
         </div>
         <CardTitle className="text-2xl">Create your organization</CardTitle>
         <CardDescription>
-          Start building dynamic clinical forms in minutes
+          Sign up with Google to start building dynamic clinical forms
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Google signup: ?mode=signup tells the API callback to provision a
-            new organization when no account exists yet. */}
-        <Button variant="outline" className="mb-4 w-full" asChild>
-          <a href={`${apiBase}/api/auth/google?mode=signup`}>Sign up with Google</a>
-        </Button>
-        <div className="relative mb-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              or with email
-            </span>
-          </div>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </div>
           )}
-          <div className="space-y-2">
-            <label htmlFor="fullName" className="text-sm font-medium">
-              Full name
-            </label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder="Dr. Jane Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              autoComplete="name"
-            />
-          </div>
           <div className="space-y-2">
             <label htmlFor="organizationName" className="text-sm font-medium">
               Organization name
@@ -110,42 +63,40 @@ export default function SignupPage() {
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
               required
+              maxLength={255}
               autoComplete="organization"
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Work email
+            <label htmlFor="country" className="text-sm font-medium">
+              Country
             </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+            <select
+              id="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
               required
-              autoComplete="email"
-            />
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="" disabled>
+                Select your country
+              </option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="At least 8 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Creating account...' : 'Create account'}
+          <Button
+            type="button"
+            className="w-full"
+            onClick={handleGoogleSignup}
+            disabled={!organizationName.trim() || !country}
+          >
+            Sign up with Google
           </Button>
-        </form>
+        </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
           <Link href="/login" className="font-medium text-primary hover:underline">

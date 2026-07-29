@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ExecutionContext,
   Injectable,
   ServiceUnavailableException,
@@ -32,12 +33,41 @@ export class GoogleAuthGuard extends AuthGuard('google') {
 
   /**
    * Carry the login/signup intent to Google via the OAuth `state` param, so the
-   * callback (GoogleStrategy.validate) knows whether to auto-provision. Started
-   * from `GET /api/auth/google?mode=signup`; anything else defaults to login.
+   * callback (GoogleStrategy.validate) knows what to do. Signup requires the
+   * organization name and country up front — they become the new tenant and
+   * cannot be derived reliably from a Google profile, so the handshake is
+   * rejected without them.
+   *
+   * Started from `GET /api/auth/google?mode=signup&org=...&country=...`;
+   * anything else defaults to login. State is a base64url JSON payload; the
+   * legacy plain 'signup'/'login' strings are still accepted by the strategy.
    */
   getAuthenticateOptions(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<Request>();
     const mode = req.query?.mode === 'signup' ? 'signup' : 'login';
-    return { state: mode };
+
+    if (mode === 'signup') {
+      const organizationName = String(req.query?.org ?? '').trim();
+      const country = String(req.query?.country ?? '').trim();
+      if (!organizationName || !country) {
+        throw new BadRequestException(
+          'Organization and country are required to sign up.',
+        );
+      }
+      if (organizationName.length > 255 || country.length > 100) {
+        throw new BadRequestException(
+          'Organization or country is too long.',
+        );
+      }
+      return {
+        state: Buffer.from(
+          JSON.stringify({ m: 's', o: organizationName, c: country }),
+        ).toString('base64url'),
+      };
+    }
+
+    return {
+      state: Buffer.from(JSON.stringify({ m: 'l' })).toString('base64url'),
+    };
   }
 }

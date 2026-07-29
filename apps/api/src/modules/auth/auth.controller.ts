@@ -14,7 +14,6 @@ import { Request, Response } from 'express';
 import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
 import { GoogleAuthExceptionFilter } from './google-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -26,12 +25,6 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly config: ConfigService,
   ) {}
-
-  @Public()
-  @Post('register')
-  register(@Body() dto: RegisterDto, @Ip() ip: string) {
-    return this.authService.register(dto, ip);
-  }
 
   @Public()
   @Post('login')
