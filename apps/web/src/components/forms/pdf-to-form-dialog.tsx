@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCreateFormFromFile } from '@/hooks/use-forms';
 import { useCreateJsonFormsForm } from '@/hooks/use-conversions';
 import { useAiProviders } from '@/hooks/use-ai-builder';
+import { CategorySelect } from '@/components/forms/category-select';
 import { AlertCircle, FileUp, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
@@ -79,7 +80,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
 
   async function handleSubmit() {
     if (!file) return;
-    if (engine === 'formio' && !formName.trim()) return;
+    if (engine === 'formio' && (!formName.trim() || !formCategory.trim())) return;
 
     setStep('processing');
     setErrorMsg('');
@@ -98,7 +99,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
           file,
           name: formName.trim(),
           description: formDescription.trim() || undefined,
-          category: formCategory.trim() || undefined,
+          category: formCategory.trim(),
           formType: 'PATIENT',
           provider: provider || undefined,
           instructions: instructions.trim() || undefined,
@@ -113,7 +114,9 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   }
 
   const providers = providerData?.providers ?? [];
-  const canSubmit = !!file && (engine === 'jsonforms' || !!formName.trim());
+  const canSubmit =
+    !!file &&
+    (engine === 'jsonforms' || (!!formName.trim() && !!formCategory.trim()));
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -218,15 +221,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
                   />
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="pdf-form-cat">Category</Label>
-                  <Input
-                    id="pdf-form-cat"
-                    placeholder="e.g., Assessment, Checklist, Consent"
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                  />
-                </div>
+                <CategorySelect id="pdf-form-cat" value={formCategory} onChange={setFormCategory} />
               </>
             )}
 
