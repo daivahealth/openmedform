@@ -40,7 +40,13 @@ export default function LandingPage() {
             <ClipboardList className="h-6 w-6 text-primary" />
             <span className="text-lg font-bold">OpenMedForm</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" asChild className="hidden sm:inline-flex">
+              <a href="#integrate">
+                <Plug className="mr-2 h-4 w-4" />
+                Integrate
+              </a>
+            </Button>
             <Button variant="ghost" asChild>
               <Link href="/login">Sign in</Link>
             </Button>
@@ -74,7 +80,10 @@ export default function LandingPage() {
             </Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <Link href="/login">Sign in</Link>
+            <a href="#integrate">
+              <Plug className="mr-2 h-4 w-4" />
+              Integrate in 3 steps
+            </a>
           </Button>
         </div>
       </section>
@@ -160,25 +169,38 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* EMR integration guide */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight">
-            Integrate with your EMR in 3 steps
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            From paper form to a native screen inside your EMR — no form
-            engineering required.
-          </p>
-        </div>
-        <div className="mt-12">
-          <IntegrationSteps />
-        </div>
-        <div className="mt-12">
-          <h3 className="mb-4 text-center text-lg font-semibold">
-            Install the renderer, load the JSON
-          </h3>
-          <RendererInstall />
+      {/* EMR integration guide — the key developer story, given its own band */}
+      <section id="integrate" className="scroll-mt-20 border-y bg-primary/5">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm font-medium text-primary">
+              <Plug className="h-4 w-4" />
+              For developers
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Integrate with your EMR in 3 steps
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              From paper form to a native screen inside your EMR — no form
+              engineering required.
+            </p>
+          </div>
+          <div className="mt-12">
+            <IntegrationSteps />
+          </div>
+          <div className="mt-12">
+            <h3 className="mb-4 text-center text-lg font-semibold">
+              Install the renderer, load the JSON
+            </h3>
+            <RendererInstall />
+          </div>
+          <div className="mt-10 text-center">
+            <Button size="lg" asChild>
+              <Link href="/signup">
+                Start integrating <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
