@@ -9,6 +9,12 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'OpenMedForm',
   description: 'Clinical Form Management Platform',
+  icons: {
+    icon: '/favicon.svg',
+  },
+  appleWebApp: {
+    title: 'OpenMedForm',
+  },
 };
 
 export default function RootLayout({

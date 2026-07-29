@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <!-- Clipboard body -->
+  <rect x="20" y="10" width="60" height="78" rx="8" fill="#fff" stroke="url(#bg)" stroke-width="4"/>
+  <!-- Clipboard clip -->
+  <rect x="38" y="5" width="24" height="14" rx="4" fill="#fff" stroke="url(#bg)" stroke-width="3"/>
+  <!-- Medical cross -->
+  <rect x="44" y="34" width="12" height="32" rx="2" fill="#2563eb"/>
+  <rect x="34" y="44" width="32" height="12" rx="2" fill="#2563eb"/>
+</svg>
