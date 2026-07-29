@@ -97,18 +97,36 @@ On push to `main` (app/package changes) or manual dispatch:
 
 This workflow is independent of `release.yml` (npm package publishing).
 
-## 5. Custom domain (manual)
+## 5. Custom domain — Load Balancer (implemented)
 
-Two options:
+Production runs **same-origin** behind a global external Application Load
+Balancer (`scripts/gcp-lb-setup.sh`, idempotent):
 
-- **Cloud Run domain mappings**: `api.<domain>` → API, `app.<domain>` → Web.
-- **Cloud Load Balancer (preferred)**: same-origin — `<domain>` → Web,
-  `<domain>/api` → API. Simpler CORS and same-site cookies, single OAuth
-  origin.
+| Path | Backend |
+|------|---------|
+| `https://openmedform.daiva.health` | `openmedform-web` (default) |
+| `https://openmedform.daiva.health/api/*` | `openmedform-api` (path rule) |
 
-After mapping, update `FRONTEND_ORIGIN` (CORS), `GOOGLE_CALLBACK_URL` (must
-match the OAuth client's redirect URI), and the GitHub `API_URL` / `WEB_URL`
-variables.
+Components: static global IP, two serverless NEGs (asia-south1), two backend
+services (default timeout — a custom `timeoutSec` is rejected for serverless
+NEG backends; request length is governed by Cloud Run's own timeout), URL map,
+Google-managed cert, HTTPS proxy + 443 forwarding rule, and an HTTP→HTTPS
+redirect on port 80.
+
+Why a load balancer: **Cloud Run domain mappings are not available in
+asia-south1** (and the LB gives same-origin, which eliminates CORS and keeps
+the OAuth flow on one domain). Cost ~$18–25/mo.
+
+Setup notes:
+- DNS (Netlify): one `A` record `openmedform` → LB static IP. The managed
+  cert provisions only after DNS resolves (`managed.status` → ACTIVE).
+- Same-origin works with zero code changes: the web app calls paths under
+  `/api`, so `NEXT_PUBLIC_API_URL` is simply `https://openmedform.daiva.health`.
+- After mapping: `FRONTEND_ORIGIN` = `https://openmedform.daiva.health`,
+  callback URL = `https://openmedform.daiva.health/api/auth/google/callback`
+  (must also be added to the OAuth client's authorized redirect URIs),
+  GitHub vars `API_URL` = `WEB_URL` = `https://openmedform.daiva.health`.
+  Roll a new API revision and rebuild/redeploy web to pick these up.
 
 ## Caveats
 
