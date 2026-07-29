@@ -13,7 +13,7 @@ import {
   Workflow,
   Calculator,
   ArrowRight,
-  Plug,
+  Github,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
@@ -226,7 +226,18 @@ export default function LandingPage() {
             <ClipboardList className="h-4 w-4 text-primary" />
             <span>OpenMedForm</span>
           </div>
-          <span>AI-powered clinical form builder platform</span>
+          <div className="flex items-center gap-4">
+            <span>AI-powered clinical form builder platform</span>
+            <a
+              href="https://github.com/daivahealth/openmedform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="GitHub repository"
+            >
+              <Github className="h-5 w-5" />
+            </a>
+          </div>
         </div>
       </footer>
     </div>
