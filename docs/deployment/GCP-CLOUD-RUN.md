@@ -108,7 +108,8 @@ Balancer (`scripts/gcp-lb-setup.sh`, idempotent):
 | `https://openmedform.daiva.health/api/*` | `openmedform-api` (path rule) |
 
 Components: static global IP, two serverless NEGs (asia-south1), two backend
-services (API backend has `--timeout=3600` for SSE + long LLM calls), URL map,
+services (default timeout — a custom `timeoutSec` is rejected for serverless
+NEG backends; request length is governed by Cloud Run's own timeout), URL map,
 Google-managed cert, HTTPS proxy + 443 forwarding rule, and an HTTP→HTTPS
 redirect on port 80.
 

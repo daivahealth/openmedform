@@ -43,12 +43,13 @@ gcloud compute network-endpoint-groups create "${NAME}-api-neg" \
   --cloud-run-service=openmedform-api 2>/dev/null || echo "    api NEG already exists"
 
 echo "==> Backend services"
-# API backend: long timeout for SSE streaming + long LLM conversion calls
-# (the 30s default would kill them).
+# NOTE: do NOT set a custom --timeout here — a non-default timeoutSec is
+# rejected for backend services with serverless NEGs (add-backend fails).
+# Through the LB, request length is governed by Cloud Run's own timeout.
 gcloud compute backend-services create "${NAME}-web-backend" --global \
   --load-balancing-scheme=EXTERNAL_MANAGED 2>/dev/null || echo "    web backend already exists"
 gcloud compute backend-services create "${NAME}-api-backend" --global \
-  --load-balancing-scheme=EXTERNAL_MANAGED --timeout=3600 2>/dev/null || echo "    api backend already exists"
+  --load-balancing-scheme=EXTERNAL_MANAGED 2>/dev/null || echo "    api backend already exists"
 gcloud compute backend-services add-backend "${NAME}-web-backend" --global \
   --network-endpoint-group="${NAME}-web-neg" \
   --network-endpoint-group-region="${GCP_REGION}" 2>/dev/null || echo "    web backend already attached"
