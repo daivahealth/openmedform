@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { Plus, Pencil, Eye, Archive, Copy, Download, Upload, FileUp, FileJson } from 'lucide-react';
+import { Plus, Pencil, Eye, Archive, Copy, Download, FileUp, FileJson } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,7 +19,6 @@ import {
   useCloneForm,
   useExportForm,
   useExportNativeFormio,
-  useImportForm,
 } from '@/hooks/use-forms';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { CreateFormDialog } from '@/components/forms/create-form-dialog';
@@ -32,10 +31,8 @@ export default function FormsPage() {
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
   const exportNativeFormio = useExportNativeFormio();
-  const importForm = useImportForm();
   const [createOpen, setCreateOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleExport(formId: string, formName: string) {
     const template = await exportForm.mutateAsync(formId);
@@ -59,27 +56,6 @@ export default function FormsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function handleImportClick() {
-    fileInputRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const text = await file.text();
-    try {
-      const template = JSON.parse(text);
-      await importForm.mutateAsync(template);
-    } catch {
-      alert('Invalid template file');
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -90,17 +66,6 @@ export default function FormsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <Button variant="outline" onClick={handleImportClick} disabled={importForm.isPending}>
-            <Upload className="mr-2 h-4 w-4" />
-            {importForm.isPending ? 'Importing...' : 'Import'}
-          </Button>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileUp className="mr-2 h-4 w-4" />
             From File
