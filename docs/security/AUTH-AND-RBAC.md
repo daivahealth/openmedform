@@ -26,7 +26,7 @@
 ## Roles
 | Role | Permissions |
 |------|------------|
-| SUPER_ADMIN | All operations across all tenants |
+| SUPER_ADMIN | All operations across all tenants; platform analytics (`/api/admin/*`); global AI provider configuration (`/api/settings/*`) |
 | TENANT_ADMIN | Manage users, forms, submissions within tenant |
 | FORM_DESIGNER | Create/edit/publish forms, view submissions |
 | CLINICIAN | Fill forms, view own submissions |
@@ -83,6 +83,6 @@ against the published data schema on `complete` — client validity is advisory 
 never trusted (Form Engine Rules). Scores are likewise recalculated server-side.
 
 ## LLM API Key Security
-- Keys stored in environment variables only
-- Never logged, never returned in API responses
+- Keys are configured globally by `SUPER_ADMIN` (Settings → AI Providers) and stored in Postgres encrypted at rest (AES-256-GCM via `AI_ENCRYPTION_KEY`), or fall back to environment variables (see `docs/features/AI-BUILDER.md` §Security for the resolution order).
+- Never logged, never returned in API responses (masked form only)
 - Provider name and model logged in audit, never the key

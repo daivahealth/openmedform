@@ -6,7 +6,7 @@ import { OpenAiProvider } from './openai.provider';
 import { OllamaProvider } from './ollama.provider';
 import { MinimaxProvider } from './minimax.provider';
 import { KimiProvider } from './kimi.provider';
-import { AiProviderConfigService } from '../../settings/ai-provider-config.service';
+import { AiProviderConfigService, GLOBAL_AI_CONFIG_TENANT_ID } from '../../settings/ai-provider-config.service';
 
 interface ProviderSet {
   providers: Map<string, LlmProvider>;
@@ -21,32 +21,53 @@ export class ProviderRegistry {
   ) {}
 
   async getProvidersForTenant(tenantId: string): Promise<ProviderSet> {
+    // Resolution order: tenant's own configured providers -> the global
+    // platform-wide set (SUPER_ADMIN, Settings -> AI Providers) -> env vars.
     const dbConfigs =
       await this.aiProviderConfigService.getDecryptedConfigs(tenantId);
 
     if (dbConfigs.length > 0) {
-      const providers = new Map<string, LlmProvider>();
+      return this.buildProviderSet(dbConfigs);
+    }
 
-      for (const cfg of dbConfigs) {
-        const provider = this.createProvider(
-          cfg.provider,
-          cfg.apiKey,
-          cfg.model ?? undefined,
-          cfg.baseUrl ?? undefined,
-        );
-        if (provider) {
-          providers.set(cfg.provider, provider);
-        }
-      }
-
-      const defaultCfg = dbConfigs.find((c) => c.isDefault);
-      const defaultName =
-        defaultCfg?.provider ?? providers.keys().next().value ?? '';
-
-      return { providers, defaultName };
+    const globalConfigs = await this.aiProviderConfigService.getDecryptedConfigs(
+      GLOBAL_AI_CONFIG_TENANT_ID,
+    );
+    if (globalConfigs.length > 0) {
+      return this.buildProviderSet(globalConfigs);
     }
 
     return this.getEnvProviders();
+  }
+
+  private buildProviderSet(
+    dbConfigs: {
+      provider: string;
+      apiKey: string;
+      model: string | null;
+      baseUrl: string | null;
+      isDefault: boolean;
+    }[],
+  ): ProviderSet {
+    const providers = new Map<string, LlmProvider>();
+
+    for (const cfg of dbConfigs) {
+      const provider = this.createProvider(
+        cfg.provider,
+        cfg.apiKey,
+        cfg.model ?? undefined,
+        cfg.baseUrl ?? undefined,
+      );
+      if (provider) {
+        providers.set(cfg.provider, provider);
+      }
+    }
+
+    const defaultCfg = dbConfigs.find((c) => c.isDefault);
+    const defaultName =
+      defaultCfg?.provider ?? providers.keys().next().value ?? '';
+
+    return { providers, defaultName };
   }
 
   getProvider(

@@ -20,7 +20,13 @@ const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/forms', label: 'Forms', icon: FileText },
   { href: '/submissions', label: 'Records', icon: Inbox },
+];
+
+// Settings (global AI provider config) and the platform analytics console are
+// SUPER_ADMIN-only, matching the API guards.
+const superAdminNavItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/admin', label: 'Admin', icon: ShieldCheck },
 ];
 
 export function Sidebar() {
@@ -28,10 +34,9 @@ export function Sidebar() {
   const { collapsed, toggle } = useSidebarStore();
   const { user } = useAuth();
 
-  // The platform analytics console is SUPER_ADMIN-only, matching the API guard.
   const navItems =
     user?.role === 'SUPER_ADMIN'
-      ? [...baseNavItems, { href: '/admin', label: 'Admin', icon: ShieldCheck }]
+      ? [...baseNavItems, ...superAdminNavItems]
       : baseNavItems;
 
   return (

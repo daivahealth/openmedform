@@ -8,24 +8,29 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import { AiProviderConfigService } from './ai-provider-config.service';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequestUser } from '../../common/types/jwt-payload.interface';
+import { AiProviderConfigService, GLOBAL_AI_CONFIG_TENANT_ID } from './ai-provider-config.service';
+import { Roles } from '../../common/decorators/roles.decorator';
 
+/**
+ * AI provider configuration is GLOBAL (platform-wide) and managed only by
+ * SUPER_ADMIN — it applies to every tenant (see ProviderRegistry fallback).
+ * All routes therefore operate on the global sentinel scope, never on the
+ * caller's own tenant.
+ */
 @Controller('settings')
+@Roles('SUPER_ADMIN')
 export class SettingsController {
   constructor(
     private readonly aiProviderConfigService: AiProviderConfigService,
   ) {}
 
   @Get('ai-providers')
-  listProviders(@CurrentUser() user: RequestUser) {
-    return this.aiProviderConfigService.findAll(user.tenantId);
+  listProviders() {
+    return this.aiProviderConfigService.findAll(GLOBAL_AI_CONFIG_TENANT_ID);
   }
 
   @Post('ai-providers')
   createProvider(
-    @CurrentUser() user: RequestUser,
     @Body()
     body: {
       provider: string;
@@ -36,12 +41,11 @@ export class SettingsController {
       isDefault?: boolean;
     },
   ) {
-    return this.aiProviderConfigService.create(user.tenantId, body);
+    return this.aiProviderConfigService.create(GLOBAL_AI_CONFIG_TENANT_ID, body);
   }
 
   @Put('ai-providers/:id')
   updateProvider(
-    @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     body: {
@@ -53,14 +57,11 @@ export class SettingsController {
       isActive?: boolean;
     },
   ) {
-    return this.aiProviderConfigService.update(user.tenantId, id, body);
+    return this.aiProviderConfigService.update(GLOBAL_AI_CONFIG_TENANT_ID, id, body);
   }
 
   @Delete('ai-providers/:id')
-  deleteProvider(
-    @CurrentUser() user: RequestUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.aiProviderConfigService.remove(user.tenantId, id);
+  deleteProvider(@Param('id', ParseUUIDPipe) id: string) {
+    return this.aiProviderConfigService.remove(GLOBAL_AI_CONFIG_TENANT_ID, id);
   }
 }
