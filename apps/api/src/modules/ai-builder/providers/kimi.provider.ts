@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { LlmProvider, LlmOptions } from './llm-provider.interface';
+import { emitUsage } from './usage.util';
 
 export class KimiProvider implements LlmProvider {
   readonly name = 'kimi';
@@ -25,6 +26,7 @@ export class KimiProvider implements LlmProvider {
       ],
     });
 
+    emitUsage(options, this.model, response.usage);
     return response.choices[0]?.message?.content ?? '';
   }
 }

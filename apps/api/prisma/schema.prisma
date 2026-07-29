@@ -320,3 +320,27 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+// ─── AI Usage ────────────────────────────────────────────────────────────────
+
+// One row per LLM call (generate / refine / convert). Populated best-effort
+// from the token usage each provider reports, and aggregated by the SUPER_ADMIN
+// analytics console. Not tenant-query-scoped for domain reads; it is an
+// operational metering table, but still carries tenantId/userId for attribution.
+model AiUsage {
+  id           BigInt   @id @default(autoincrement())
+  tenantId     String   @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  provider     String   @db.VarChar(50)
+  model        String   @db.VarChar(100)
+  operation    String   @db.VarChar(50)
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  totalTokens  Int      @default(0) @map("total_tokens")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("ai_usage")
+}

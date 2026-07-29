@@ -14,6 +14,7 @@ import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
 import { FormConversionModule } from './modules/form-conversion/form-conversion.module';
 import { DesignerModule } from './modules/designer/designer.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     FormConversionModule,
     DesignerModule,
     SettingsModule,
+    AdminModule,
     HealthModule,
   ],
 })

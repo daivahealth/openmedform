@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { LlmProvider, LlmOptions, ImageContent } from './llm-provider.interface';
+import { emitUsage } from './usage.util';
 
 export class OpenAiProvider implements LlmProvider {
   readonly name = 'openai';
@@ -21,6 +22,7 @@ export class OpenAiProvider implements LlmProvider {
       ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
     });
 
+    emitUsage(options, this.model, response.usage);
     return response.output_text;
   }
 
@@ -59,6 +61,7 @@ export class OpenAiProvider implements LlmProvider {
       ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
     });
 
+    emitUsage(options, this.model, response.usage);
     return response.output_text;
   }
 

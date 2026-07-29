@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Ip,
   Post,
   Req,
   Res,
@@ -13,6 +14,7 @@ import { Request, Response } from 'express';
 import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { GoogleAuthExceptionFilter } from './google-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -26,9 +28,15 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Post('register')
+  register(@Body() dto: RegisterDto, @Ip() ip: string) {
+    return this.authService.register(dto, ip);
+  }
+
+  @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Ip() ip: string) {
+    return this.authService.login(dto, ip);
   }
 
   /** Starts the Google OAuth2 handshake (redirects to Google). */
@@ -51,8 +59,9 @@ export class AuthController {
   async googleCallback(
     @Req() req: Request & { user: User & { tenant: Tenant } },
     @Res() res: Response,
+    @Ip() ip: string,
   ) {
-    const session = await this.authService.googleLogin(req.user);
+    const session = await this.authService.googleLogin(req.user, ip);
     const frontendOrigin =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3000';
     const target = new URL('/auth/callback', frontendOrigin);

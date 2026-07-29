@@ -1,7 +1,22 @@
+/** Token usage a provider reports for a single generation call. */
+export interface TokenUsage {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
 export interface LlmOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  /**
+   * Best-effort usage sink. Providers invoke this (when the underlying SDK
+   * reports usage) so callers can meter token consumption without changing the
+   * string return contract. The metering wrapper in AiUsageService injects it;
+   * a failure inside it must never break generation.
+   */
+  onUsage?: (usage: TokenUsage) => void;
 }
 
 export interface ImageContent {

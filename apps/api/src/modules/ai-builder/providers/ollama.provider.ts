@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { LlmProvider, LlmOptions } from './llm-provider.interface';
+import { emitUsage } from './usage.util';
 
 export class OllamaProvider implements LlmProvider {
   readonly name = 'ollama';
@@ -26,6 +27,7 @@ export class OllamaProvider implements LlmProvider {
       ...(options?.jsonMode && { response_format: { type: 'json_object' as const } }),
     });
 
+    emitUsage(options, this.model, response.usage);
     return response.choices[0]?.message?.content ?? '';
   }
 }

@@ -3,6 +3,7 @@ import { Prisma, type FormEngine } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AiBuilderService } from '../ai-builder/ai-builder.service';
+import { AiUsageService } from '../ai-builder/ai-usage.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
 import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-prompt';
@@ -41,6 +42,7 @@ export class FormConversionService {
     private readonly audit: AuditService,
     private readonly aiBuilder: AiBuilderService,
     private readonly providerRegistry: ProviderRegistry,
+    private readonly aiUsage: AiUsageService,
     private readonly assembler: JsonFormsAssemblerService,
   ) {}
 
@@ -183,6 +185,7 @@ export class FormConversionService {
             input.fileBuffer,
             input.providerName,
             input.instructions,
+            userId,
           )
         : await this.aiBuilder.generateFromImage(
             tenantId,
@@ -190,6 +193,7 @@ export class FormConversionService {
             input.mimeType,
             input.providerName,
             input.instructions,
+            userId,
           );
 
     const form = await this.createDraftForm(tenantId, userId, input.fileName, {
@@ -206,10 +210,15 @@ export class FormConversionService {
     input: ConversionInput,
   ): Promise<{ formId: string; pageCount?: number; warningCount: number }> {
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
-    const provider = this.providerRegistry.getProvider(providerSet, input.providerName);
-    if (!provider) {
+    const baseProvider = this.providerRegistry.getProvider(providerSet, input.providerName);
+    if (!baseProvider) {
       throw new Error('No AI providers are configured');
     }
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'conversion.jsonforms',
+    });
 
     const systemPrompt = getPdfToJsonFormsPrompt();
     let pageCount: number | undefined;
