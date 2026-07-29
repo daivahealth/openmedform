@@ -25,7 +25,6 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
 }
@@ -51,15 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await api.post('/api/auth/login', { email, password });
-    const { accessToken: access_token, user: userData } = response.data;
-    localStorage.setItem('auth_token', access_token);
-    localStorage.setItem('auth_user', JSON.stringify(userData));
-    setToken(access_token);
-    setUser(userData);
-  }, []);
-
   // Google SSO entry point: the API has already issued a JWT; persist it and
   // hydrate the user profile from /auth/me.
   const loginWithToken = useCallback(async (accessToken: string) => {
@@ -83,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, loginWithToken, logout }}
+      value={{ user, token, isLoading, loginWithToken, logout }}
     >
       {children}
     </AuthContext.Provider>

@@ -2,6 +2,7 @@
 
 ## Authentication
 - Stateless JWT auth. Token issued on login, carried in `Authorization: Bearer <token>` header.
+- **The web UI signs in with Google only** (no email/password form); `POST /api/auth/login` remains available for API clients and the seeded admin.
 - JWT payload: `{ sub: userId, tenantId, email, role, iat, exp }`
 - Token expiry: 24 hours (configurable via `JWT_EXPIRY` env var)
 - Password hashing: bcrypt (cost factor 10)
