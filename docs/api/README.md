@@ -20,13 +20,14 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/admin/stats | Platform-wide analytics: totals, per-tenant (incl. country) and per-user breakdown (forms, submissions, last login, AI token usage), users by country, usage by provider, recent logins. Gated to `SUPER_ADMIN` by the global `RolesGuard`; other roles receive 403. |
+| PATCH | /api/admin/users/:userId/form-limit | Set a user's form creation quota (`{ formLimit: number | null }`; null resets to the default of 5). SUPER_ADMIN only |
 
 ### Forms
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/forms | List forms (paginated) |
 | GET | /api/forms/count | Total form count for the tenant |
-| POST | /api/forms | Create form |
+| POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded). Also applies to from-pdf/from-file/import and clone |
 | GET | /api/forms/:id | Get form with current version |
 | PUT | /api/forms/:id | Update form metadata |
 | DELETE | /api/forms/:id | Archive form (soft delete — sets status ARCHIVED) |

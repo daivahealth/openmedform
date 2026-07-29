@@ -93,6 +93,7 @@ model User {
   passwordHash String    @map("password_hash") @db.Text
   fullName     String    @map("full_name") @db.VarChar(255)
   role         UserRole  @default(CLINICIAN)
+  formLimit    Int?      @map("form_limit")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamp(6)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)

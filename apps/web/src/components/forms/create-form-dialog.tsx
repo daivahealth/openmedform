@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AxiosError } from 'axios';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ interface CreateFormDialogProps {
 export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) {
   const router = useRouter();
   const createForm = useCreateForm();
+  const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -42,16 +44,29 @@ export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) 
 
     if (!name.trim()) return;
 
-    const result = await createForm.mutateAsync({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      category: category.trim() || undefined,
-      formType,
-    });
+    setError('');
+    try {
+      const result = await createForm.mutateAsync({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        category: category.trim() || undefined,
+        formType,
+      });
 
-    resetFields();
-    onOpenChange(false);
-    router.push(`/forms/${result.id}/builder`);
+      resetFields();
+      onOpenChange(false);
+      router.push(`/forms/${result.id}/builder`);
+    } catch (err) {
+      // Surfaces the form-quota 403 ("contact the admin...") and any other
+      // API validation message instead of failing silently.
+      const message = (err as AxiosError<{ message?: string | string[] }>)
+        .response?.data?.message;
+      setError(
+        Array.isArray(message)
+          ? message.join(', ')
+          : message ?? 'Could not create the form. Please try again.',
+      );
+    }
   }
 
   return (
@@ -67,6 +82,11 @@ export function CreateFormDialog({ open, onOpenChange }: CreateFormDialogProps) 
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            {error && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label>Form Type</Label>
               <div className="grid grid-cols-2 gap-3">

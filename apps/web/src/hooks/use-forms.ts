@@ -243,35 +243,3 @@ export function useArchiveForm() {
   });
 }
 
-interface FormDeletionSummary {
-  formName: string;
-  versionCount: number;
-  submissionCount: number;
-}
-
-export function useFormDeletionSummary(formId: string | null) {
-  return useQuery<FormDeletionSummary>({
-    queryKey: ['form', 'deletion-summary', formId],
-    queryFn: async () => {
-      const { data } = await api.get(`/api/forms/${formId}/deletion-summary`);
-      return data;
-    },
-    enabled: !!formId,
-  });
-}
-
-export function useDeleteForm() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (formId: string) => {
-      const { data } = await api.delete(`/api/forms/${formId}/permanent`);
-      return data as { deleted: boolean; versions: number; submissions: number };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forms'] });
-      queryClient.invalidateQueries({ queryKey: ['submissions'] });
-      queryClient.invalidateQueries({ queryKey: ['all-submissions'] });
-    },
-  });
-}

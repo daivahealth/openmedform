@@ -60,6 +60,7 @@ export class AdminService {
           lastLoginAt: true,
           createdAt: true,
           tenant: { select: { name: true } },
+          formLimit: true,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -120,6 +121,7 @@ export class AdminService {
         role: u.role,
         isActive: u.isActive,
         tenantName: u.tenant.name,
+        formLimit: u.formLimit,
         lastLoginAt: u.lastLoginAt,
         createdAt: u.createdAt,
         formsCreated: formsCreatorMap.get(u.id) ?? 0,
@@ -140,6 +142,14 @@ export class AdminService {
         };
       }),
     };
+  }
+  async updateUserFormLimit(userId: string, formLimit: number | null) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { formLimit },
+      select: { id: true, email: true, formLimit: true },
+    });
+    return user;
   }
 }
 
