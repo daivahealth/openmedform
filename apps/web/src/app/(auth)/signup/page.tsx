@@ -96,6 +96,15 @@ export default function SignupPage() {
           >
             Sign up with Google
           </Button>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            <strong>Privacy notice:</strong> OpenMedForm is open-source software
+            provided as-is. We do not review, secure, or take any
+            responsibility for PII, PHI, or any other personal data you
+            upload. Do not upload personal or patient data unless you have
+            independently validated this software for your own compliance
+            needs. By signing up, you acknowledge that all data you store here
+            is entirely your own responsibility.
+          </div>
         </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
