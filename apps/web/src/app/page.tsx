@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
 import { ArchitectureDiagram } from '@/components/marketing/architecture-diagram';
+import { IntegrationSteps, RendererInstall } from '@/components/marketing/emr-integration';
 
 export default function LandingPage() {
   const { token, isLoading } = useAuth();
@@ -155,6 +156,28 @@ export default function LandingPage() {
               <p className="text-sm text-muted-foreground">{c.body}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* EMR integration guide */}
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Integrate with your EMR in 3 steps
+          </h2>
+          <p className="mt-4 text-muted-foreground">
+            From paper form to a native screen inside your EMR — no form
+            engineering required.
+          </p>
+        </div>
+        <div className="mt-12">
+          <IntegrationSteps />
+        </div>
+        <div className="mt-12">
+          <h3 className="mb-4 text-center text-lg font-semibold">
+            Install the renderer, load the JSON
+          </h3>
+          <RendererInstall />
         </div>
       </section>
 
