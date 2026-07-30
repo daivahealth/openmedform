@@ -15,6 +15,7 @@ const nextConfig = {
     '@openmedform/react-form-renderer',
     '@openmedform/form-core',
     '@openmedform/form-design-tokens',
+    '@openmedform/form-print-engine',
     '@openmedform/form-schema-types',
   ],
   webpack: (config) => {

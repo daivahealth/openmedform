@@ -14,6 +14,7 @@ import {
   Calculator,
   ArrowRight,
   Github,
+  Plug,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';

@@ -6,6 +6,7 @@ import { useForm, usePublishForm } from '@/hooks/use-forms';
 import { useJsonFormsRefine } from '@/hooks/use-ai-builder';
 import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
 import { AssetsDialog } from '@/components/forms/assets-dialog';
+import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -153,6 +154,7 @@ export default function FormPreviewPage() {
               <Images className="mr-2 h-4 w-4" />
               Assets
             </Button>
+            <PrintPreviewButton form={form as never} />
             <Button variant="outline" size="sm" onClick={() => setRefineOpen(true)}>
               <Sparkles className="mr-2 h-4 w-4" />
               Refine with AI

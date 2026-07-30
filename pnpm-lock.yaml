@@ -237,6 +237,9 @@ importers:
       '@openmedform/form-design-tokens':
         specifier: workspace:*
         version: link:../../packages/form-design-tokens
+      '@openmedform/form-print-engine':
+        specifier: workspace:*
+        version: link:../../packages/form-print-engine
       '@openmedform/form-schema-types':
         specifier: workspace:*
         version: link:../../packages/form-schema-types
