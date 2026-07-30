@@ -72,7 +72,9 @@ function pageCss(print: PrintSchema): string {
     `.omf-v { display: block; }`,
     `.omf-group { border: 0.3mm solid #000; padding: 3mm; margin-bottom: 4mm; }`,
     `.omf-group > legend { font-weight: bold; font-size: 11pt; padding: 0 2mm; }`,
-    `.omf-section-label { font-weight: bold; margin: 2mm 0; }`,
+    // pre-line preserves source line breaks so a multi-line / dash-bulleted
+    // instruction Label prints one item per line instead of running together.
+    `.omf-section-label { font-weight: bold; margin: 2mm 0; white-space: pre-line; }`,
     `.omf-field { margin-bottom: 2mm; }`,
     `.omf-label { font-weight: bold; margin-right: 2mm; }`,
     `.omf-box { border: 0.3mm solid #000; min-height: 6mm; padding: 1mm; }`,
