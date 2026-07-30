@@ -9,6 +9,7 @@ import {
   useCompleteSubmission,
 } from '@/hooks/use-submissions';
 import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
+import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -258,8 +259,11 @@ export default function FormFillPage() {
 
   return (
     <div className="w-full py-4">
-      <div className="mb-4">
+      <div className="mb-4 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">{form.name}</h1>
+        {isJsonForms && (
+          <PrintPreviewButton form={form as never} data={jsonFormsData} />
+        )}
       </div>
 
       {isPatientForm && <PatientHeaderBar context={patientContext} />}
