@@ -9,28 +9,29 @@ import {
   Put,
 } from '@nestjs/common';
 import { AiProviderConfigService, GLOBAL_AI_CONFIG_TENANT_ID } from './ai-provider-config.service';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestUser } from '../../common/types/jwt-payload.interface';
+import { AuditService } from '../../common/audit/audit.service';
 
 /**
- * AI provider configuration is GLOBAL (platform-wide) and managed only by
- * SUPER_ADMIN — it applies to every tenant (see ProviderRegistry fallback).
- * All routes therefore operate on the global sentinel scope, never on the
- * caller's own tenant.
+ * Tenant users manage their own tenant's AI providers. SUPER_ADMIN continues
+ * to manage the global provider set used as the platform fallback.
  */
 @Controller('settings')
-@Roles('SUPER_ADMIN')
 export class SettingsController {
   constructor(
     private readonly aiProviderConfigService: AiProviderConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   @Get('ai-providers')
-  listProviders() {
-    return this.aiProviderConfigService.findAll(GLOBAL_AI_CONFIG_TENANT_ID);
+  listProviders(@CurrentUser() user: RequestUser) {
+    return this.aiProviderConfigService.findAll(this.configTenantId(user));
   }
 
   @Post('ai-providers')
-  createProvider(
+  async createProvider(
+    @CurrentUser() user: RequestUser,
     @Body()
     body: {
       provider: string;
@@ -41,11 +42,22 @@ export class SettingsController {
       isDefault?: boolean;
     },
   ) {
-    return this.aiProviderConfigService.create(GLOBAL_AI_CONFIG_TENANT_ID, body);
+    const tenantId = this.configTenantId(user);
+    const config = await this.aiProviderConfigService.create(tenantId, body);
+    await this.audit.record({
+      tenantId,
+      userId: user.userId,
+      action: 'AI_PROVIDER_CREATED',
+      resourceType: 'ai_provider_config',
+      resourceId: config.id,
+      details: { provider: config.provider },
+    });
+    return config;
   }
 
   @Put('ai-providers/:id')
-  updateProvider(
+  async updateProvider(
+    @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     body: {
@@ -57,11 +69,39 @@ export class SettingsController {
       isActive?: boolean;
     },
   ) {
-    return this.aiProviderConfigService.update(GLOBAL_AI_CONFIG_TENANT_ID, id, body);
+    const tenantId = this.configTenantId(user);
+    const config = await this.aiProviderConfigService.update(tenantId, id, body);
+    await this.audit.record({
+      tenantId,
+      userId: user.userId,
+      action: 'AI_PROVIDER_UPDATED',
+      resourceType: 'ai_provider_config',
+      resourceId: config.id,
+      details: { provider: config.provider },
+    });
+    return config;
   }
 
   @Delete('ai-providers/:id')
-  deleteProvider(@Param('id', ParseUUIDPipe) id: string) {
-    return this.aiProviderConfigService.remove(GLOBAL_AI_CONFIG_TENANT_ID, id);
+  async deleteProvider(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const tenantId = this.configTenantId(user);
+    const result = await this.aiProviderConfigService.remove(tenantId, id);
+    await this.audit.record({
+      tenantId,
+      userId: user.userId,
+      action: 'AI_PROVIDER_DELETED',
+      resourceType: 'ai_provider_config',
+      resourceId: id,
+    });
+    return result;
+  }
+
+  private configTenantId(user: RequestUser): string {
+    return user.role === 'SUPER_ADMIN'
+      ? GLOBAL_AI_CONFIG_TENANT_ID
+      : user.tenantId;
   }
 }

@@ -32,7 +32,7 @@ The OpenAI provider uses the **Responses API** for text and image-backed form
 generation/refinement. It requests JSON-object output and sends rendered PDF
 pages as high-detail image inputs. For a balanced production default, configure
 `AI_OPENAI_MODEL=gpt-5.6-terra`; model selection can also be set per tenant in
-Settings → AI Providers. GPT-5.6 Terra supports image input, structured output,
+**AI Settings**. GPT-5.6 Terra supports image input, structured output,
 and the Responses API.
 
 ## Form-Scoped Agent Flow
@@ -61,10 +61,10 @@ Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields)
 
 ## Security
 - LLM API keys can come from three sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant` (first match wins):
-  1. **Tenant-configured providers** (legacy per-tenant rows in `ai_provider_config`): when a tenant has any configured providers, these take priority.
-  2. **Global providers** (Settings → AI Providers, `SUPER_ADMIN` only): the platform-wide set that applies to every tenant without its own configuration. Stored in `ai_provider_config` under a sentinel tenant id (`00000000-0000-0000-0000-000000000000`).
+  1. **Tenant-configured providers** (**AI Settings**, available to authenticated tenant users): when a tenant has any configured providers, these take priority.
+  2. **Global providers** (**AI Settings**, `SUPER_ADMIN` scope): the platform-wide set that applies to every tenant without its own configuration. Stored in `ai_provider_config` under a sentinel tenant id (`00000000-0000-0000-0000-000000000000`).
   3. **Org-wide env vars** (`AI_CLAUDE_API_KEY`, `AI_OPENAI_API_KEY`, etc.): fallback when no database configuration exists at all.
-- The settings API (`/api/settings/ai-providers*`) is gated to `SUPER_ADMIN` via `@Roles('SUPER_ADMIN')` and always operates on the global set; the Settings UI is hidden from other roles.
+- The settings API (`/api/settings/ai-providers*`) is available to authenticated users. Tenant users can only list and mutate rows matching their JWT `tenantId`; `SUPER_ADMIN` operates on the global sentinel scope. The sidebar labels this workflow **AI Settings**.
 - Keys are encrypted at rest (AES-256-GCM, via `AI_ENCRYPTION_KEY`) and decrypted only in-memory when instantiating a provider client.
 - API keys are never logged; the API only ever returns a masked form (`sk-t****xxxx`) to the client.
 - On create/update, `AiProviderConfigService` rejects keys that are empty (except optional for Ollama), exceed 300 characters, or contain whitespace/line breaks/non-ASCII characters — this catches paste mistakes (e.g. pasting terminal output instead of a key) before they reach the LLM SDK, where a malformed `Authorization` header would otherwise fail with an opaque 500.

@@ -22,6 +22,14 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 | GET | /api/admin/stats | Platform-wide analytics: totals, per-tenant (incl. country) and per-user breakdown (forms, submissions, last login, AI token usage), users by country, usage by provider, recent logins. Gated to `SUPER_ADMIN` by the global `RolesGuard`; other roles receive 403. |
 | PATCH | /api/admin/users/:userId/form-limit | Set a user's form creation quota (`{ formLimit: number | null }`; null resets to the default of 5). SUPER_ADMIN only |
 
+### AI Settings
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/settings/ai-providers | List the caller's tenant AI provider configurations; `SUPER_ADMIN` lists the global fallback set |
+| POST | /api/settings/ai-providers | Add a provider in the caller's tenant scope; provider keys are encrypted and never returned unmasked |
+| PUT | /api/settings/ai-providers/:id | Update a provider only when it belongs to the caller's tenant scope |
+| DELETE | /api/settings/ai-providers/:id | Delete a provider only when it belongs to the caller's tenant scope |
+
 ### Forms
 | Method | Path | Description |
 |--------|------|-------------|

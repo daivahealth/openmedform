@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useAuth } from '@/providers/auth-provider';
 import {
   Card,
@@ -47,24 +46,12 @@ function getDefaultModel(value: string) {
 }
 
 export default function SettingsPage() {
-  const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const { data: configs, isLoading } = useAiProviderConfigs();
   const createMutation = useCreateAiProvider();
   const updateMutation = useUpdateAiProvider();
   const deleteMutation = useDeleteAiProvider();
-
-  // Global AI provider configuration is SUPER_ADMIN-only (the API enforces
-  // the same via RolesGuard); everyone else is bounced to the dashboard.
-  useEffect(() => {
-    if (!authLoading && user && user.role !== 'SUPER_ADMIN') {
-      router.replace('/dashboard');
-    }
-  }, [authLoading, user, router]);
-
-  if (!authLoading && user && user.role !== 'SUPER_ADMIN') {
-    return null;
-  }
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editConfig, setEditConfig] = useState<AiProviderConfig | null>(null);
@@ -153,9 +140,11 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">AI Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Platform configuration and AI provider management
+          {isSuperAdmin
+            ? 'Manage the platform-wide AI provider fallback'
+            : 'Configure AI providers for your organization'}
         </p>
       </div>
 
@@ -164,10 +153,13 @@ export default function SettingsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <div>
-                <CardTitle>Global AI Providers</CardTitle>
+                <CardTitle>
+                  {isSuperAdmin ? 'Global AI Providers' : 'AI Providers'}
+                </CardTitle>
                 <CardDescription>
-                  LLM providers for AI-powered form generation. These apply to
-                  every organization on the platform.
+                  {isSuperAdmin
+                    ? 'LLM providers used by organizations that do not have their own configuration.'
+                    : 'LLM providers for AI-powered form generation in your organization.'}
                 </CardDescription>
               </div>
               {availableProviders.length > 0 && (
