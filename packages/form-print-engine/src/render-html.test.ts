@@ -41,4 +41,24 @@ describe('renderPrintHtml (A4 reconstruction)', () => {
     expect(filled).not.toContain('<script>x');
     expect(filled).toContain('&lt;script&gt;');
   });
+
+  it('preserves line breaks in a multi-line bulleted Label', () => {
+    const out = renderPrintHtml({
+      ...rrtSbarReference,
+      dataSchema: { type: 'object', properties: {} },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Label', text: '- Να πάρει ελαφρύ πρωινό\n- Να έχει τις εξετάσεις\n- Να μην χρησιμοποιεί μακιγιάζ' },
+          ],
+        },
+      } as never,
+    });
+    // The label block opts into line-break preservation …
+    expect(out).toContain('white-space: pre-line');
+    // … and the source newlines survive into the markup (not collapsed).
+    expect(out).toContain('- Να πάρει ελαφρύ πρωινό\n- Να έχει τις εξετάσεις\n- Να μην χρησιμοποιεί μακιγιάζ');
+  });
 });

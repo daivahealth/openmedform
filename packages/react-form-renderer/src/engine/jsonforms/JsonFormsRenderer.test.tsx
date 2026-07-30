@@ -268,4 +268,32 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     // The row's field controls render in the right cell.
     expect(document.querySelectorAll('input, textarea, select').length).toBeGreaterThanOrEqual(2);
   });
+
+  it('preserves line breaks in a multi-line bulleted Label', () => {
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: { type: 'object', properties: {} },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Label',
+              text: '- Να πάρει ελαφρύ πρωινό (τσάι – φρυγανιά)\n- Να έχει τις εξετάσεις\n- Να μην χρησιμοποιεί μακιγιάζ',
+            } as never,
+          ],
+        },
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    const el = screen.getByText(/Να πάρει ελαφρύ πρωινό/);
+    // Each dash line survives as its own line (not collapsed into a run-on),
+    // and the block preserves newlines via white-space: pre-line.
+    expect(el.textContent).toContain('\n- Να έχει τις εξετάσεις');
+    expect(el.textContent).toContain('\n- Να μην χρησιμοποιεί μακιγιάζ');
+    expect(getComputedStyle(el).whiteSpace).toBe('pre-line');
+  });
 });

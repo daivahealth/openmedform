@@ -14,6 +14,8 @@ import {
   Calculator,
   ArrowRight,
   Github,
+  Plug,
+  Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
@@ -137,7 +139,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="border-t bg-muted/30">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-2 lg:grid-cols-5">
           {[
             {
               icon: Sparkles,
@@ -158,6 +160,11 @@ export default function LandingPage() {
               icon: Calculator,
               title: 'Server-side scoring',
               body: 'Clinical risk scores are recalculated on the server at submission — never trusting the client.',
+            },
+            {
+              icon: Printer,
+              title: 'Print-ready A4 & PDF',
+              body: 'Every form renders to a print-accurate A4 document — preview, print, or generate a PDF from the same JSON.',
             },
           ].map((c) => (
             <div key={c.title} className="rounded-lg border bg-card p-6">
@@ -193,6 +200,11 @@ export default function LandingPage() {
               Install the renderer, load the JSON
             </h3>
             <RendererInstall />
+            <p className="mx-auto mt-6 flex max-w-2xl items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+              <Printer className="h-4 w-4 shrink-0 text-primary" />
+              Need a paper copy? The same JSON renders to a print-accurate A4 document
+              (and PDF) via <code className="rounded bg-muted px-1 py-0.5 text-xs">@openmedform/form-print-engine</code>.
+            </p>
           </div>
           <div className="mt-10 text-center">
             <Button size="lg" asChild>

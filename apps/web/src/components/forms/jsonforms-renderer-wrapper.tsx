@@ -4,7 +4,7 @@ import { JsonFormsRenderer } from '@openmedform/react-form-renderer';
 import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 
 /** A form version as returned by the API (jsonforms engine). */
-interface ApiVersion {
+export interface ApiVersion {
   version?: number;
   engine?: string;
   dataSchema?: unknown;
@@ -13,7 +13,7 @@ interface ApiVersion {
   translations?: unknown;
   conversionMetadata?: unknown;
 }
-interface ApiForm {
+export interface ApiForm {
   id: string;
   slug?: string;
   name: string;
@@ -40,14 +40,17 @@ const FALLBACK_PRINT = {
 const FALLBACK_TRANSLATIONS = { defaultLanguage: 'en', languages: ['en'], entries: {} };
 
 /**
- * Renders a jsonforms-engine form from the API shape by assembling a
- * FormDefinition and delegating to the shared React renderer. The Form.io
- * engine keeps using FormRendererWrapper; DualFormRenderer picks between them.
+ * Assemble a jsonforms FormDefinition from the API form shape. Shared by the
+ * on-screen renderer and the print-preview path so both consume identical
+ * schemas (single source of truth for fallbacks).
  */
-export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChange }: Props) {
+export function toJsonFormsDefinition(
+  form: ApiForm,
+  version?: ApiVersion,
+): JsonFormsFormDefinition {
   const v = version ?? form.currentVersion ?? form.versions?.[0];
 
-  const definition = {
+  return {
     id: form.id,
     formCode: form.slug ?? form.id,
     name: form.name,
@@ -64,6 +67,15 @@ export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChan
     conversionMetadata: v?.conversionMetadata as JsonFormsFormDefinition['conversionMetadata'],
     audit: { createdAt: '', createdBy: '', updatedAt: '', updatedBy: '' },
   } satisfies JsonFormsFormDefinition;
+}
+
+/**
+ * Renders a jsonforms-engine form from the API shape by assembling a
+ * FormDefinition and delegating to the shared React renderer. The Form.io
+ * engine keeps using FormRendererWrapper; DualFormRenderer picks between them.
+ */
+export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChange }: Props) {
+  const definition = toJsonFormsDefinition(form, version);
 
   return (
     <JsonFormsRenderer
