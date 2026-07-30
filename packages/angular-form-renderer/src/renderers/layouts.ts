@@ -231,7 +231,10 @@ export const groupTester = rankWith(STANDARD_RANK, uiTypeIs('Group'));
   selector: 'omf-label',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<p class="omf-group-title">{{ text }}</p>`,
+  // white-space: pre-line preserves the source line breaks so a multi-line /
+  // dash-bulleted instruction block stays one item per line (matching the paper)
+  // instead of collapsing into a single run-on line. See the React OmfLabel.
+  template: `<p class="omf-group-title" style="white-space: pre-line">{{ text }}</p>`,
   styles: [FIELD_STYLES],
 })
 export class LabelComponent extends JsonFormsBaseRenderer<LabelElement> {

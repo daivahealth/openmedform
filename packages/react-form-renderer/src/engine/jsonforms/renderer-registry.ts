@@ -16,6 +16,8 @@ import {
   omfCheckboxTester,
   OmfGroupControl,
   omfGroupTester,
+  OmfLabelControl,
+  omfLabelTester,
   OmfHorizontalLayoutControl,
   omfHorizontalTester,
   OmfInputControl,
@@ -51,6 +53,7 @@ export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfInputTester, renderer: OmfInputControl },
   { tester: omfSelectTester, renderer: OmfSelectControl },
   { tester: omfGroupTester, renderer: OmfGroupControl },
+  { tester: omfLabelTester, renderer: OmfLabelControl },
   { tester: omfHorizontalTester, renderer: OmfHorizontalLayoutControl },
   { tester: omfTableTester, renderer: OmfTableLayoutControl },
 ];

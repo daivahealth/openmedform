@@ -404,6 +404,38 @@ function OmfGroup(props: LayoutProps) {
 export const omfGroupTester = rankWith(OMF_CONTROL_RANK, uiTypeIs('Group'));
 export const OmfGroupControl: ComponentType<any> = withJsonFormsLayoutProps(OmfGroup);
 
+// --- label / static instruction text (line-break preserving) ----------------
+//
+// A JSON Forms `Label` element carries read-only text (instructions, footnotes,
+// bulleted "on the day of treatment the patient must:" blocks). The vanilla
+// LabelRenderer prints it inline, so newlines in the source collapse and a
+// dash-bulleted list runs together on one line. We render the text in a block
+// with `white-space: pre-line` so every `\n` in the source becomes a real line
+// break — a bulleted list stays one item per line, matching the paper.
+
+function OmfLabel(props: LayoutProps) {
+  const { uischema, visible } = props;
+  if (!visible) return null;
+  const text = (uischema as { text?: string }).text ?? '';
+  if (!text.trim()) return null;
+  return (
+    <div
+      style={{
+        whiteSpace: 'pre-line',
+        fontSize: 'var(--omf-font-size-body, 14px)',
+        color: 'var(--omf-color-label, #3a4552)',
+        lineHeight: 1.6,
+        marginBottom: 'var(--omf-field-gap, 12px)',
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+export const omfLabelTester = rankWith(OMF_CONTROL_RANK, uiTypeIs('Label'));
+export const OmfLabelControl: ComponentType<any> = withJsonFormsLayoutProps(OmfLabel);
+
 // --- horizontal layout (colSpan-aware row with gaps — no overlap) -----------
 
 function childColSpan(child: UISchemaElement): number | undefined {
