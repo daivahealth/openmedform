@@ -41,26 +41,11 @@ WORKDIR /app
 #    in next.config.mjs) and its types are needed by the renderer dts build,
 #    so it must be built FIRST. Only the `lib` step is needed (doc/dist are
 #    docs and browser bundles — the CSS is vendored under apps/web/public/).
-#  - @openmedform/form-schema-types ships TS source with declaration:true,
-#    and packages like form-print-engine (also TS source) import its types
-#    directly.  Building it first ensures the .d.ts outputs are available
-#    when Next's type checker resolves those imports.
 #  - @openmedform/renderer ships as compiled dist/ (tsup), so it must be built
 #    here (first-party packages ship as TS source and need no build).
 #  - The vendored @openmedform/formio-react fork is intentionally NOT built:
 #    nothing imports it.
 RUN pnpm --filter @openmedform/formio-core run lib
-
-# form-schema-types ships as TS source with "./src/index.ts" as its types
-# entry. Building it produces dist/ but the runtime entry stays on src/,
-# so Next.js tries to resolve the import from the .ts source directly.
-# Adding a tsconfig paths alias helps Next's type checker find it.
-RUN pnpm --filter @openmedform/form-schema-types run build
-
-# Debug: check module resolution for the failing import
-RUN node -e "try{require.resolve('@openmedform/form-schema-types',{paths:['/app/apps/web']});console.log('resolved OK:',require.resolve('@openmedform/form-schema-types',{paths:['/app/apps/web']}))}catch(e){console.log('resolve FAILED:',e.message)}"
-RUN ls -la /app/apps/web/node_modules/@openmedform/ 2>/dev/null | head -20 || echo "no @openmedform in web node_modules"
-
 RUN pnpm --filter @openmedform/renderer run build
 RUN pnpm --filter @openmedform/web run build
 
