@@ -10,6 +10,7 @@ COPY apps/web/package.json apps/web/
 # resolve workspace:* and run a filtered install).
 COPY packages/form-core/package.json packages/form-core/
 COPY packages/form-design-tokens/package.json packages/form-design-tokens/
+COPY packages/form-print-engine/package.json packages/form-print-engine/
 COPY packages/form-schema-types/package.json packages/form-schema-types/
 COPY packages/formio-core/package.json packages/formio-core/
 COPY packages/react-form-renderer/package.json packages/react-form-renderer/
@@ -49,7 +50,17 @@ WORKDIR /app
 #  - The vendored @openmedform/formio-react fork is intentionally NOT built:
 #    nothing imports it.
 RUN pnpm --filter @openmedform/formio-core run lib
+
+# form-schema-types ships as TS source with "./src/index.ts" as its types
+# entry. Building it produces dist/ but the runtime entry stays on src/,
+# so Next.js tries to resolve the import from the .ts source directly.
+# Adding a tsconfig paths alias helps Next's type checker find it.
 RUN pnpm --filter @openmedform/form-schema-types run build
+
+# Debug: check module resolution for the failing import
+RUN node -e "try{require.resolve('@openmedform/form-schema-types',{paths:['/app/apps/web']});console.log('resolved OK:',require.resolve('@openmedform/form-schema-types',{paths:['/app/apps/web']}))}catch(e){console.log('resolve FAILED:',e.message)}"
+RUN ls -la /app/apps/web/node_modules/@openmedform/ 2>/dev/null | head -20 || echo "no @openmedform in web node_modules"
+
 RUN pnpm --filter @openmedform/renderer run build
 RUN pnpm --filter @openmedform/web run build
 
