@@ -306,12 +306,16 @@ cd packages/renderer && npm run dev
 ### Via Settings UI
 
 1. Log in at [http://localhost:3000](http://localhost:3000)
-2. Navigate to **Settings** → **AI Providers**
+2. Navigate to **AI Settings**
 3. Click **Add Provider** and enter:
    - Provider type (Claude, OpenAI, MiniMax, Kimi, Ollama)
    - API key
    - Model (optional)
    - Base URL (required for Ollama)
+
+Tenant users configure providers for their own organization. A `SUPER_ADMIN`
+configures the global fallback provider set used by tenants without their own
+configuration.
 
 ### Via Environment Variables
 

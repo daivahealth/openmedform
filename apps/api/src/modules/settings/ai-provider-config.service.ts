@@ -12,7 +12,7 @@ const PRINTABLE_ASCII_NO_WHITESPACE = /^[\x21-\x7E]+$/;
 
 /**
  * Sentinel tenant id for the platform-wide AI provider set managed by
- * SUPER_ADMIN (Settings → AI Providers). ai_provider_config.tenant_id has no
+ * SUPER_ADMIN (AI Settings). ai_provider_config.tenant_id has no
  * FK, so a sentinel row-set coexists with per-tenant rows; ProviderRegistry
  * falls back to it when a tenant has no configs of its own.
  */

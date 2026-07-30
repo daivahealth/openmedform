@@ -20,12 +20,10 @@ const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/forms', label: 'Forms', icon: FileText },
   { href: '/submissions', label: 'Records', icon: Inbox },
+  { href: '/settings', label: 'AI Settings', icon: Settings },
 ];
 
-// Settings (global AI provider config) and the platform analytics console are
-// SUPER_ADMIN-only, matching the API guards.
 const superAdminNavItems = [
-  { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin', icon: ShieldCheck },
 ];
 
