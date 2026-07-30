@@ -10,6 +10,7 @@ COPY apps/web/package.json apps/web/
 # resolve workspace:* and run a filtered install).
 COPY packages/form-core/package.json packages/form-core/
 COPY packages/form-design-tokens/package.json packages/form-design-tokens/
+COPY packages/form-print-engine/package.json packages/form-print-engine/
 COPY packages/form-schema-types/package.json packages/form-schema-types/
 COPY packages/formio-core/package.json packages/formio-core/
 COPY packages/react-form-renderer/package.json packages/react-form-renderer/
@@ -40,16 +41,11 @@ WORKDIR /app
 #    in next.config.mjs) and its types are needed by the renderer dts build,
 #    so it must be built FIRST. Only the `lib` step is needed (doc/dist are
 #    docs and browser bundles — the CSS is vendored under apps/web/public/).
-#  - @openmedform/form-schema-types ships TS source with declaration:true,
-#    and packages like form-print-engine (also TS source) import its types
-#    directly.  Building it first ensures the .d.ts outputs are available
-#    when Next's type checker resolves those imports.
 #  - @openmedform/renderer ships as compiled dist/ (tsup), so it must be built
 #    here (first-party packages ship as TS source and need no build).
 #  - The vendored @openmedform/formio-react fork is intentionally NOT built:
 #    nothing imports it.
 RUN pnpm --filter @openmedform/formio-core run lib
-RUN pnpm --filter @openmedform/form-schema-types run build
 RUN pnpm --filter @openmedform/renderer run build
 RUN pnpm --filter @openmedform/web run build
 
