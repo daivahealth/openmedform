@@ -185,9 +185,84 @@ at view time — never store translated text as the value.
 ## 6. Print / PDF (optional)
 
 `printSchema` describes the A4 print layout (mm margins, page breaks). Exact print reproduction is
-produced by the OpenMedForm print engine (`@openmedform/form-print-engine`), not the screen renderer.
-If you need print output in your app, render via the print engine; otherwise the screen renderer is a
-clean, responsive approximation of the source document.
+produced by the OpenMedForm print engine (`@openmedform/form-print-engine`), **not** the screen
+renderer. The engine is a **framework-agnostic, pure-TypeScript** function — it runs in the browser,
+in Node, React or Angular — and depends only on `form-core` + `form-schema-types` (no React, no
+headless browser bundled).
+
+### Install
+
+```bash
+npm install @openmedform/form-print-engine
+# (peers form-core + form-schema-types you already have from §2)
+```
+
+### The one function you need
+
+`renderPrintHtml(definition, options?)` returns a **self-contained A4 HTML string** (inline CSS,
+`@page` in mm). Pass the same downloaded bundle you render on screen; pass `data` to pre-fill the
+sheet with a response, or omit it for a blank printable form.
+
+```ts
+import { renderPrintHtml } from '@openmedform/form-print-engine';
+
+const html = renderPrintHtml(definition, { data }); // data optional
+```
+
+### A. Print preview in a browser app (what OpenMedForm itself does)
+
+Open the A4 document in a new tab and invoke the print dialog (its live preview shows the paginated
+A4). On a strict pop-up blocker, fall back to a hidden iframe so the dialog still opens:
+
+```ts
+function printForm(definition, data) {
+  const html = renderPrintHtml(definition, data ? { data } : undefined);
+
+  const w = window.open('', '_blank', 'width=900,height=1000');
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+    w.setTimeout(() => w.print(), 400);
+    return;
+  }
+  // fallback: print through an off-screen iframe (no pop-up)
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow!.document;
+  doc.write(html);
+  doc.close();
+  iframe.contentWindow!.addEventListener('afterprint', () => iframe.remove());
+  setTimeout(() => iframe.contentWindow!.print(), 400);
+}
+```
+
+The same call works from an Angular component — it is plain DOM, not React-specific.
+
+### B. Server-side PDF (headless browser)
+
+The engine intentionally does **not** bundle a rasterizer, so you choose your own. Render the HTML,
+then rasterize with Playwright/Chromium (or WeasyPrint). The `@page` size/margins from `printSchema`
+drive the PDF page geometry — use `printBackground: true` and no extra margin:
+
+```ts
+import { renderPrintHtml } from '@openmedform/form-print-engine';
+import { chromium } from 'playwright';
+
+export async function toPdf(definition, data): Promise<Buffer> {
+  const html = renderPrintHtml(definition, { data });
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: 'networkidle' });
+  const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+  await browser.close();
+  return pdf;
+}
+```
+
+Because the print HTML is built from the **UI + Print schemas** (never a scanned image of the source),
+the output is data-fillable and re-flowable — the `data` you pass fills the boxes, and multi-line /
+bulleted instruction blocks keep their line breaks.
 
 ---
 
