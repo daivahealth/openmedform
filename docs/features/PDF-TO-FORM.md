@@ -207,13 +207,49 @@ recovers grouping and tables reliably. Mapping:
 |---|---|
 | `<fieldset>`/`<legend>`, `<section>` + heading | a `Group` labelled with that heading |
 | `<table>` of label rows × repeated columns | `checklistMatrix` (rows/columns from `<th>`/`<td>`) |
-| left-label / right-value grid | `OmfTableLayout` + `OmfTableRow` |
+| `<table>` with a `<thead>` | `OmfTableLayout` + `options.omf.columns` (a real grid) |
+| left-label / right-value grid (no header row) | `OmfTableLayout` + `OmfTableRow` |
 | `<input type="checkbox">` | a boolean `Control` |
 | radio group / `<select>` | an enum `Control` (`omf.control: "radio"`) |
 | `<label for=…>` / adjacent text | the dataSchema property `title` |
 | colour utilities or inline colour (`bg-red-50`, `color:#c0392b`) | `options.omf.accentColor` |
 | leading emoji in a heading | `options.omf.icon` |
 | trailing number on a scored row | `options.omf.points` |
+
+### Column tables
+
+A source table that has a **header row** (an HTML `<thead>`, or a paper table
+with a heading row like `Role | Name | Signature | Date`) converts to an
+`OmfTableLayout` carrying `options.omf.columns`:
+
+```jsonc
+{ "type": "OmfTableLayout",
+  "options": { "omf": { "columns": [
+    { "label": "#", "width": "40px", "align": "center" }, { "label": "Item" },
+    { "label": "Status", "width": "150px" }, { "label": "Date & Time" }
+  ] } },
+  "elements": [
+    { "type": "OmfTableRow", "label": "1", "elements": [
+      { "type": "Label", "text": "Ensure after care is discussed and organised" },
+      { "type": "Control", "scope": "#/properties/aftercare/properties/item1Status" },
+      { "type": "Control", "scope": "#/properties/aftercare/properties/item1At" }
+    ] }
+  ] }
+```
+
+The renderer then draws a **real grid**: a header row, and one cell per child
+aligned under its column. A row's first column is the `OmfTableRow` `label` when
+that cell is static text (`Doctor`, a row number); every other column is one
+entry in `elements` — a `Label` for a static cell, a `Control` for an input.
+`elements.length + (label ? 1 : 0)` must equal `columns.length`.
+
+Cell controls **do not repeat their own label** — the column header already
+names them — so a sign-off grid does not show "Name / Signature / Date" again in
+every row. Source widths and alignment carry over, and a wide table scrolls
+inside its own container instead of pushing the host page sideways.
+
+Omitting `columns` keeps the two-cell **left-label** layout (shaded row label |
+contents) used by grids without a header row.
 
 ### Security model
 

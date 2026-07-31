@@ -296,4 +296,81 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     expect(el.textContent).toContain('\n- Να μην χρησιμοποιεί μακιγιάζ');
     expect(getComputedStyle(el).whiteSpace).toBe('pre-line');
   });
+
+  it('renders a column table as a real grid: header row, one cell per column, no in-cell labels', () => {
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          doctorName: { type: 'string', title: 'Doctor — Name' },
+          doctorDate: { type: 'string', format: 'date', title: 'Doctor — Date' },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'OmfTableLayout',
+          options: { omf: { columns: [{ label: 'Role' }, { label: 'Name' }, { label: 'Date' }] } },
+          elements: [
+            {
+              type: 'OmfTableRow',
+              label: 'Doctor',
+              elements: [
+                { type: 'Control', scope: '#/properties/doctorName' },
+                { type: 'Control', scope: '#/properties/doctorDate' },
+              ],
+            },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    // A real header row, in source order.
+    expect([...document.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
+      'Role',
+      'Name',
+      'Date',
+    ]);
+    // Row label occupies column 1; each control gets its OWN cell (3 = columns).
+    const cells = document.querySelectorAll('tbody tr td');
+    expect(cells.length).toBe(3);
+    expect(cells[0].textContent).toBe('Doctor');
+    // The header names the field, so cells must not repeat the label.
+    expect(document.querySelectorAll('tbody td label').length).toBe(0);
+    expect(document.querySelectorAll('tbody td input').length).toBe(2);
+  });
+
+  it('keeps the two-cell left-label layout when no columns are declared', () => {
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: { notes: { type: 'string', title: 'Notes' } },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'OmfTableLayout',
+          elements: [
+            {
+              type: 'OmfTableRow',
+              label: 'Allergies',
+              elements: [{ type: 'Control', scope: '#/properties/notes' }],
+            },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    expect(document.querySelectorAll('thead th').length).toBe(0);
+    expect(document.querySelectorAll('tbody tr td').length).toBe(2);
+    // Existing behaviour: the field keeps its own label in this mode.
+    expect(screen.getByText('Notes')).toBeTruthy();
+  });
 });

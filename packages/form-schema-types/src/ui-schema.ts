@@ -94,6 +94,22 @@ export interface OmfOptions {
    * and optional). Mirrors a paper "score → risk level" table.
    */
   bands?: Array<{ minScore?: number; maxScore?: number; label: string; color?: string }>;
+  /**
+   * Column definitions for an `OmfTableLayout`, mirroring a paper/HTML table's
+   * `<thead>`. When present the table renders a real header row and each
+   * `OmfTableRow` child is placed in its OWN cell, aligned to these columns —
+   * so an 8-column sign-off grid looks like the source instead of stacking.
+   *
+   * Cell controls do not repeat their own label in this mode: the column header
+   * already names them. Omit `columns` to keep the two-cell
+   * (row label | contents) layout used by left-label tables.
+   */
+  columns?: Array<{
+    label?: string;
+    /** CSS width for the column, e.g. '40px' or '12%'. */
+    width?: string;
+    align?: 'left' | 'center' | 'right';
+  }>;
   [key: string]: unknown;
 }
 

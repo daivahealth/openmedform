@@ -243,3 +243,133 @@ export class LabelComponent extends JsonFormsBaseRenderer<LabelElement> {
   }
 }
 export const labelTester = rankWith(STANDARD_RANK, and(uiTypeIs('Label')));
+
+interface OmfTableColumn {
+  label?: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+interface OmfTableRowShape {
+  label?: string;
+  elements?: UISchemaElement[];
+}
+
+/**
+ * OmfTableLayout — the Angular counterpart of the React table renderer.
+ *
+ * Two modes, matching React exactly:
+ * - With `options.omf.columns`, a real grid: a header row from the column
+ *   labels and ONE cell per child, so an N-column sign-off/checklist table
+ *   looks like its paper or HTML source. Cell controls do not repeat their own
+ *   label — the column header already names them.
+ * - Without columns, the original two-cell layout (shaded row label | contents)
+ *   used by left-label tables.
+ *
+ * A wide table scrolls inside its own container rather than pushing the host
+ * page sideways (see `.omf-scroll-x` / `min-width: 0`).
+ */
+@Component({
+  selector: 'omf-table-layout',
+  standalone: true,
+  imports: [JsonFormsOutlet],
+  template: `
+    <div class="omf-scroll-x">
+      <table class="omf-grid" [class.omf-grid-auto]="hasColumns">
+        @if (hasColumns) {
+          <thead>
+            <tr>
+              @for (col of columns; track $index) {
+                <th
+                  scope="col"
+                  [style.width]="col.width || null"
+                  [style.min-width]="col.width ? null : 'var(--omf-table-col-min, 130px)'"
+                  [style.text-align]="col.align || 'left'"
+                >{{ col.label || '' }}</th>
+              }
+            </tr>
+          </thead>
+        }
+        <tbody>
+          @for (row of rows; track $index) {
+            <tr>
+              @if (hasColumns) {
+                @if (row.label !== undefined) {
+                  <td class="omf-row-label">{{ row.label }}</td>
+                }
+                @for (element of row.elements ?? []; track $index) {
+                  <td class="omf-table-cell" [style.text-align]="cellAlign(row, $index)">
+                    <jsonforms-outlet [renderProps]="cellProps(element, true)"></jsonforms-outlet>
+                  </td>
+                }
+              } @else {
+                <td class="omf-row-label omf-row-label-shaded">{{ row.label }}</td>
+                <td class="omf-table-stack">
+                  @for (element of row.elements ?? []; track $index) {
+                    <jsonforms-outlet [renderProps]="cellProps(element, false)"></jsonforms-outlet>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  `,
+  styles: [
+    FIELD_STYLES,
+    `
+    .omf-scroll-x { overflow-x: auto; min-width: 0; max-width: 100%; margin-bottom: var(--omf-section-gap, 20px); }
+    .omf-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .omf-grid.omf-grid-auto { table-layout: auto; }
+    .omf-grid th, .omf-grid td {
+      border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+      padding: var(--omf-control-padding, 8px);
+      vertical-align: middle;
+    }
+    .omf-grid th {
+      background: var(--omf-color-section-bg, #f7f8fa);
+      font-weight: var(--omf-label-weight, 600);
+      font-size: var(--omf-font-size-label, 13px);
+      color: var(--omf-color-label, #3a4552);
+      text-align: left;
+      white-space: nowrap;
+    }
+    .omf-row-label {
+      font-weight: var(--omf-label-weight, 600);
+      font-size: var(--omf-font-size-label, 13px);
+      color: var(--omf-color-label, #3a4552);
+    }
+    .omf-row-label-shaded {
+      background: var(--omf-color-section-bg, #f7f8fa);
+      width: var(--omf-table-label-width, 16%);
+      vertical-align: top;
+    }
+    .omf-table-stack { vertical-align: top; }
+    /* Keep rows as tight as the source table. */
+    .omf-table-cell ::ng-deep .omf-field { margin-bottom: 0; }
+    `,
+  ],
+})
+export class OmfTableLayoutComponent extends OmfLayoutBase {
+  get columns(): OmfTableColumn[] {
+    const c = readOmf(this.uischema)?.['columns'];
+    return Array.isArray(c) ? (c as OmfTableColumn[]) : [];
+  }
+  get hasColumns(): boolean {
+    return this.columns.length > 0;
+  }
+  get rows(): OmfTableRowShape[] {
+    return (this.uischema?.elements ?? []) as unknown as OmfTableRowShape[];
+  }
+  cellAlign(row: OmfTableRowShape, index: number): string {
+    return this.columns[index + (row.label !== undefined ? 1 : 0)]?.align ?? 'left';
+  }
+  /** Suppress the control's own label in column mode; the header names it. */
+  cellProps(element: UISchemaElement, stripLabel: boolean): OwnPropsOfRenderer {
+    return this.childProps(
+      stripLabel ? ({ ...element, label: false } as unknown as UISchemaElement) : element,
+    );
+  }
+}
+export const omfTableTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTableLayout'));

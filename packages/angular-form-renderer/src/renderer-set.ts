@@ -15,6 +15,8 @@ import {
   groupTester,
   LabelComponent,
   labelTester,
+  OmfTableLayoutComponent,
+  omfTableTester,
 } from './renderers/layouts';
 import {
   TextControlComponent,
@@ -59,6 +61,7 @@ export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: horizontalLayoutTester, renderer: HorizontalLayoutComponent },
   { tester: groupTester, renderer: GroupLayoutComponent },
   { tester: labelTester, renderer: LabelComponent },
+  { tester: omfTableTester, renderer: OmfTableLayoutComponent },
   { tester: textControlTester, renderer: TextControlComponent },
   { tester: numberControlTester, renderer: NumberControlComponent },
   { tester: integerControlTester, renderer: NumberControlComponent },

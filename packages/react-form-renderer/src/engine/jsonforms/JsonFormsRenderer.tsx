@@ -34,6 +34,21 @@ export interface JsonFormsRendererProps {
 /** Design tokens as a scoped inline style (CSS custom properties). */
 const tokenStyle = cssVariables as unknown as CSSProperties;
 
+/**
+ * The few rules that inline styles cannot express because they target a
+ * descendant. Scoped to `.omf-jsonforms-scope` so a host application's own
+ * styles are never affected.
+ */
+const SCOPED_CSS = `
+.omf-jsonforms-scope .omf-table-cell .omf-field { margin-bottom: 0; }
+/* A flex/grid item defaults to min-width:auto, so it refuses to shrink below
+   its content — which makes a wide table push the HOST page sideways instead
+   of scrolling inside its own container. Opt out at the renderer root and at
+   the scroll wrappers so wide tables stay contained wherever we are embedded. */
+.omf-jsonforms-scope { min-width: 0; max-width: 100%; }
+.omf-jsonforms-scope .omf-scroll-x { min-width: 0; max-width: 100%; }
+`;
+
 export function JsonFormsRenderer({
   definition,
   data,
@@ -46,6 +61,7 @@ export function JsonFormsRenderer({
 
   return (
     <div className="omf-jsonforms-scope" style={tokenStyle}>
+      <style>{SCOPED_CSS}</style>
       <JsonFormsStyleContext.Provider value={{ styles: vanillaStyles }}>
         <JsonForms
           schema={definition.dataSchema as unknown as JsonFormsSchema}
