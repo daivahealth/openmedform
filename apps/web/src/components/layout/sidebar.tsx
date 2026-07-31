@@ -10,6 +10,7 @@ import {
   BarChart3,
   SlidersHorizontal,
   Globe,
+  Coins,
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
@@ -41,6 +42,7 @@ const adminNavItems: NavItem[] = [
   { href: '/admin', label: 'Analytics', icon: BarChart3, exact: true },
   { href: '/admin/limits', label: 'Form limits', icon: SlidersHorizontal },
   { href: '/admin/ai-providers', label: 'Global AI', icon: Globe },
+  { href: '/admin/usage', label: 'Token usage', icon: Coins },
 ];
 
 export function Sidebar() {

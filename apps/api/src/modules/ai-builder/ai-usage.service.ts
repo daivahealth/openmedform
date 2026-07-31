@@ -12,6 +12,19 @@ export interface UsageContext {
   userId?: string | null;
   /** Logical operation, e.g. 'ai.generate', 'ai.refine', 'conversion.convert'. */
   operation: string;
+  /**
+   * The form this spend belongs to, when it already exists at call time
+   * (refine/designer flows).
+   */
+  formId?: string | null;
+  /**
+   * Create-flows meter the LLM call BEFORE the form exists, so they pass an
+   * array here to collect the ids of the rows written under this context and
+   * then call `attachFormId` once the form has been created. Rows for a run
+   * that never produces a form (e.g. a failed conversion) correctly stay
+   * unattributed.
+   */
+  collectRowIds?: bigint[];
 }
 
 /**
@@ -32,12 +45,13 @@ export class AiUsageService {
     ctx: UsageContext,
     provider: string,
     usage: TokenUsage,
-  ): Promise<void> {
+  ): Promise<bigint | null> {
     try {
-      await this.prisma.aiUsage.create({
+      const row = await this.prisma.aiUsage.create({
         data: {
           tenantId: ctx.tenantId,
           userId: ctx.userId ?? null,
+          formId: ctx.formId ?? null,
           provider,
           model: usage.model,
           operation: ctx.operation,
@@ -45,10 +59,34 @@ export class AiUsageService {
           outputTokens: usage.outputTokens,
           totalTokens: usage.totalTokens,
         },
+        select: { id: true },
       });
+      ctx.collectRowIds?.push(row.id);
+      return row.id;
     } catch (err) {
       this.logger.error(
         `Failed to record AI usage for ${provider}/${ctx.operation}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Attribute already-written usage rows to a form. Used by create-flows once
+   * the form exists (see UsageContext.collectRowIds). Best-effort like
+   * `record`: a failure must never fail the form creation it describes.
+   */
+  async attachFormId(rowIds: bigint[], formId: string): Promise<void> {
+    if (rowIds.length === 0) return;
+    try {
+      await this.prisma.aiUsage.updateMany({
+        where: { id: { in: rowIds } },
+        data: { formId },
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to attach form ${formId} to ${rowIds.length} AI usage row(s)`,
         err instanceof Error ? err.stack : String(err),
       );
     }

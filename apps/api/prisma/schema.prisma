@@ -330,9 +330,16 @@ model AuditLog {
 // analytics console. Not tenant-query-scoped for domain reads; it is an
 // operational metering table, but still carries tenantId/userId for attribution.
 model AiUsage {
-  id           BigInt   @id @default(autoincrement())
-  tenantId     String   @map("tenant_id") @db.Uuid
-  userId       String?  @map("user_id") @db.Uuid
+  id       BigInt  @id @default(autoincrement())
+  tenantId String  @map("tenant_id") @db.Uuid
+  userId   String? @map("user_id") @db.Uuid
+  /// The form this spend belongs to, for per-form token reporting. Nullable
+  /// and a log-style scalar (no FK, like audit_log) because: create-flows
+  /// meter the LLM call BEFORE the form exists and backfill afterwards, a
+  /// failed generation never gets a form at all, and usage history must
+  /// survive the form being deleted.
+  formId   String? @map("form_id") @db.Uuid
+
   provider     String   @db.VarChar(50)
   model        String   @db.VarChar(100)
   operation    String   @db.VarChar(50)
@@ -343,6 +350,7 @@ model AiUsage {
 
   @@index([tenantId])
   @@index([userId])
+  @@index([formId])
   @@index([createdAt])
   @@map("ai_usage")
 }

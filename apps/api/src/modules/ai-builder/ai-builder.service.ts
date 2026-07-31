@@ -100,6 +100,8 @@ export class AiBuilderService {
     providerName?: string,
     onProgress?: ProgressCallback,
     userId?: string,
+    /** Attributes this refinement's tokens to the form being edited. */
+    formId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string; changeSummary?: string }> {
     const progress = onProgress ?? (() => {});
 
@@ -118,6 +120,7 @@ export class AiBuilderService {
       tenantId,
       userId,
       operation: 'ai.refine',
+      formId,
     });
 
     progress('Preparing form context and conversation history...');
@@ -169,6 +172,8 @@ export class AiBuilderService {
     providerName?: string,
     onProgress?: ProgressCallback,
     userId?: string,
+    /** Attributes this refinement's tokens to the form being edited. */
+    formId?: string,
   ): Promise<{ schema: Record<string, unknown>; provider: string; changeSummary?: string }> {
     const progress = onProgress ?? (() => {});
 
@@ -199,6 +204,7 @@ export class AiBuilderService {
       tenantId,
       userId,
       operation: 'ai.refine_image',
+      formId,
     });
 
     progress('Encoding image and preparing form context...');
