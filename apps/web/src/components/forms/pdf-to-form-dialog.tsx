@@ -67,15 +67,26 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
-    if (selected && isSupportedSourceFile(selected)) {
-      setFile(selected);
-      const nameWithoutExt = selected.name.replace(/\.(pdf|png|jpe?g|webp|gif)$/i, '');
-      setFormName(
-        nameWithoutExt
-          .replace(/[-_]/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase()),
-      );
+    if (!selected) return;
+
+    if (!isSupportedSourceFile(selected)) {
+      setErrorMsg('Unsupported file. Upload a PDF, HTML mock-up, or image.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
     }
+    // HTML converts only to JSON Forms; the Form.io path takes PDFs/images.
+    if (isHtmlFile(selected) && engine !== 'jsonforms') {
+      setErrorMsg('HTML mock-ups can only be converted with the JSON Forms engine.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setErrorMsg('');
+    setFile(selected);
+    const nameWithoutExt = selected.name.replace(/\.(pdf|html?|png|jpe?g|webp|gif)$/i, '');
+    setFormName(
+      nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    );
   }
 
   async function handleSubmit() {
@@ -122,10 +133,10 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Form from PDF or Image</DialogTitle>
+          <DialogTitle>Create Form from a File</DialogTitle>
           <DialogDescription>
             {engine === 'jsonforms'
-              ? 'Upload a clinical form PDF or image. The AI generates a JSON Forms definition (separate data, layout and print schemas) and opens it for review.'
+              ? 'Upload a clinical form PDF, HTML mock-up, or image. The AI generates a JSON Forms definition (separate data, layout and print schemas) and opens it for review.'
               : 'Upload a clinical form PDF or image. The AI generates a draft Form.io form and opens it in the drag-and-drop builder.'}
           </DialogDescription>
         </DialogHeader>
@@ -184,7 +195,9 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
                   <div>
                     <p className="text-sm font-medium">Click to upload</p>
                     <p className="text-xs text-muted-foreground">
-                      PDF, PNG, JPEG, WebP, or GIF. Max 10 MB.
+                      {engine === 'jsonforms'
+                        ? 'PDF, HTML, PNG, JPEG, WebP, or GIF. Max 10 MB (HTML 2 MB).'
+                        : 'PDF, PNG, JPEG, WebP, or GIF. Max 10 MB.'}
                     </p>
                   </div>
                 )}
@@ -192,7 +205,11 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,application/pdf,image/png,image/jpeg,image/webp,image/gif"
+                accept={
+                  engine === 'jsonforms'
+                    ? '.pdf,.html,.htm,.png,.jpg,.jpeg,.webp,.gif,application/pdf,text/html,image/png,image/jpeg,image/webp,image/gif'
+                    : '.pdf,.png,.jpg,.jpeg,.webp,.gif,application/pdf,image/png,image/jpeg,image/webp,image/gif'
+                }
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -328,12 +345,20 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Failed to process source file';
 }
 
+function isHtmlFile(file: File): boolean {
+  // Some browsers report an empty type for .html; fall back to the extension.
+  return file.type === 'text/html' || /\.html?$/i.test(file.name);
+}
+
 function isSupportedSourceFile(file: File): boolean {
-  return [
-    'application/pdf',
-    'image/png',
-    'image/jpeg',
-    'image/webp',
-    'image/gif',
-  ].includes(file.type);
+  return (
+    [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+      'text/html',
+    ].includes(file.type) || isHtmlFile(file)
+  );
 }

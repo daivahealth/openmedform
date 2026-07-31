@@ -90,7 +90,7 @@ chosen engine, and for jsonforms per-field confidence + warnings are persisted.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/conversions | multipart: `file`, `engine` (formio\|jsonforms), optional `provider`, `instructions`. Returns the created job |
+| POST | /api/conversions | multipart: `file`, `engine` (formio\|jsonforms), optional `provider`, `instructions`. Returns the created job. Accepts PDF, PNG/JPEG/WebP/GIF, and **HTML** (`text/html`, jsonforms engine only, max 2MB — 400 otherwise). Oversized/empty HTML mock-ups are rejected with guidance rather than half-converted |
 | POST | /api/conversions/:id/accept | Accept a reviewed job: promote the draft form REVIEW→DRAFT, mark job COMPLETED (audited) |
 | GET | /api/conversions | List conversion jobs for the tenant |
 | GET | /api/conversions/:id | Job status + persisted warnings |
