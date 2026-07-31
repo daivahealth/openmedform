@@ -15,6 +15,7 @@ import { FormConversionModule } from './modules/form-conversion/form-conversion.
 import { DesignerModule } from './modules/designer/designer.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdminModule } from './modules/admin/admin.module';
     DesignerModule,
     SettingsModule,
     AdminModule,
+    WorkspaceModule,
     HealthModule,
   ],
 })

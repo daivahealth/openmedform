@@ -71,3 +71,37 @@ Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields)
 - Generated schemas validated before client delivery
 - AI agents do not write directly to form tables; persistence goes through tenant-scoped form services
 - Production deployments should audit AI operations with provider, user, tenant, form, and version metadata without storing API keys in audit logs
+
+## Free-Tier Form Quota
+
+Every user starts with `DEFAULT_FORM_LIMIT` (5) forms they may create — this bounds
+platform-funded AI spend, not form usage itself, so **it never blocks form
+building**: it is enforced only on creation (`FormService.assertFormLimit`,
+403 with a contact-admin message once exceeded), never on editing, viewing,
+publishing, or submitting existing forms.
+
+- **Single source of truth**: `FormService.getFormQuota(userId)` computes
+  `{ used, limit, remaining, unlimited, reason }` and is used both to enforce
+  the limit and to answer `GET /api/me/workspace-status` (the dashboard's
+  AI-setup notice) — the two can never disagree.
+- **`SUPER_ADMIN` is exempt** (`reason: 'super-admin'`).
+- **An admin can raise an individual user's limit** via
+  `PATCH /api/admin/users/:userId/form-limit` (`/admin/limits`,
+  `reason: 'admin-raised'`; `null` resets to the default).
+- **Configuring the tenant's own AI provider waives the limit entirely**
+  (`reason: 'own-ai-provider'`) — once a tenant pays for its own AI usage
+  (Settings → AI Providers has at least one active row), the free-tier cap no
+  longer applies. This is checked with `AiProviderConfigService.hasOwnActiveProvider(tenantId)`
+  against the tenant's **own** id only — **never** the resolved
+  tenant→global→env provider set from `ProviderRegistry`, or a configured
+  global fallback would silently make every tenant unlimited and defeat the
+  free tier for the whole platform. `ProviderRegistry.getEffectiveSource(tenantId)`
+  answers the *separate* "which tier is actually serving my AI calls right
+  now" question (`tenant`/`global`/`env`/`none`) for display only.
+- The dashboard's `<AiSetupNotice>` reads `workspace-status` and is hidden for
+  `super-admin`/`own-ai-provider`; otherwise it nudges toward configuring an
+  AI provider, with copy escalating from informational (quota remaining) to a
+  warning (`ai.effectiveSource === 'none'` — AI-assisted building genuinely
+  unavailable — or the limit is reached). Dismissal is session-only by design:
+  a persisted "never show again" flag could hide a real "no AI configured at
+  all" state indefinitely.

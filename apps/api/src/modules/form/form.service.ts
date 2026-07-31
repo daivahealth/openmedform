@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { AiProviderConfigService } from '../settings/ai-provider-config.service';
 import { contentHash, verifyContentHash } from '../../common/utils/content-hash';
 import { decodeUploadFilename } from '../../common/utils/filename';
 import { CreateFormDto } from './dto/create-form.dto';
@@ -28,6 +29,25 @@ export interface ActorContext {
 export const DEFAULT_FORM_LIMIT = 5;
 export const FORM_LIMIT_CONTACT_EMAIL = 'sajithchandran@gmail.com';
 
+/**
+ * A tenant that has configured at least one of its OWN active AI providers
+ * (Settings -> AI Providers) pays for its own AI usage, so the free-tier form
+ * cap no longer applies — the limit exists to bound platform-funded AI spend,
+ * not form count itself. This must be checked against the tenant's OWN
+ * AiProviderConfig rows only, never the resolved provider set (which also
+ * falls back to the platform-wide global config and env vars) — otherwise a
+ * configured global fallback would silently make every tenant unlimited.
+ */
+export interface FormQuota {
+  used: number;
+  /** null when unlimited. */
+  limit: number | null;
+  /** null when unlimited. */
+  remaining: number | null;
+  unlimited: boolean;
+  reason: 'super-admin' | 'own-ai-provider' | 'default' | 'admin-raised';
+}
+
 /** The immutable content of a version, used for the published content hash. */
 type VersionLike = {
   engine: string;
@@ -44,6 +64,7 @@ export class FormService {
     private readonly prisma: PrismaService,
     private readonly scoringService: ScoringService,
     private readonly audit: AuditService,
+    private readonly aiProviderConfigService: AiProviderConfigService,
   ) {}
 
   /**
@@ -854,21 +875,49 @@ export class FormService {
     return { cleared: true };
   }
 
-  /** Enforce the per-user form creation quota (see DEFAULT_FORM_LIMIT). */
-  private async assertFormLimit(userId: string): Promise<void> {
+  /**
+   * The current user's form creation quota — the single source of truth used
+   * both to enforce the limit (assertFormLimit) and to report it to the
+   * dashboard notice, so the two can never drift.
+   */
+  async getFormQuota(userId: string): Promise<FormQuota> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { role: true, formLimit: true },
+      select: { role: true, formLimit: true, tenantId: true },
     });
-    if (user.role === 'SUPER_ADMIN') return;
+
+    if (user.role === 'SUPER_ADMIN') {
+      return { used: 0, limit: null, remaining: null, unlimited: true, reason: 'super-admin' };
+    }
+
+    const used = await this.prisma.form.count({ where: { createdById: userId } });
+
+    // Checked against the tenant's OWN AiProviderConfig rows only — see the
+    // FormQuota doc comment for why the resolved (tenant->global->env)
+    // provider set must never be used for this check.
+    const hasOwnProvider = await this.aiProviderConfigService.hasOwnActiveProvider(
+      user.tenantId,
+    );
+    if (hasOwnProvider) {
+      return { used, limit: null, remaining: null, unlimited: true, reason: 'own-ai-provider' };
+    }
 
     const limit = user.formLimit ?? DEFAULT_FORM_LIMIT;
-    const created = await this.prisma.form.count({
-      where: { createdById: userId },
-    });
-    if (created >= limit) {
+    return {
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+      unlimited: false,
+      reason: user.formLimit != null ? 'admin-raised' : 'default',
+    };
+  }
+
+  /** Enforce the per-user form creation quota (see getFormQuota). */
+  private async assertFormLimit(userId: string): Promise<void> {
+    const quota = await this.getFormQuota(userId);
+    if (!quota.unlimited && quota.used >= (quota.limit as number)) {
       throw new ForbiddenException(
-        `You have reached the maximum of ${limit} forms. Please contact the admin at ${FORM_LIMIT_CONTACT_EMAIL} to increase your limit.`,
+        `You have reached the maximum of ${quota.limit} forms. Please contact the admin at ${FORM_LIMIT_CONTACT_EMAIL} to increase your limit.`,
       );
     }
   }

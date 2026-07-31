@@ -189,6 +189,20 @@ export class AiProviderConfigService {
     return { deleted: true };
   }
 
+  /**
+   * Whether this EXACT tenant (never GLOBAL_AI_CONFIG_TENANT_ID) has at least
+   * one active provider of its own. Used to gate the "own key = unlimited
+   * forms" rule — callers must never pass the global sentinel here, or every
+   * tenant would appear to have "own" AI once the platform fallback is set,
+   * silently disabling the free-tier limit for everyone.
+   */
+  async hasOwnActiveProvider(tenantId: string): Promise<boolean> {
+    const count = await this.prisma.aiProviderConfig.count({
+      where: { tenantId, isActive: true },
+    });
+    return count > 0;
+  }
+
   async getDecryptedConfigs(tenantId: string) {
     const configs = await this.prisma.aiProviderConfig.findMany({
       where: { tenantId, isActive: true },
