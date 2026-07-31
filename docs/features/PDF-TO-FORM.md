@@ -253,10 +253,22 @@ lost its later sections:
 | Limit | Value | On breach |
 |---|---|---|
 | File size | 2 MB (vs 10 MB for PDF/images) | 400 with the actual size |
-| Fields (inputs/selects/textareas) | 60 | 400 — "split into one file per section" |
-| Table rows | 80 | 400 — "split the large tables" |
+| Fields (inputs/selects/textareas) | 120 | 400 — "split into one file per section" |
+| Table rows | 120 | 400 — "split the large tables" |
 | No fields found | — | 400 — the file is not a form mock-up (or everything was hidden) |
 | Cleaned markup | 24 000 chars | truncated + `POTENTIAL_MISSING_FIELD` warning |
+
+The field/row limits and the conversion call's output budget
+(`CONVERSION_MAX_TOKENS`, 32 768) **move together** — raising the field limit
+alone would just trade a clear rejection for a silently truncated form. As a
+backstop, if a model still runs out of budget mid-object the run is rejected
+with *"the AI ran out of space … split it into one file per section"* rather
+than the generic "not valid JSON", which would send the author looking for a
+problem in their source file.
+
+These thresholds are calibrated against the output budget rather than measured
+per model, so they are the dial to turn if legitimate mock-ups start being
+rejected.
 
 HTML converts to the **jsonforms engine only**; the Form.io path takes PDFs and
 images (400 otherwise). Multi-document files are flagged with a warning.
