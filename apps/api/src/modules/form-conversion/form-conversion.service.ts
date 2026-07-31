@@ -276,8 +276,22 @@ export class FormConversionService {
         '- <input type="checkbox"> -> a boolean Control; <input type="radio"> group or <select> -> an enum Control (omf.control "radio" when the source draws radio circles).\n' +
         '- <label for=...> / adjacent text -> the dataSchema property "title" (keep the exact source-language text).\n' +
         '- Colour utility classes or inline colours on a section (e.g. "bg-red-50 border-red-200", "color:#c0392b") -> options.omf.accentColor; a leading emoji in the heading -> options.omf.icon.\n' +
-        '- A number printed at the end of a scored row -> options.omf.points.\n\n' +
-        `Cleaned HTML source:\n${extracted.cleanedHtml}`;
+        '- A number printed at the end of a scored row -> options.omf.points.\n\n';
+
+      // Scripts are stripped and the page is never executed, so a container the
+      // mock-up would have filled at runtime reaches the model as an empty box
+      // under a real heading — the exact shape that invites an invented control.
+      // Name them so the model reports the gap instead of guessing at it.
+      if (extracted.scriptFilledPlaceholders.length > 0) {
+        userPrompt +=
+          `These containers are EMPTY in the markup because this mock-up builds them with ` +
+          `JavaScript, which was removed: ${extracted.scriptFilledPlaceholders.join(', ')}. ` +
+          'Their real contents are unavailable. Do NOT invent fields for them: emit any ' +
+          'surrounding heading/hint text as a "Label" and add a POTENTIAL_MISSING_FIELD ' +
+          'warning naming the section.\n\n';
+      }
+
+      userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 
       rawOutput = await provider.generate(userPrompt, systemPrompt, {

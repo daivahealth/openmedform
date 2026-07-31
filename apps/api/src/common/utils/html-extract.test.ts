@@ -141,4 +141,45 @@ describe('extractFormHtml — complexity measurement', () => {
       extractFormHtml('<div><p>unclosed <span>tags <input type="checkbox"</div>'),
     ).not.toThrow();
   });
+
+  describe('script-filled placeholders', () => {
+    it('names empty containers a script would have populated', () => {
+      const { scriptFilledPlaceholders, warnings } = extractFormHtml(
+        `<html><body>
+           <h3>Care Categories</h3>
+           <div class="multiselect" id="ms-comfort-categories"></div>
+           <div id="comfort-care-body"></div>
+           <script>document.getElementById('comfort-care-body').innerHTML = build();</script>
+         </body></html>`,
+      );
+      expect(scriptFilledPlaceholders).toEqual(['#ms-comfort-categories', '#comfort-care-body']);
+      expect(warnings.join(' ')).toMatch(/built by JavaScript/i);
+      expect(warnings.join(' ')).toMatch(/nothing was invented/i);
+    });
+
+    it('falls back to the first class name when there is no id', () => {
+      const { scriptFilledPlaceholders } = extractFormHtml(
+        '<div class="option-list dense"></div><script>fill()</script>',
+      );
+      expect(scriptFilledPlaceholders).toEqual(['.option-list']);
+    });
+
+    it('stays silent when the document ships no scripts', () => {
+      const { scriptFilledPlaceholders, warnings } = extractFormHtml(
+        '<div id="spacer"></div><input type="text" name="a">',
+      );
+      expect(scriptFilledPlaceholders).toEqual([]);
+      expect(warnings).toEqual([]);
+    });
+
+    it('ignores anonymous and non-empty containers', () => {
+      const { scriptFilledPlaceholders } = extractFormHtml(
+        `<div></div>
+         <div id="filled"><input type="checkbox"></div>
+         <div id="has-text">Already written</div>
+         <script>noop()</script>`,
+      );
+      expect(scriptFilledPlaceholders).toEqual([]);
+    });
+  });
 });
