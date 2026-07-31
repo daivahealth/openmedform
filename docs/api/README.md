@@ -28,12 +28,14 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 | PATCH | /api/admin/users/:userId/form-limit | Set a user's form creation quota (`{ formLimit: number | null }`; null resets to the default of 5). SUPER_ADMIN only |
 
 ### AI Settings
+All four accept `?scope=tenant|global`. `tenant` is the caller's own organization; `global` is the platform-wide fallback and is **SUPER_ADMIN only** (403 otherwise). Omitting `scope` keeps the legacy default (SUPER_ADMIN → global, everyone else → tenant); under that default a SUPER_ADMIN cannot reach their own tenant, which `?scope=tenant` fixes.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/settings/ai-providers | List the caller's tenant AI provider configurations; `SUPER_ADMIN` lists the global fallback set |
-| POST | /api/settings/ai-providers | Add a provider in the caller's tenant scope; provider keys are encrypted and never returned unmasked |
-| PUT | /api/settings/ai-providers/:id | Update a provider only when it belongs to the caller's tenant scope |
-| DELETE | /api/settings/ai-providers/:id | Delete a provider only when it belongs to the caller's tenant scope |
+| GET | /api/settings/ai-providers | List provider configurations in the requested scope |
+| POST | /api/settings/ai-providers | Add a provider in the requested scope; keys are encrypted and never returned unmasked |
+| PUT | /api/settings/ai-providers/:id | Update a provider only when it belongs to the requested scope |
+| DELETE | /api/settings/ai-providers/:id | Delete a provider only when it belongs to the requested scope |
 
 ### Forms
 | Method | Path | Description |

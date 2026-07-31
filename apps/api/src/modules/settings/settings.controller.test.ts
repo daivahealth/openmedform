@@ -66,7 +66,7 @@ describe('SettingsController tenant scope', () => {
       provider: 'openai',
     });
 
-    await controller.createProvider(tenantUser, input);
+    await controller.createProvider(tenantUser, undefined, input);
 
     expect(providerService.create).toHaveBeenCalledWith(
       tenantUser.tenantId,
@@ -78,8 +78,72 @@ describe('SettingsController tenant scope', () => {
       action: 'AI_PROVIDER_CREATED',
       resourceType: 'ai_provider_config',
       resourceId: '30000000-0000-0000-0000-000000000003',
-      details: { provider: 'openai' },
+      details: { provider: 'openai', scope: 'tenant' },
     });
+    expect(JSON.stringify(audit.record.mock.calls)).not.toContain('secret-key');
+  });
+});
+
+describe('SettingsController explicit ?scope', () => {
+  it('lets a SUPER_ADMIN reach their OWN tenant with scope=tenant', async () => {
+    // The legacy default routes SUPER_ADMIN to the global set, which left them
+    // unable to manage their own tenant's keys at all — this is that fix.
+    const { controller, providerService } = setup();
+
+    await controller.listProviders(superAdmin, 'tenant');
+
+    expect(providerService.findAll).toHaveBeenCalledWith(superAdmin.tenantId);
+  });
+
+  it('routes scope=global to the global sentinel for a SUPER_ADMIN', async () => {
+    const { controller, providerService } = setup();
+
+    await controller.listProviders(superAdmin, 'global');
+
+    expect(providerService.findAll).toHaveBeenCalledWith(GLOBAL_AI_CONFIG_TENANT_ID);
+  });
+
+  it('forbids a non-SUPER_ADMIN from requesting scope=global', () => {
+    const { controller, providerService } = setup();
+
+    // listProviders resolves the scope synchronously, so this throws rather
+    // than returning a rejected promise.
+    expect(() => controller.listProviders(tenantUser, 'global')).toThrow(/SUPER_ADMIN/);
+    expect(providerService.findAll).not.toHaveBeenCalled();
+  });
+
+  it('forbids a non-SUPER_ADMIN from mutating the global scope', async () => {
+    const { controller, providerService } = setup();
+
+    await expect(
+      controller.deleteProvider(tenantUser, '30000000-0000-0000-0000-000000000003', 'global'),
+    ).rejects.toThrow(/SUPER_ADMIN/);
+    expect(providerService.remove).not.toHaveBeenCalled();
+  });
+
+  it('records the scope on the audit entry for a global mutation', async () => {
+    const { controller, providerService, audit } = setup();
+    providerService.create.mockResolvedValue({
+      id: '30000000-0000-0000-0000-000000000003',
+      provider: 'claude',
+    });
+
+    await controller.createProvider(superAdmin, 'global', {
+      provider: 'claude',
+      displayName: 'Claude',
+      apiKey: 'secret-key',
+    });
+
+    expect(providerService.create).toHaveBeenCalledWith(
+      GLOBAL_AI_CONFIG_TENANT_ID,
+      expect.objectContaining({ provider: 'claude' }),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: GLOBAL_AI_CONFIG_TENANT_ID,
+        details: { provider: 'claude', scope: 'global' },
+      }),
+    );
     expect(JSON.stringify(audit.record.mock.calls)).not.toContain('secret-key');
   });
 });
