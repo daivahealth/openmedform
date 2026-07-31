@@ -339,6 +339,7 @@ export class FormController {
           dto.provider,
           onProgress,
           user.userId,
+          id,
         );
       } else {
         result = await this.aiBuilderService.refine(
@@ -349,6 +350,7 @@ export class FormController {
           dto.provider,
           onProgress,
           user.userId,
+          id,
         );
       }
 

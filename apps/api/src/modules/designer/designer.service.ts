@@ -68,6 +68,7 @@ export class DesignerService {
       tenantId,
       userId,
       operation: 'designer.refine',
+      formId,
     });
     if (image && !provider.generateWithImages) {
       throw new BadRequestException(

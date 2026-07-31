@@ -149,15 +149,26 @@ swallowed so it can never roll back the audited clinical operation.
 ### ai_usage
 One row per LLM call (generate / refine / convert), written best-effort by
 `AiUsageService` via a metering wrapper around every provider. Aggregated by the
-SUPER_ADMIN analytics console (`GET /api/admin/stats`) for per-tenant / per-user
-token totals. Operational metering — not tenant-query-scoped for domain reads,
-but carries `tenant_id`/`user_id` for attribution.
+SUPER_ADMIN analytics console (`GET /api/admin/stats`) and the usage console
+(`GET /api/admin/usage`, grouped by user / form / tenant / provider).
+Operational metering — not tenant-query-scoped for domain reads, but carries
+`tenant_id`/`user_id`/`form_id` for attribution.
+
+**Form attribution.** `form_id` is nullable and has no FK (log-style, like
+`audit_log`), because: refine/designer flows know the form up front and set it
+directly; *create* flows meter the LLM call **before** the form exists and
+backfill via `AiUsageService.attachFormId` once it does; a run that never
+produces a form (e.g. a failed conversion) correctly stays unattributed; and
+usage history must outlive the form being deleted. The usage console reports
+unattributed rows as "Unattributed" rather than dropping them, so grouped rows
+always reconcile with the platform total.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | BIGSERIAL PK | |
 | tenant_id | UUID | |
 | user_id | UUID (nullable) | |
+| form_id | UUID (nullable) | attributed form; no FK — see above |
 | provider | VARCHAR(50) | e.g. "claude", "openai" |
 | model | VARCHAR(100) | model that reported the usage |
 | operation | VARCHAR(50) | e.g. "ai.generate", "ai.refine", "conversion.jsonforms" |
