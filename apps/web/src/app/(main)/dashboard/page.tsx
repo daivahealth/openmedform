@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/providers/auth-provider';
 import { useFormsCount } from '@/hooks/use-forms';
 import { useSubmissionsCount } from '@/hooks/use-submissions';
+import { AiSetupNotice } from '@/components/dashboard/ai-setup-notice';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -26,6 +27,8 @@ export default function DashboardPage() {
           Welcome back, {user?.name || 'User'}
         </p>
       </div>
+
+      <AiSetupNotice />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/forms">

@@ -40,6 +40,29 @@ export class ProviderRegistry {
     return this.getEnvProviders();
   }
 
+  /**
+   * Which tier of the SAME resolution order (tenant -> global -> env) would
+   * actually serve this tenant's AI calls right now — for status/UI display
+   * only. Uses the cheap boolean check (no key decryption) since this may be
+   * called on every dashboard load.
+   */
+  async getEffectiveSource(
+    tenantId: string,
+  ): Promise<'tenant' | 'global' | 'env' | 'none'> {
+    if (await this.aiProviderConfigService.hasOwnActiveProvider(tenantId)) {
+      return 'tenant';
+    }
+    if (
+      await this.aiProviderConfigService.hasOwnActiveProvider(
+        GLOBAL_AI_CONFIG_TENANT_ID,
+      )
+    ) {
+      return 'global';
+    }
+    if (this.getEnvProviders().providers.size > 0) return 'env';
+    return 'none';
+  }
+
   private buildProviderSet(
     dbConfigs: {
       provider: string;

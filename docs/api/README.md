@@ -16,6 +16,11 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 | GET | /api/auth/google/callback | Google OAuth2 callback, redirects to web with JWT |
 | GET | /api/auth/me | Current user profile |
 
+### Workspace
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/me/workspace-status | The caller's form-creation quota (`used`/`limit`/`remaining`/`unlimited`/`reason`) and which tier is currently serving their AI calls (`ai.effectiveSource`: `tenant`/`global`/`env`/`none`). Powers the dashboard's AI-setup notice; `contactEmail` is included for the "raise my limit" CTA. |
+
 ### Admin (SUPER_ADMIN only)
 | Method | Path | Description |
 |--------|------|-------------|
@@ -35,7 +40,7 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 |--------|------|-------------|
 | GET | /api/forms | List forms (paginated) |
 | GET | /api/forms/count | Total form count for the tenant |
-| POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded). Also applies to from-pdf/from-file/import and clone |
+| POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded) — waived once the tenant has configured its own active AI provider (Settings → AI Providers), since it then pays for its own AI usage. SUPER_ADMIN is exempt. Also applies to from-pdf/from-file/import and clone |
 | GET | /api/forms/:id | Get form with current version |
 | PUT | /api/forms/:id | Update form metadata |
 | DELETE | /api/forms/:id | Archive form (soft delete — sets status ARCHIVED) |
