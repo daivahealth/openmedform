@@ -490,55 +490,142 @@ interface OmfTableRowShape {
   elements?: UISchemaElement[];
 }
 
+interface OmfTableColumn {
+  label?: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
 function OmfTableLayout(props: LayoutProps) {
   const { uischema, schema, path, visible, enabled, renderers, cells } = props;
   if (!visible) return null;
   const rows = ((uischema as Layout).elements ?? []) as unknown as OmfTableRowShape[];
+  const columns = readOmf(uischema)?.columns as OmfTableColumn[] | undefined;
   const border = 'var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4)';
   const pad = 'var(--omf-control-padding, 8px)';
+  const headerBg = 'var(--omf-color-section-bg, #f7f8fa)';
+  const labelStyle = {
+    fontWeight: 'var(--omf-label-weight, 600)' as never,
+    fontSize: 'var(--omf-font-size-label, 13px)',
+    color: 'var(--omf-color-label, #3a4552)',
+  };
+
+  const dispatch = (child: UISchemaElement, key: number, stripLabel: boolean) => (
+    <JsonFormsDispatch
+      key={key}
+      // In column mode the header names the field, so suppress the control's
+      // own label — otherwise every cell repeats "Name", "Signature", "Date".
+      // Done here rather than relying on the schema so it holds even when the
+      // generated UI schema omits `label: false`. (A Label element renders from
+      // `text`, so this is a no-op for static text cells.)
+      uischema={stripLabel ? ({ ...child, label: false } as UISchemaElement) : child}
+      schema={schema}
+      path={path}
+      enabled={enabled}
+      renderers={renderers}
+      cells={cells}
+    />
+  );
+
+  // Column mode: a real grid mirroring the source table's <thead>/<tbody>, with
+  // one cell per child. Falls back to the two-cell (row label | contents)
+  // layout when no columns are declared.
+  const hasColumns = Array.isArray(columns) && columns.length > 0;
+
   return (
-    <table
-      style={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        marginBottom: 'var(--omf-section-gap, 16px)',
-        tableLayout: 'fixed',
-      }}
+    <div
+      className="omf-scroll-x"
+      style={{ overflowX: 'auto', marginBottom: 'var(--omf-section-gap, 16px)' }}
     >
-      <tbody>
-        {rows.map((row, r) => (
-          <tr key={r}>
-            <td
-              style={{
-                border,
-                background: 'var(--omf-color-section-bg, #f7f8fa)',
-                width: 'var(--omf-table-label-width, 16%)',
-                verticalAlign: 'top',
-                padding: pad,
-                fontWeight: 'var(--omf-label-weight, 600)' as never,
-                fontSize: 'var(--omf-font-size-label, 13px)',
-                color: 'var(--omf-color-label, #3a4552)',
-              }}
-            >
-              {row.label}
-            </td>
-            <td style={{ border, verticalAlign: 'top', padding: pad }}>
-              {(row.elements ?? []).map((child, index) => (
-                <JsonFormsDispatch
-                  key={index}
-                  uischema={child}
-                  schema={schema}
-                  path={path}
-                  enabled={enabled}
-                  renderers={renderers}
-                  cells={cells}
-                />
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          tableLayout: hasColumns ? 'auto' : 'fixed',
+        }}
+      >
+        {hasColumns ? (
+          <thead>
+            <tr>
+              {columns!.map((col, c) => (
+                <th
+                  key={c}
+                  scope="col"
+                  style={{
+                    ...labelStyle,
+                    border,
+                    background: headerBg,
+                    padding: pad,
+                    textAlign: col.align ?? 'left',
+                    width: col.width,
+                    // Without a floor, an auto-layout table collapses columns
+                    // whose header is short (Name, Signature) to the input's
+                    // intrinsic width. Explicit widths still win.
+                    minWidth: col.width ? undefined : 'var(--omf-table-col-min, 130px)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {col.label ?? ''}
+                </th>
               ))}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </tr>
+          </thead>
+        ) : null}
+        <tbody>
+          {rows.map((row, r) => (
+            <tr key={r}>
+              {hasColumns ? (
+                <>
+                  {/* A row `label` occupies the first column when present, so a
+                      grid whose first column is a static row header still
+                      lines up with its <th>. */}
+                  {row.label !== undefined ? (
+                    <td style={{ ...labelStyle, border, padding: pad, verticalAlign: 'middle' }}>
+                      {row.label}
+                    </td>
+                  ) : null}
+                  {(row.elements ?? []).map((child, index) => (
+                    <td
+                      key={index}
+                      // omf-table-cell drops the field's bottom margin so rows
+                      // stay as tight as the source table (see scoped CSS in
+                      // JsonFormsRenderer).
+                      className="omf-table-cell"
+                      style={{
+                        border,
+                        padding: pad,
+                        verticalAlign: 'middle',
+                        textAlign: columns![index + (row.label !== undefined ? 1 : 0)]?.align ?? 'left',
+                      }}
+                    >
+                      {dispatch(child, index, true)}
+                    </td>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <td
+                    style={{
+                      ...labelStyle,
+                      border,
+                      background: headerBg,
+                      width: 'var(--omf-table-label-width, 16%)',
+                      verticalAlign: 'top',
+                      padding: pad,
+                    }}
+                  >
+                    {row.label}
+                  </td>
+                  <td style={{ border, verticalAlign: 'top', padding: pad }}>
+                    {(row.elements ?? []).map((child, index) => dispatch(child, index, false))}
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

@@ -69,6 +69,24 @@ STRICT RULES
       { "type": "OmfTableRow", "label": "Ζωτικά Σημεία", "elements": [ { "type": "HorizontalLayout", "elements": [ ... ] } ] }
     ] }
     This renders a real bordered table: the "label"s align as a shaded left column and each row's borders line up, matching the paper. Put the row's fields inside a HorizontalLayout (with colSpan) when they share a line, or list Controls directly for a stacked cell. The row "label" is the source-language category text.
+  - COLUMN TABLE (use this whenever the source table has a HEADER ROW): when the source is a real grid with column headings — an HTML <table> with <thead><th>…</th></thead>, or a paper table with a heading row like "Role | Name | Signature | Date | Time" or "# | Item | Status | Date & Time" — declare the columns on the OmfTableLayout and give each row ONE element per column, in column order. Do NOT dump the row's fields into a single cell, and do NOT use a HorizontalLayout inside such a row: that produces stacked, wrapping fields instead of an aligned grid. Shape:
+    { "type": "OmfTableLayout",
+      "options": { "omf": { "columns": [
+        { "label": "#", "width": "40px", "align": "center" }, { "label": "Item" },
+        { "label": "Status", "width": "150px" }, { "label": "Date & Time", "width": "210px" }
+      ] } },
+      "elements": [
+        { "type": "OmfTableRow", "label": "1", "elements": [
+          { "type": "Label", "text": "Ensure after care is discussed and organised" },
+          { "type": "Control", "scope": "#/properties/aftercare/properties/item1Status" },
+          { "type": "Control", "scope": "#/properties/aftercare/properties/item1At" }
+        ] }
+      ] }
+    Rules for this mode:
+      - "columns" comes from the source's header cells, in order, including the first column. Carry a source width (e.g. <th style="width:40px">) into "width", and use "align":"center" for narrow numeric columns.
+      - The row's FIRST column is the OmfTableRow "label" when that cell is static text (a row heading like "Doctor", "Nurse / Social Worker", or a row number). Every remaining column is one entry in "elements" — a "Label" for a static text cell, a "Control" for an input cell.
+      - elements.length + (1 if "label" is set else 0) MUST equal columns.length, so the cells line up under their headers.
+      - Do NOT repeat the column name as the field's title — the renderer hides in-cell labels because the header already names them. Still give the dataSchema property a meaningful title (e.g. "Doctor — Name") for accessibility and export.
   - Fields that sit on the SAME horizontal line MUST be a HorizontalLayout, and each child Control MUST carry options.omf.screen.colSpan (out of 12, summing to ~12 across the row) so they lay out side-by-side without overlap.
   - Checklists (a list of tick-box items, e.g. things the patient must bring) are boolean Controls (type "boolean" in dataSchema) placed directly under their section Group; the renderer draws the checkbox on the LEFT of its label. Only pair mutually-exclusive YES/NO boxes as a single radio (omf.control "radio").
   - YES/NO (and other question-then-answer) rows: when the source prints the question/label on the LEFT and the radio options on the RIGHT of the same line (e.g. "Congestive Heart Failure … ◯ YES ◯ NO"), give the radio Control options.omf.screen.labelPosition "left" (and inline true) so the label sits on the left and the options on the right, matching the paper. A two-option radio already defaults to this left/right layout, but set it explicitly for clarity. Use the top-label layout only when the source stacks the options beneath the label.

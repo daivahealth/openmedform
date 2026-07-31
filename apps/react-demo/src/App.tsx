@@ -4,15 +4,17 @@ import { rrtSbarReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { formioSample } from './formio-sample';
 import { vteSample } from './vte-sample';
+import { signoffSample } from './signoff-sample';
 
-type Mode = 'jsonforms' | 'vte' | 'formio' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'table' | 'formio' | 'review';
 
-const definitions: Record<'jsonforms' | 'vte' | 'formio', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'table' | 'formio', FormDefinition> = {
   jsonforms: rrtSbarReference,
   vte: vteSample,
+  table: signoffSample,
   formio: formioSample,
 };
-const modes: Mode[] = ['jsonforms', 'vte', 'formio', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'table', 'formio', 'review'];
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -56,7 +58,7 @@ export function App() {
       <ModeTabs engine={engine} onSelect={(m) => { setEngine(m); setData({}); }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
-        <section style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: 16 }}>
+        <section style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: 16, minWidth: 0 }}>
           <h2 style={{ fontSize: 15, marginTop: 0 }}>{definition.name}</h2>
           <FormRenderer definition={definition} data={data} onChange={(next) => setData(next)} />
         </section>
@@ -98,7 +100,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : `${key} engine`}
         </button>
       ))}
     </div>
