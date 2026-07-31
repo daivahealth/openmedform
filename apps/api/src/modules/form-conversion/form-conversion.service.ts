@@ -214,10 +214,14 @@ export class FormConversionService {
     if (!baseProvider) {
       throw new Error('No AI providers are configured');
     }
+    // The form does not exist yet, so collect the metered rows and attribute
+    // them once it has been created below.
+    const usageRowIds: bigint[] = [];
     const provider = this.aiUsage.meter(baseProvider, {
       tenantId,
       userId,
       operation: 'conversion.jsonforms',
+      collectRowIds: usageRowIds,
     });
 
     const systemPrompt = getPdfToJsonFormsPrompt();
@@ -290,6 +294,9 @@ export class FormConversionService {
       conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
       scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
     });
+
+    // Attribute the tokens this conversion spent to the form it produced.
+    await this.aiUsage.attachFormId(usageRowIds, form.id);
 
     if (assembled.warnings.length > 0) {
       await this.prisma.conversionWarning.createMany({
