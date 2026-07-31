@@ -2,6 +2,10 @@
 
 OpenMedForm can convert paper-based clinical forms (PDFs) into digital formio.js forms using AI.
 
+Source files also include images and — for the jsonforms engine — **HTML
+mock-ups** (see [HTML mock-ups](#html-mock-ups-jsonforms-engine) below, which
+covers the mapping, the security model, and the size limits).
+
 ## How It Works
 
 1. User uploads a PDF of a clinical form (assessment, checklist, intake form, etc.)
@@ -191,9 +195,77 @@ Because the live aid and the stored rules both read the same `omf.points`, they
 cannot drift — and re-deriving on refine keeps scoring correct when a reviewer
 adds or removes scored items.
 
+## HTML mock-ups (jsonforms engine)
+
+`POST /api/conversions` also accepts an **HTML mock-up** (`text/html`) — the kind
+an author now commonly produces with an LLM before building the real form. HTML
+is *structurally richer* than a PDF for this purpose: a PDF needs vision to infer
+layout, whereas HTML declares it, so conversion runs **text-only** and still
+recovers grouping and tables reliably. Mapping:
+
+| Source markup | Produces |
+|---|---|
+| `<fieldset>`/`<legend>`, `<section>` + heading | a `Group` labelled with that heading |
+| `<table>` of label rows × repeated columns | `checklistMatrix` (rows/columns from `<th>`/`<td>`) |
+| left-label / right-value grid | `OmfTableLayout` + `OmfTableRow` |
+| `<input type="checkbox">` | a boolean `Control` |
+| radio group / `<select>` | an enum `Control` (`omf.control: "radio"`) |
+| `<label for=…>` / adjacent text | the dataSchema property `title` |
+| colour utilities or inline colour (`bg-red-50`, `color:#c0392b`) | `options.omf.accentColor` |
+| leading emoji in a heading | `options.omf.icon` |
+| trailing number on a scored row | `options.omf.points` |
+
+### Security model
+
+The upload is untrusted and is handled as **inert text only** — see
+[`html-extract.ts`](../../apps/api/src/common/utils/html-extract.ts):
+
+- **Never rendered or executed.** No headless browser is involved, so there is no
+  script-execution surface.
+- **No network access.** `src`/`href`/`srcset`/`@import` are *dropped rather than
+  resolved*, so there is no SSRF (including cloud-metadata endpoints) and no
+  `file://` read surface.
+- **No XXE.** Parsed with a lenient HTML parser, never an XML parser.
+- **Allow-list, not deny-list.** Only known-safe elements and attributes survive,
+  so `on*` handlers, `formaction`, embeds and anything new are dropped by default.
+  `class`/`style` are kept deliberately — they carry the section accent colours.
+- **Hidden content is removed** (`display:none`, `visibility:hidden`, `hidden`,
+  `aria-hidden`, `font-size:0`, Tailwind `hidden`, HTML comments). This is the
+  natural place to smuggle instructions past the person uploading the file and
+  into the LLM, so it is stripped — and the removal is reported as a conversion
+  warning rather than happening silently. (`sr-only` is kept: it is real
+  accessible text, not smuggled content.)
+- The prompt additionally frames the markup as untrusted source material to be
+  read for layout only.
+
+Downstream, extracted strings only ever become JSON schema values: the React and
+Angular renderers escape by default (no `innerHTML` anywhere) and the print
+engine escapes explicitly, so this text never re-enters an HTML context.
+
+### Size and complexity limits
+
+One conversion pass has to emit the whole Data + UI + Print schema set, so the
+binding constraint is the model's **output** budget, not the input file. Limits
+are therefore enforced up front, and an oversized mock-up is **rejected with
+guidance** rather than converted into a form that looks complete but silently
+lost its later sections:
+
+| Limit | Value | On breach |
+|---|---|---|
+| File size | 2 MB (vs 10 MB for PDF/images) | 400 with the actual size |
+| Fields (inputs/selects/textareas) | 60 | 400 — "split into one file per section" |
+| Table rows | 80 | 400 — "split the large tables" |
+| No fields found | — | 400 — the file is not a form mock-up (or everything was hidden) |
+| Cleaned markup | 24 000 chars | truncated + `POTENTIAL_MISSING_FIELD` warning |
+
+HTML converts to the **jsonforms engine only**; the Form.io path takes PDFs and
+images (400 otherwise). Multi-document files are flagged with a warning.
+
 ## Limitations
 
 - Scanned PDFs with only images require page-image rendering plus a vision-capable provider. Text-only providers need embedded text or future OCR support.
 - Complex multi-page forms may exceed token limits for some providers.
 - Generated schemas should always be reviewed before publishing — AI output is a starting point, not a final form.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
+- HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
+- Hidden HTML is never converted, by design. If a mock-up legitimately hides a section (e.g. a conditional block), make it visible before uploading — the conversion warning will say what was removed.
