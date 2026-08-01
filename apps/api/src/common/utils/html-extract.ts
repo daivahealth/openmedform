@@ -133,6 +133,11 @@ export interface HtmlExtractResult {
    * `scriptFilledPlaceholders`: the converter turns each into a `recordTable`.
    */
   repeatingTables: RepeatingTableHint[];
+  /**
+   * Matrix tables whose ROWS are fields and whose COLUMNS are record instances
+   * — the transpose of `repeatingTables`. Also converts to a `recordTable`.
+   */
+  transposedMatrices: TransposedMatrixHint[];
 }
 
 export interface HtmlExtractOptions {
@@ -193,6 +198,7 @@ export function extractFormHtml(
   // "filled at runtime" if the document actually shipped scripts.
   const scriptFilledPlaceholders = findScriptFilledPlaceholders(root);
   const repeatingTables = findRepeatingTables(root);
+  const transposedMatrices = findTransposedMatrices(root);
 
   let strippedTags = 0;
   for (const el of root.querySelectorAll('*')) {
@@ -266,6 +272,7 @@ export function extractFormHtml(
     looksMultiDocument,
     scriptFilledPlaceholders,
     repeatingTables,
+    transposedMatrices,
   };
 }
 
@@ -285,6 +292,97 @@ function collectStats(root: HTMLElement): HtmlExtractStats {
     scripts: 0,
     textLength: 0,
   };
+}
+
+/** Strip a nested-add control's text off an instance heading: "Cannula 1 + Day" -> "Cannula 1". */
+function instanceHeaderText(th: HTMLElement): { header: string; nestedAdd?: string } {
+  const buttonTexts = th
+    .querySelectorAll('button, a')
+    .map((b) => b.text.replace(/\s+/g, ' ').trim())
+    .filter((t) => t.length > 0);
+  let header = th.text.replace(/\s+/g, ' ').trim();
+  let nestedAdd: string | undefined;
+  for (const t of buttonTexts) {
+    // Inside an instance heading a "+ …" control adds a sub-record. It rarely
+    // says "add" — the VIP chart labels it just "+ Day" — so a leading plus is
+    // the reliable signal here, alongside the usual add/new wording.
+    if (ADD_BUTTON.test(t) || NESTED_ADD_BUTTON.test(t)) nestedAdd = t;
+    header = header.replace(t, '').replace(/\s+/g, ' ').trim();
+  }
+  return { header, nestedAdd };
+}
+
+/**
+ * Find matrix tables: field labels down the first column, record instances
+ * across the top.
+ *
+ * Recognised by shape rather than by any particular wording, so it is not tied
+ * to the VIP form: a header row of 2+ cells, and body rows whose FIRST cell is
+ * a plain text label while the remaining cells hold the inputs. A table whose
+ * first column also contains inputs is an ordinary data grid, not a matrix, and
+ * is left alone.
+ */
+function findTransposedMatrices(root: HTMLElement): TransposedMatrixHint[] {
+  const hints: TransposedMatrixHint[] = [];
+
+  for (const table of root.querySelectorAll('table')) {
+    const headerCells = table.querySelectorAll('thead th');
+    if (headerCells.length < 2) continue;
+
+    const bodyRows = table.querySelectorAll('tbody tr');
+    if (bodyRows.length < 3) continue; // too small to be a parameter matrix
+
+    // Every row must read "label | value…", and the labels must be real text.
+    const rowLabels: string[] = [];
+    let wellFormed = true;
+    for (const tr of bodyRows) {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length < 2) { wellFormed = false; break; }
+      const first = cells[0];
+      // A label cell holds text and no input of its own.
+      if (first.querySelectorAll('input, select, textarea').length > 0) { wellFormed = false; break; }
+      const label = first.text.replace(/\s+/g, ' ').trim();
+      if (!label) { wellFormed = false; break; }
+      rowLabels.push(label);
+    }
+    if (!wellFormed || rowLabels.length < 3) continue;
+
+    // At least one instance column must actually carry fields, or this is a
+    // static reference table (dosing guide, score legend) rather than a matrix.
+    const fieldCount = table.querySelectorAll('tbody td input, tbody td select, tbody td textarea').length;
+    if (fieldCount === 0) continue;
+
+    const [labelTh, ...instanceThs] = headerCells;
+    const instanceHeaders: string[] = [];
+    let addNestedLabel: string | undefined;
+    for (const th of instanceThs) {
+      const { header, nestedAdd } = instanceHeaderText(th);
+      if (header) instanceHeaders.push(header);
+      if (nestedAdd && !addNestedLabel) addNestedLabel = nestedAdd;
+    }
+    if (instanceHeaders.length === 0) continue;
+
+    // The control that adds another instance sits outside the table.
+    const scopes = [table.parentNode, table.parentNode?.parentNode].filter(Boolean) as HTMLElement[];
+    let addInstanceLabel: string | undefined;
+    for (const scope of scopes) {
+      const found = scope
+        .querySelectorAll('button, a, input[type="button"], input[type="submit"]')
+        .map((b) => (b.text || b.getAttribute('value') || '').replace(/\s+/g, ' ').trim())
+        .find((t) => ADD_BUTTON.test(t) && t !== addNestedLabel);
+      if (found) { addInstanceLabel = found; break; }
+    }
+
+    hints.push({
+      labelHeader: labelTh.text.replace(/\s+/g, ' ').trim(),
+      rowLabels,
+      instanceHeaders,
+      addInstanceLabel,
+      addNestedLabel,
+    });
+  }
+
+  return hints;
 }
 
 /** Containers a browser would populate at runtime; we never execute the page. */
@@ -359,6 +457,35 @@ export interface RepeatingTableHint {
 
 /** Buttons that add a row, as opposed to print/save/submit actions. */
 const ADD_BUTTON = /^\s*[+➕]?\s*(add|new)\b/i;
+
+/** A "+ …" control inside a column heading, e.g. '+ Day'. */
+const NESTED_ADD_BUTTON = /^\s*[+➕]\s*\S/;
+
+/**
+ * A table laid out as a MATRIX: field labels run down the first column and each
+ * remaining column is one record instance.
+ *
+ * The VIP cannula chart is the canonical example — "Parameter | Cannula 1 [+
+ * Day]" across the top, "Date of Insertion", "Site", "Side" … down the side.
+ * This is the transpose of `RepeatingTableHint`, and without a hint the model
+ * has to guess: it typically turns the instance header into a column, drops the
+ * per-instance fields, and leaves any nested group unconfigured.
+ */
+export interface TransposedMatrixHint {
+  /** Heading of the label column, e.g. 'Parameter'. */
+  labelHeader: string;
+  /** Every field label down the left, in source order. */
+  rowLabels: string[];
+  /** Instance column headings with the nested-group button text removed. */
+  instanceHeaders: string[];
+  /** Control that adds another instance, e.g. '+ Add Cannula'. */
+  addInstanceLabel?: string;
+  /**
+   * Control inside an instance header that adds a nested sub-record, e.g.
+   * '+ Day'. Its presence means the record contains its own repeating group.
+   */
+  addNestedLabel?: string;
+}
 
 function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {
   const hints: RepeatingTableHint[] = [];

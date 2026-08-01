@@ -89,6 +89,14 @@ export const FIELD_STYLES = `
     letter-spacing: .4px; white-space: nowrap; text-align: left;
   }
   .omf-record-grid .omf-record-actions-col { width: 1%; }
+  /* Column-oriented mode: the left-hand parameter spine. */
+  .omf-record-grid .omf-record-param-col { min-width: 170px; }
+  .omf-record-grid .omf-record-param-cell {
+    background: var(--omf-color-section-bg, #f7f8fa);
+    font-weight: var(--omf-label-weight, 600); font-size: var(--omf-font-size-label, 13px);
+    color: var(--omf-color-label, #3a4552); white-space: nowrap;
+  }
+  .omf-record-grid td.omf-record-open { background: var(--omf-color-section-bg, #f0eaf4); }
   .omf-record-grid tr.omf-record-open > td { background: var(--omf-color-section-bg, #f0eaf4); }
   .omf-record-empty {
     text-align: center; font-style: italic; color: var(--omf-color-muted, #6b7280);

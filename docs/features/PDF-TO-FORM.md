@@ -370,9 +370,66 @@ rather than being duplicated per framework — a log that showed a different dat
 or adverse-event count in the EMR than in the web preview would be a clinical
 safety problem, not a cosmetic one.
 
-Without this, an array falls through to the stock JSON Forms list widget, which
-renders as *"Add to … / Items / Valid / No data"* and looks nothing like the
-source.
+**An array can no longer fall through to the stock list widget.** Any
+array-of-objects control without `omf` config still renders as a record table,
+with summary columns derived from the leading scalar properties of the item
+schema. A derived table is imperfect; the stock *"Add to … / Items / Valid / No
+data"* widget is unusable on a clinical form, so it is now unreachable in both
+renderers.
+
+### Matrix (transposed) tables
+
+The other way a repeating record gets drawn: **fields down the side, record
+instances across the top.** The NH VIP cannula chart is the canonical case —
+
+```
+| Parameter               | Cannula 1  [+ Day] |
+| Date of Insertion       | …                  |
+| Site                    | …                  |
+| Size of Cannula (Gauge) | …                  |
+```
+
+This is the transpose of a [repeating log](#repeating-logs-recordtable), and it
+converts to the same thing: **one `recordTable`**. The row labels are the item
+schema's fields; each column heading is an instance of it.
+
+`findTransposedMatrices()` recognises the shape — a header row of 2+ cells over
+body rows whose first cell is plain label text — and passes the model the full
+row-label list, the instance headings, and both add-controls. Without that hint
+the model reliably fails in three ways at once, all observed on the real VIP
+form: it turns "Cannula 1" into a column, drops the per-instance fields, and
+leaves the nested day-group unconfigured.
+
+An **instance name** is never a field and never a column. "Cannula 1",
+"Patient 2", "Visit A" identify *which record you are looking at*.
+
+A `+ …` control inside a column heading (the chart's `+ Day`) means each record
+carries **its own nested repeating group**, so the item schema gets a nested
+array with its own `recordTable` config.
+
+The detector deliberately ignores: tables whose first column also holds inputs
+(an ordinary data grid), tables with no inputs at all (a score legend or dosing
+reference), and anything under three rows.
+
+#### Column orientation
+
+Set `omf.recordTable.orientation: "columns"` to render records the way the paper
+draws them — field labels down the left, one column per record, growing
+sideways — with `instanceLabel` supplying the noun:
+
+```jsonc
+"recordTable": {
+  "orientation": "columns",
+  "instanceLabel": "Cannula",     // heads each column: "Cannula 1", "Cannula 2"
+  "addLabel": "+ Add Cannula"
+}
+```
+
+Both orientations store **identical data**; this is purely a fidelity choice.
+Default is `rows`, which suits a chronological log that grows downward. Use
+`columns` when the source compares instances side by side. The expanded detail
+panel still spans the full width in either mode, because a record's whole field
+set never fits in one column.
 
 ### Mock-ups that build their form with JavaScript
 

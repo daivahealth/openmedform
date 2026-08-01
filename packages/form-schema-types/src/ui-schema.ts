@@ -105,6 +105,12 @@ export interface OmfOptions {
    * (row label | contents) layout used by left-label tables.
    */
   columns?: Array<{
+    /**
+     * Stable identifier for the column. Required by `checklistMatrix`, which
+     * stores its value as `{ [rowKey]: { [colKey]: true } }`; unused by
+     * `OmfTableLayout`, whose columns are purely positional.
+     */
+    key?: string;
     label?: string;
     /** CSS width for the column, e.g. '40px' or '12%'. */
     width?: string;
@@ -150,6 +156,23 @@ export interface OmfRecordTableColumn {
 }
 
 export interface OmfRecordTableOptions {
+  /**
+   * Which way the records run.
+   *
+   * - `'rows'` (default) — one row per record, columns are fields. Right for a
+   *   chronological log that grows downward (treatment days, drug rounds).
+   * - `'columns'` — one COLUMN per record, with the field labels down the left.
+   *   Mirrors paper charts that compare instances side by side, such as a
+   *   cannula chart where each cannula gets its own column. Choose this only
+   *   when the source is laid out that way; both orientations capture identical
+   *   data, so it is purely a fidelity choice.
+   */
+  orientation?: 'rows' | 'columns';
+  /**
+   * Noun for one record, heading each column when `orientation` is 'columns'
+   * — 'Cannula' yields "Cannula 1", "Cannula 2". Defaults to 'Record'.
+   */
+  instanceLabel?: string;
   /** Add-button label, e.g. '+ Add treatment day'. */
   addLabel?: string;
   /**
