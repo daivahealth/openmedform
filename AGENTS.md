@@ -6,7 +6,7 @@ Operating contract for AI coding agents working in this repository. This file is
 
 OpenMedForm is an **AI-powered clinical form builder platform**. It enables healthcare organizations to create, manage, and deploy complex clinical assessment forms with scoring logic, conditional sections, and reference tables.
 
-- Drag-and-drop form builder (forked formio.js, MIT licensed)
+- AI-first form authoring: convert a PDF/image/HTML mock-up or describe the form, then refine by prompt (no drag-and-drop builder)
 - AI-powered form generation (multi-provider LLM support)
 - Form rendering, submission management, and versioning
 - Server-side scoring engine for clinical risk calculations
@@ -77,8 +77,8 @@ OpenMedForm is an **AI-powered clinical form builder platform**. It enables heal
 | ORM | Prisma | ^6 |
 | Database | PostgreSQL | 16 |
 | Frontend | Next.js (App Router) | 14 |
-| Form Engine | formio.js (forked) | ^5 |
-| Form React | @formio/react (forked) | ^6 |
+| Form Engine | JSON Forms (@jsonforms/core) | ^3.8 |
+| Renderers | @jsonforms/react + @jsonforms/angular | ^3.8 |
 | UI | Radix UI + Tailwind CSS | Latest |
 | State | Zustand + React Query v5 | Latest |
 | Monorepo | Turborepo + pnpm | Latest |

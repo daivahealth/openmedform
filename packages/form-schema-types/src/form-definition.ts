@@ -1,11 +1,15 @@
 /**
- * FormDefinition — a discriminated union on `engine`.
+ * FormDefinition — separated Data / UI / Print schemas plus translations,
+ * assets and conversion metadata.
  *
- * - engine 'formio'    → a single coupled Form.io component tree (`schema`).
- * - engine 'jsonforms' → separated Data / UI / Print schemas + translations,
- *                        assets, and conversion metadata.
+ * A response is pinned to the exact version that produced it.
  *
- * A response is pinned to both the exact version AND the engine that produced it.
+ * BREAKING (v1.0.0): this used to be a discriminated union on `engine`, with a
+ * second `'formio'` variant carrying a single coupled component tree. The
+ * Form.io engine was removed (ADR-004), so the union, the `engine`
+ * discriminator and the `isFormioDefinition` / `isJsonFormsDefinition`
+ * narrowing helpers are gone. `JsonFormsFormDefinition` remains as an alias of
+ * `FormDefinition` so existing imports keep resolving.
  */
 
 import type { AuditMetadata, FormStatus, LanguageCode } from './common';
@@ -16,7 +20,7 @@ import type { TranslationBundle } from './translation';
 import type { FormAssetReference } from './asset';
 import type { ConversionMetadata } from './conversion';
 
-export interface FormDefinitionBase {
+export interface FormDefinition {
   id: string;
   formCode: string;
   name: string;
@@ -25,18 +29,6 @@ export interface FormDefinitionBase {
   language: LanguageCode;
   status: FormStatus;
   audit: AuditMetadata;
-}
-
-/** Form.io engine: the legacy coupled schema is preserved as-is. */
-export interface FormioFormDefinition extends FormDefinitionBase {
-  engine: 'formio';
-  /** Form.io component tree ({ display, components[] }). */
-  schema: Record<string, unknown>;
-}
-
-/** JSON Forms engine: data / UI / print concerns are separated. */
-export interface JsonFormsFormDefinition extends FormDefinitionBase {
-  engine: 'jsonforms';
   dataSchema: JsonSchema;
   uiSchema: UiSchema;
   printSchema: PrintSchema;
@@ -45,18 +37,8 @@ export interface JsonFormsFormDefinition extends FormDefinitionBase {
   conversionMetadata?: ConversionMetadata;
 }
 
-export type FormDefinition = FormioFormDefinition | JsonFormsFormDefinition;
-
-/** Narrowing helper for the jsonforms variant. */
-export function isJsonFormsDefinition(
-  def: FormDefinition,
-): def is JsonFormsFormDefinition {
-  return def.engine === 'jsonforms';
-}
-
-/** Narrowing helper for the formio variant. */
-export function isFormioDefinition(
-  def: FormDefinition,
-): def is FormioFormDefinition {
-  return def.engine === 'formio';
-}
+/**
+ * Alias kept so code and docs that spelled out the engine still compile. There
+ * is only one kind of form definition now.
+ */
+export type JsonFormsFormDefinition = FormDefinition;

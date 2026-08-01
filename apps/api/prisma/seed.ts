@@ -38,198 +38,91 @@ async function main() {
 
   console.log(`Admin user: ${admin.email} (${admin.id})`);
 
-  // VTE Risk Assessment reference form
-  const vteSchema = {
-    display: 'form',
-    components: [
-      {
-        type: 'panel',
-        title: 'Patient Information',
-        key: 'patientInfoPanel',
-        components: [
-          {
-            type: 'columns',
-            key: 'patientCols',
-            columns: [
-              {
-                components: [
-                  { type: 'textfield', key: 'patientName', label: 'Patient Name', validate: { required: true } },
-                  { type: 'textfield', key: 'mrn', label: 'MRN' },
-                ],
-                width: 6, offset: 0, push: 0, pull: 0, size: 'md',
-              },
-              {
-                components: [
-                  { type: 'number', key: 'patientAge', label: 'Age (years)', validate: { required: true, min: 0, max: 150 } },
-                  { type: 'textfield', key: 'ward', label: 'Ward / Unit' },
-                ],
-                width: 6, offset: 0, push: 0, pull: 0, size: 'md',
-              },
-            ],
+  // VTE Risk Assessment reference form (JSON Forms: separated Data/UI/Print).
+  // Field keys and point values match vteScoringRules below, which the server
+  // uses to recalculate the score on submission — never the client.
+  const RISK_FACTORS: Array<{ key: string; title: string; points: number }> = [
+    { key: 'activeCancer', title: 'Active cancer or cancer treatment', points: 2 },
+    { key: 'ageOver60', title: 'Age over 60', points: 1 },
+    { key: 'dehydration', title: 'Dehydration', points: 1 },
+    { key: 'obesity', title: 'Obesity (BMI over 30)', points: 1 },
+    { key: 'personalHistoryVte', title: 'Personal history of VTE', points: 2 },
+    { key: 'familyHistoryVte', title: 'Family history of VTE', points: 1 },
+    { key: 'thrombophilia', title: 'Known thrombophilia', points: 2 },
+    { key: 'immobility', title: 'Significantly reduced mobility', points: 2 },
+    { key: 'recentSurgery', title: 'Surgery within the last 90 days', points: 2 },
+    { key: 'criticalCare', title: 'Admission to critical care', points: 2 },
+  ];
+
+  const vteDataSchema = {
+    type: 'object',
+    properties: {
+      assessmentDate: { type: 'string', format: 'date', title: 'Assessment date' },
+      assessedBy: { type: 'string', title: 'Assessed by' },
+      ...Object.fromEntries(
+        RISK_FACTORS.map((f) => [f.key, { type: 'boolean', title: f.title }]),
+      ),
+      clinicalNotes: { type: 'string', title: 'Clinical notes' },
+    },
+    required: ['assessmentDate', 'assessedBy'],
+  };
+
+  const vteUiSchema = {
+    schemaVersion: '1.0',
+    layout: {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Group',
+          label: 'Assessment',
+          elements: [
+            {
+              type: 'HorizontalLayout',
+              elements: [
+                { type: 'Control', scope: '#/properties/assessmentDate' },
+                { type: 'Control', scope: '#/properties/assessedBy' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'Group',
+          label: 'Thrombosis risk factors',
+          options: { omf: { accentColor: '#c0392b', icon: '🩸', pointLegend: [1, 2] } },
+          elements: RISK_FACTORS.map((f) => ({
+            type: 'Control',
+            scope: `#/properties/${f.key}`,
+            options: { omf: { points: f.points } },
+          })),
+        },
+        {
+          type: 'OmfScoreSummary',
+          label: 'Total VTE risk score',
+          options: {
+            omf: {
+              control: 'scoreSummary',
+              bands: [
+                { maxScore: 2, label: 'Low Risk', color: '#1e8e5a' },
+                { minScore: 3, maxScore: 4, label: 'Medium Risk', color: '#b8860b' },
+                { minScore: 5, label: 'High Risk', color: '#c0392b' },
+              ],
+            },
           },
-        ],
-      },
-      {
-        type: 'panel',
-        title: 'VTE Risk Factor Assessment',
-        key: 'riskFactorsPanel',
-        components: [
-          {
-            type: 'checkbox', key: 'activeCancer', label: 'Active cancer or cancer treatment', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'ageOver60', label: 'Age over 60', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'dehydration', label: 'Dehydration', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'obesity', label: 'Obesity (BMI > 30)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'personalHistoryVte', label: 'Personal history of VTE', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'familyHistoryVte', label: 'First-degree relative with VTE', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'thrombophilia', label: 'Known thrombophilia', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'immobility', label: 'Significantly reduced mobility (≥3 days)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'recentSurgery', label: 'Recent surgery (within 4 weeks)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'criticalCare', label: 'Critical care admission', defaultValue: false,
-          },
-          {
-            type: 'scoringMatrix',
-            key: 'vteRiskScore',
-            label: 'VTE Risk Score',
-            domains: [
-              {
-                name: 'Patient Factors',
-                items: [
-                  { field: 'activeCancer', label: 'Active cancer', points: 2 },
-                  { field: 'ageOver60', label: 'Age > 60', points: 1 },
-                  { field: 'dehydration', label: 'Dehydration', points: 1 },
-                  { field: 'obesity', label: 'Obesity (BMI > 30)', points: 1 },
-                ],
-              },
-              {
-                name: 'Thrombotic Risk',
-                items: [
-                  { field: 'personalHistoryVte', label: 'Personal history of VTE', points: 2 },
-                  { field: 'familyHistoryVte', label: 'Family history of VTE', points: 1 },
-                  { field: 'thrombophilia', label: 'Known thrombophilia', points: 2 },
-                ],
-              },
-              {
-                name: 'Mobility & Surgery',
-                items: [
-                  { field: 'immobility', label: 'Reduced mobility ≥3 days', points: 2 },
-                  { field: 'recentSurgery', label: 'Recent surgery', points: 2 },
-                  { field: 'criticalCare', label: 'Critical care admission', points: 2 },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        type: 'panel',
-        title: 'Risk Stratification',
-        key: 'stratPanel',
-        components: [
-          {
-            type: 'riskStratification',
-            key: 'vteRiskLevel',
-            label: 'VTE Risk Level',
-            scoreField: 'vteRiskScore',
-            thresholds: [
-              { max: 2, label: 'Low Risk', color: '#28a745' },
-              { max: 4, label: 'Medium Risk', color: '#ffc107' },
-              { max: 999, label: 'High Risk', color: '#dc3545' },
-            ],
-          },
-          {
-            type: 'colorCodedGrid',
-            key: 'vteActionGrid',
-            label: 'Recommended Actions',
-            scoreField: 'vteRiskScore',
-            rows: [
-              { label: 'Low Risk', range: '0–2', max: 2, color: '#d4edda', textColor: '#155724', action: 'Encourage early mobilisation. No pharmacological prophylaxis required.' },
-              { label: 'Medium Risk', range: '3–4', max: 4, color: '#fff3cd', textColor: '#856404', action: 'Consider mechanical prophylaxis (TED stockings / IPC). Assess for pharmacological prophylaxis.' },
-              { label: 'High Risk', range: '5+', max: 999, color: '#f8d7da', textColor: '#721c24', action: 'Pharmacological prophylaxis recommended (LMWH) unless contraindicated. Add mechanical prophylaxis.' },
-            ],
-          },
-        ],
-      },
-      {
-        type: 'panel',
-        title: 'Bleeding Risk Contraindications',
-        key: 'bleedingPanel',
-        components: [
-          {
-            type: 'checkbox', key: 'activeBeeding', label: 'Active bleeding', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'thrombocytopenia', label: 'Thrombocytopenia (platelets < 75)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'acuteStroke', label: 'Acute stroke (haemorrhagic)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'uncontrolledHypertension', label: 'Uncontrolled systolic hypertension (>230/120)', defaultValue: false,
-          },
-          {
-            type: 'checkbox', key: 'anticoagulantUse', label: 'Concurrent use of anticoagulant (therapeutic dose)', defaultValue: false,
-          },
-        ],
-      },
-      {
-        type: 'panel',
-        title: 'Prophylaxis Reference',
-        key: 'prophylaxisRefPanel',
-        components: [
-          {
-            type: 'clinicalReferenceTable',
-            key: 'dosingReference',
-            title: 'Pharmacological VTE Prophylaxis Dosing Guide',
-            headers: ['Agent', 'Standard Dose', 'Renal Adjustment (CrCl < 30)', 'Notes'],
-            rows: [
-              ['Enoxaparin (LMWH)', '40 mg SC once daily', '20 mg SC once daily', 'First-line agent'],
-              ['Dalteparin', '5000 IU SC once daily', '2500 IU SC once daily', 'Alternative LMWH'],
-              ['Fondaparinux', '2.5 mg SC once daily', 'Avoid if CrCl < 20', 'For HIT history'],
-              ['UFH', '5000 IU SC every 8–12h', 'No adjustment needed', 'Preferred if CrCl < 30'],
-            ],
-            footnote: 'Adjust based on body weight, renal function, and bleeding risk. Consult pharmacy for complex cases.',
-          },
-        ],
-      },
-      {
-        type: 'panel',
-        title: 'Assessment Sign-Off',
-        key: 'signoffPanel',
-        components: [
-          {
-            type: 'textarea', key: 'clinicalNotes', label: 'Clinical Notes / Plan', rows: 3,
-          },
-          {
-            type: 'signatureDate',
-            key: 'assessorSignature',
-            label: 'Assessor Signature',
-            nameLabel: 'Assessor Name',
-            roleLabel: 'Designation',
-          },
-        ],
-      },
-      {
-        type: 'button', action: 'submit', label: 'Complete Assessment', key: 'submit', theme: 'primary',
-      },
-    ],
+        },
+        {
+          type: 'Control',
+          scope: '#/properties/clinicalNotes',
+          options: { omf: { control: 'textarea' } },
+        },
+      ],
+    },
+  };
+
+  const vtePrintSchema = {
+    schemaVersion: '1.0',
+    pageSize: 'A4',
+    orientation: 'portrait',
+    marginsMm: { top: 12, right: 10, bottom: 12, left: 10 },
   };
 
   const vteScoringRules = {
@@ -290,7 +183,9 @@ async function main() {
       data: {
         formId: vteForm.id,
         version: 1,
-        schema: vteSchema as any,
+        dataSchema: vteDataSchema as any,
+        uiSchema: vteUiSchema as any,
+        printSchema: vtePrintSchema as any,
         scoringRules: vteScoringRules as any,
         publishedAt: new Date(),
       },

@@ -56,8 +56,8 @@ export class DesignerService {
     if (!form) throw new NotFoundException(`Form ${formId} not found`);
 
     const latest = form.versions[0];
-    if (!latest || latest.engine !== 'JSONFORMS') {
-      throw new BadRequestException('The prompt-based designer supports jsonforms engine forms only');
+    if (!latest) {
+      throw new BadRequestException('Form has no version to refine');
     }
 
     progress('Loading provider and current form definition...');

@@ -136,10 +136,9 @@ export class SubmissionService {
 
     const submissionData = (submission.data ?? {}) as Record<string, unknown>;
 
-    // Server-side validation is authoritative for the jsonforms engine: never
-    // trust client-side validity. Formio versions keep their existing flow.
+    // Server-side validation is authoritative: never trust client-side validity.
     const version = submission.formVersion;
-    if (version?.engine === 'JSONFORMS' && version.dataSchema) {
+    if (version?.dataSchema) {
       const result = this.validation.validate(version.dataSchema, submissionData);
       if (!result.valid) {
         throw new BadRequestException({
@@ -178,7 +177,6 @@ export class SubmissionService {
       details: {
         formId: submission.formId,
         formVersionId: submission.formVersionId,
-        engine: version?.engine,
         riskLevel: updateData.riskLevel ?? null,
       },
     });

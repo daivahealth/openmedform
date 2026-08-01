@@ -6,7 +6,7 @@
  * published definition version and engine used to capture it.
  */
 
-import type { AuditMetadata, FormEngine } from './common';
+import type { AuditMetadata } from './common';
 
 export type FormInstanceStatus =
   | 'DRAFT'
@@ -20,7 +20,6 @@ export interface FormInstance {
   formCode: string;
   formVersion: string;
   /** Engine the response was captured under (pinned alongside the version). */
-  engine: FormEngine;
   patientId?: string;
   episodeNumber?: string;
   status: FormInstanceStatus;

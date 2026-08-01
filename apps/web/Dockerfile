@@ -12,9 +12,7 @@ COPY packages/form-core/package.json packages/form-core/
 COPY packages/form-design-tokens/package.json packages/form-design-tokens/
 COPY packages/form-print-engine/package.json packages/form-print-engine/
 COPY packages/form-schema-types/package.json packages/form-schema-types/
-COPY packages/formio-core/package.json packages/formio-core/
 COPY packages/react-form-renderer/package.json packages/react-form-renderer/
-COPY packages/renderer/package.json packages/renderer/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --filter @openmedform/web...
 
@@ -36,17 +34,8 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:3100
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 WORKDIR /app
-# Build order matters (topological):
-#  - @openmedform/formio-core is consumed via its lib/cjs build (webpack alias
-#    in next.config.mjs) and its types are needed by the renderer dts build,
-#    so it must be built FIRST. Only the `lib` step is needed (doc/dist are
-#    docs and browser bundles — the CSS is vendored under apps/web/public/).
-#  - @openmedform/renderer ships as compiled dist/ (tsup), so it must be built
-#    here (first-party packages ship as TS source and need no build).
-#  - The vendored @openmedform/formio-react fork is intentionally NOT built:
-#    nothing imports it.
-RUN pnpm --filter @openmedform/formio-core run lib
-RUN pnpm --filter @openmedform/renderer run build
+# Every first-party package ships as TS source and is transpiled by Next
+# (transpilePackages in next.config.mjs), so there is no pre-build step.
 RUN pnpm --filter @openmedform/web run build
 
 # --- runtime ---

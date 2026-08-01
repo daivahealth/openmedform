@@ -20,14 +20,6 @@ enum FormStatus {
   @@map("form_status_enum")
 }
 
-// Which rendering/authoring engine a form version targets (see ADR-003).
-enum FormEngine {
-  FORMIO
-  JSONFORMS
-
-  @@map("form_engine_enum")
-}
-
 enum ConversionJobStatus {
   PENDING
   RUNNING
@@ -144,10 +136,8 @@ model FormVersion {
   id           String     @id @default(uuid()) @db.Uuid
   formId       String     @map("form_id") @db.Uuid
   version      Int        @default(1)
-  // Engine discriminator (ADR-003). FORMIO uses `schema`; JSONFORMS uses the
-  // split dataSchema/uiSchema/printSchema (+ translations).
-  engine       FormEngine @default(FORMIO)
-  schema       Json?
+  // Separated Data / UI / Print schemas — see ADR-004. Form.io's single coupled
+  // `schema` column was dropped with the engine.
   dataSchema   Json?      @map("data_schema")
   uiSchema     Json?      @map("ui_schema")
   printSchema  Json?      @map("print_schema")
@@ -271,7 +261,6 @@ model ConversionJob {
   tenantId        String              @map("tenant_id") @db.Uuid
   formId          String?             @map("form_id") @db.Uuid
   status          ConversionJobStatus @default(PENDING)
-  engineTarget    FormEngine          @default(JSONFORMS) @map("engine_target")
   provider        String?             @db.VarChar(50)
   model           String?             @db.VarChar(100)
   sourceFileName  String?             @map("source_file_name") @db.VarChar(255)

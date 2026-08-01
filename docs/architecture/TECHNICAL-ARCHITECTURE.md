@@ -2,15 +2,22 @@
 
 ## Overview
 
-OpenMedForm is a monorepo containing two applications and three shared packages:
+OpenMedForm is a monorepo of applications, demos and shared packages. JSON Forms
+is the only form engine ([ADR-004](../ADR/004-remove-formio-engine.md)).
 
 ```
 openmedform/
-├── apps/api        NestJS 10 backend (REST API, auth, scoring engine, AI builder)
-├── apps/web        Next.js 14 frontend (form builder, renderer, dashboard)
-├── packages/formio-core     Forked formio.js — form builder + renderer engine
-├── packages/formio-react    Forked @formio/react — React bindings
-└── packages/shared          Shared TypeScript types and constants
+├── apps/api                    NestJS 10 backend (REST API, auth, scoring, AI conversion)
+├── apps/web                    Next.js 14 frontend (forms, designer, renderer, dashboard)
+├── apps/react-demo             Standalone React renderer demo
+├── apps/angular-demo           Standalone Angular renderer demo
+├── packages/form-schema-types  Data / UI / Print schema contracts + the `omf` vocabulary
+├── packages/form-core          Framework-independent engine (Ajv validation, scoring, binding)
+├── packages/form-design-tokens Shared CSS variables — React/Angular visual parity
+├── packages/react-form-renderer   React renderer + clinical controls
+├── packages/angular-form-renderer Angular renderer + the same controls
+├── packages/form-print-engine  UI/Print schema → A4 HTML/CSS → PDF
+└── packages/shared             Shared TypeScript types and constants
 ```
 
 ## System Architecture
@@ -19,9 +26,9 @@ openmedform/
 ┌─────────────────────────────────┐
 │         Browser (Next.js)        │
 │  ┌───────────┐  ┌─────────────┐ │
-│  │ Form      │  │ AI Chat     │ │
-│  │ Builder   │  │ Panel       │ │
-│  │ (formio)  │  │             │ │
+│  │ Renderer  │  │ AI Designer │ │
+│  │ + Designer│  │ Panel       │ │
+│  │(JSONForms)│  │             │ │
 │  └─────┬─────┘  └──────┬──────┘ │
 │        │               │        │
 └────────┼───────────────┼────────┘
@@ -58,6 +65,9 @@ Row-level isolation via `tenant_id` on all domain tables. The JWT payload carrie
 
 ## Scoring Architecture
 
-- Client-side: formio.js calculated values provide live feedback in the builder/renderer
-- Server-side: deterministic scoring engine recalculates on submission completion
-- Scoring rules extracted from form schema at publish time (no `eval()`)
+- Client-side: the renderers compute live subtotals and the score summary from
+  `options.omf.points` via the shared `form-core` scoring module — advisory only
+- Server-side: the deterministic scoring engine recalculates on submission
+  completion and is authoritative (no `eval()`)
+- Both sides share one implementation in `form-core`, so a score cannot differ
+  between the screen and the stored record

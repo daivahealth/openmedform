@@ -220,7 +220,6 @@ export const rrtSbarReference: JsonFormsFormDefinition = {
   version: '1.0',
   language: 'el',
   status: 'DRAFT',
-  engine: 'jsonforms',
   dataSchema,
   uiSchema,
   printSchema,

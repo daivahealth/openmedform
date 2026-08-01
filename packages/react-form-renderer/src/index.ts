@@ -1,9 +1,8 @@
 /**
  * @openmedform/react-form-renderer
  *
- * React engine dispatcher for the dual-engine form platform. Render any
- * FormDefinition with <FormRenderer definition={...} />; it routes to the
- * Form.io or JSON Forms engine automatically.
+ * React renderer for OpenMedForm form definitions. Render any FormDefinition
+ * with <FormRenderer definition={...} />.
  */
 
 export { FormRenderer } from './FormRenderer';
@@ -14,8 +13,6 @@ export type { ReviewSurfaceProps } from './ReviewSurface';
 
 export { JsonFormsRenderer } from './engine/jsonforms/JsonFormsRenderer';
 export type { JsonFormsRendererProps } from './engine/jsonforms/JsonFormsRenderer';
-export { FormioBranch } from './engine/formio/FormioRenderer';
-export type { FormioBranchProps } from './engine/formio/FormioRenderer';
 
 export {
   rendererRegistry,

@@ -92,7 +92,7 @@ import { FormRenderer } from '@openmedform/renderer';
 ### What the renderer handles
 
 - Registers all custom clinical components (ScoringMatrix, ColorCodedGrid, RiskStratification, SignatureDate, ClinicalReferenceTable)
-- Loads required CSS (Bootstrap + formio CSS, scoped to avoid conflicts with the EMR's own styles)
+- Ships its own scoped styles from the shared design tokens — no global CSS to conflict with the EMR's own
 - Client-side score calculation on submit
 - Optional patient header bar when `patientContext` is provided
 - Read-only mode for viewing completed submissions
@@ -124,7 +124,7 @@ preview** button is available on the form Preview and Fill screens (JSON Forms e
 packages/
 ├── renderer/          # @openmedform/renderer — React component for EMRs
 ├── shared/            # @openmedform/shared — shared scoring engine
-└── formio-core/       # forked formio.js with custom clinical components
+└── form-core/         # framework-independent validation, scoring and binding
 ```
 
 The scoring engine lives in `packages/shared/` and is consumed by both the renderer package (client-side preview) and the API (server-side recalculation). The API maintains its own self-contained scoring service to avoid ESM/CJS module resolution issues in the NestJS runtime.

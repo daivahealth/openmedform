@@ -6,7 +6,6 @@ import api from '@/lib/api';
 interface FormVersion {
   id: string;
   version: number;
-  engine?: 'FORMIO' | 'JSONFORMS';
   schema: Record<string, unknown>;
   scoringRules?: Record<string, unknown>;
   publishedAt?: string;
@@ -36,11 +35,6 @@ interface CreateFormInput {
   formType?: 'PATIENT' | 'NON_PATIENT';
 }
 
-interface CreateFormFromFileInput extends CreateFormInput {
-  file: File;
-  provider?: string;
-  instructions?: string;
-}
 
 interface CreateFormFromPromptInput extends CreateFormInput {
   prompt: string;
@@ -114,35 +108,6 @@ export function useCreateForm() {
   });
 }
 
-export function useCreateFormFromFile() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: CreateFormFromFileInput) => {
-      const formData = new FormData();
-      formData.append('file', input.file);
-      formData.append('name', input.name);
-      if (input.description) formData.append('description', input.description);
-      if (input.category) formData.append('category', input.category);
-      if (input.formType) formData.append('formType', input.formType);
-      if (input.provider) formData.append('provider', input.provider);
-      if (input.instructions) formData.append('instructions', input.instructions);
-
-      const { data } = await api.post('/api/forms/from-file', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000,
-      });
-      return data as {
-        form: Form;
-        schema: Record<string, unknown>;
-        provider: string;
-      };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forms'] });
-    },
-  });
-}
 
 export function useCreateFormFromPrompt() {
   const queryClient = useQueryClient();
@@ -231,14 +196,6 @@ export function useExportForm() {
   });
 }
 
-export function useExportNativeFormio() {
-  return useMutation({
-    mutationFn: async (formId: string) => {
-      const { data } = await api.get(`/api/forms/${formId}/export/formio`);
-      return data;
-    },
-  });
-}
 
 export function useImportForm() {
   const queryClient = useQueryClient();

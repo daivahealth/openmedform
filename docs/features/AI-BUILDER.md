@@ -1,7 +1,7 @@
 # AI Builder
 
 ## Overview
-The AI builder generates formio.js JSON schemas from natural language prompts using configurable LLM providers.
+The AI builder generates JSON Forms definitions — separated Data / UI / Print schemas — from natural-language prompts and from source documents, using configurable LLM providers.
 
 ## Modes
 1. **Prompt → Form** — describe what you want, get a form schema

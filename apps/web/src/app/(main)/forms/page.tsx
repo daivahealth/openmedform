@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { Plus, Pencil, Eye, Archive, Copy, Download, FileUp, FileJson } from 'lucide-react';
+import { Plus, Pencil, Eye, Archive, Copy, Download, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -18,7 +18,6 @@ import {
   useArchiveForm,
   useCloneForm,
   useExportForm,
-  useExportNativeFormio,
 } from '@/hooks/use-forms';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { PromptToFormDialog } from '@/components/forms/prompt-to-form-dialog';
@@ -30,7 +29,6 @@ export default function FormsPage() {
   const archiveForm = useArchiveForm();
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
-  const exportNativeFormio = useExportNativeFormio();
   const [promptOpen, setPromptOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
 
@@ -41,17 +39,6 @@ export default function FormsPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${formName.toLowerCase().replace(/\s+/g, '-')}-template.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleNativeFormioExport(formId: string, formName: string) {
-    const schema = await exportNativeFormio.mutateAsync(formId);
-    const blob = new Blob([JSON.stringify(schema, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${formName.toLowerCase().replace(/\s+/g, '-')}-formio.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -90,7 +77,6 @@ export default function FormsPage() {
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="px-4 py-3 text-left font-medium">Name</th>
-                  <th className="px-4 py-3 text-left font-medium">Engine</th>
                   <th className="px-4 py-3 text-left font-medium">Type</th>
                   <th className="px-4 py-3 text-left font-medium">Category</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -137,10 +123,6 @@ export default function FormsPage() {
                   </tr>
                 ) : (
                   forms.map((form) => {
-                    const isJsonForms =
-                      (form.currentVersion?.engine ?? form.versions?.[0]?.engine) ===
-                      'JSONFORMS';
-
                     return (
                     <tr key={form.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3">
@@ -152,11 +134,6 @@ export default function FormsPage() {
                             </p>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={isJsonForms ? 'secondary' : 'outline'}>
-                          {isJsonForms ? 'JSON Forms' : 'Form.io'}
-                        </Badge>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={form.formType === 'PATIENT' ? 'default' : 'secondary'}>
@@ -177,14 +154,8 @@ export default function FormsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() =>
-                              router.push(
-                                isJsonForms
-                                  ? `/forms/${form.id}/preview`
-                                  : `/forms/${form.id}/builder`,
-                              )
-                            }
-                            title={isJsonForms ? 'Edit with AI' : 'Edit in Builder'}
+                            onClick={() => router.push(`/forms/${form.id}/preview`)}
+                            title="Edit with AI"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -214,16 +185,6 @@ export default function FormsPage() {
                               title="Download form definition"
                             >
                               <Download className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {!isJsonForms && form.status !== 'ARCHIVED' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleNativeFormioExport(form.id, form.name)}
-                              title="Download native Form.io JSON"
-                            >
-                              <FileJson className="h-4 w-4" />
                             </Button>
                           )}
                           {form.status !== 'ARCHIVED' && (

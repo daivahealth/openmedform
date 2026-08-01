@@ -30,35 +30,27 @@ const htmlFile = (sizeBytes: number) =>
   }) as Express.Multer.File;
 
 describe('HTML upload guards', () => {
-  it('accepts a reasonable HTML mock-up for the jsonforms engine', async () => {
+  it('accepts a reasonable HTML mock-up', async () => {
     const { controller, service } = setup();
 
-    await controller.start(user, htmlFile(50_000), 'jsonforms', '127.0.0.1');
+    await controller.start(user, htmlFile(50_000), '127.0.0.1');
 
     expect(service.startConversion).toHaveBeenCalledWith(
       user.tenantId,
       user.userId,
-      expect.objectContaining({ mimeType: 'text/html', engineTarget: 'JSONFORMS' }),
+      expect.objectContaining({ mimeType: 'text/html' }),
       '127.0.0.1',
     );
   });
 
   // The guards run before any async work, so these throw synchronously rather
   // than returning a rejected promise.
-  it('rejects HTML for the Form.io engine, which only handles PDF/images', () => {
-    const { controller, service } = setup();
-
-    expect(() => controller.start(user, htmlFile(50_000), 'formio', '127.0.0.1')).toThrow(
-      /JSON Forms engine/i,
-    );
-    expect(service.startConversion).not.toHaveBeenCalled();
-  });
 
   it('rejects an HTML file over the 2MB cap with its actual size', () => {
     const { controller, service } = setup();
 
     expect(() =>
-      controller.start(user, htmlFile(5 * 1024 * 1024), 'jsonforms', '127.0.0.1'),
+      controller.start(user, htmlFile(5 * 1024 * 1024), '127.0.0.1'),
     ).toThrow(/limited to 2MB .*5\.0MB/i);
     expect(service.startConversion).not.toHaveBeenCalled();
   });
@@ -72,7 +64,7 @@ describe('HTML upload guards', () => {
       originalname: 'form.pdf',
     } as Express.Multer.File;
 
-    await controller.start(user, pdf, 'jsonforms', '127.0.0.1');
+    await controller.start(user, pdf, '127.0.0.1');
 
     expect(service.startConversion).toHaveBeenCalled();
   });

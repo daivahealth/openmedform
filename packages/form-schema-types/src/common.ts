@@ -2,9 +2,6 @@
  * Shared primitives used across the form contracts.
  */
 
-/** Which rendering/authoring engine a form definition targets. */
-export type FormEngine = 'formio' | 'jsonforms';
-
 /** Lifecycle state of a form definition version. */
 export type FormStatus =
   | 'DRAFT'

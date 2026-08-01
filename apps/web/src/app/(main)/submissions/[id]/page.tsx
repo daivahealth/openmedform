@@ -4,8 +4,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSubmission } from '@/hooks/use-submissions';
 import dynamic from 'next/dynamic';
 
-const FormRendererWrapper = dynamic(
-  () => import('@/components/forms/form-renderer-wrapper').then(m => ({ default: m.FormRendererWrapper })),
+const JsonFormsRendererWrapper = dynamic(
+  () =>
+    import('@/components/forms/jsonforms-renderer-wrapper').then(m => ({
+      default: m.JsonFormsRendererWrapper,
+    })),
   { ssr: false, loading: () => <div className="flex h-[200px] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> },
 );
 import { Button } from '@/components/ui/button';
@@ -43,10 +46,9 @@ export default function SubmissionDetailPage() {
     );
   }
 
-  const schema = (submission as any).formVersion?.schema ?? {
-    display: 'form',
-    components: [],
-  };
+  // `findOne` returns the full form_version, so the JSON Forms schemas needed to
+  // re-render the submission exactly as it was filled travel with it.
+  const version = (submission as { formVersion?: Record<string, unknown> }).formVersion;
 
   return (
     <div className="space-y-4">
@@ -134,9 +136,14 @@ export default function SubmissionDetailPage() {
       )}
 
       <div className="rounded-lg border bg-white p-6">
-        <FormRendererWrapper
-          schema={schema}
-          submission={submission.data}
+        <JsonFormsRendererWrapper
+          form={{
+            id: submission.form?.id ?? submission.formId,
+            name: submission.form?.name ?? 'Submission',
+            currentVersion: version as never,
+          }}
+          version={version as never}
+          data={submission.data}
           readOnly
         />
       </div>

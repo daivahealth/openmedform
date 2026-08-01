@@ -72,7 +72,7 @@ generate/refine/PDF upload actions (token usage for these IS metered — see bel
 
 ## Published-Version Immutability
 Published `form_version` rows are immutable. On publish, a SHA-256 `content_hash`
-of the canonical payload (formio `schema`, or jsonforms data/ui/print schemas +
+of the canonical payload (data/ui/print schemas +
 translations) is stored. Edits after publish fork a new draft version rather than
 mutating the published one, and `GET /forms/:id/versions/:versionId/integrity`
 recomputes the hash to detect out-of-band tampering. Every submission stays

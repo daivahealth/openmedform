@@ -79,7 +79,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Form Engine</span>
-                <span className="font-mono">formio.js v5</span>
+                <span className="font-mono">JSON Forms 3.8</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Database</span>

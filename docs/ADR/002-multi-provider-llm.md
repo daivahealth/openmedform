@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The AI form builder needs to generate formio.js JSON schemas from natural language prompts. Different users may prefer different LLM providers (Claude, OpenAI, local models via Ollama). We need a pluggable architecture that doesn't lock us into a single provider.
+The AI form builder needs to generate form schemas from natural-language prompts and source documents. Different users may prefer different LLM providers (Claude, OpenAI, local models via Ollama). We need a pluggable architecture that doesn't lock us into a single provider.
 
 ## Decision
 Define a `LlmProvider` interface that all providers implement. Use a `ProviderRegistry` that reads configuration from environment variables and instantiates available providers. The AI builder service routes requests through this registry.
