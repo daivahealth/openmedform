@@ -1,9 +1,9 @@
-# API Examples — Full jsonforms Flow
+# API Examples — Full Form Flow
 
-End-to-end example requests for the dual-engine flow (spec §27), from PDF
-conversion through render, submit, sign, and print. See
-[ADR-003](../ADR/003-dual-engine-json-forms.md) for the architecture and
-[README.md](README.md) for the full endpoint list.
+End-to-end example requests (spec §27), from source-document conversion through
+render, submit, sign, and print. See
+[ADR-004](../ADR/004-remove-formio-engine.md) for the current architecture
+(JSON Forms only) and [README.md](README.md) for the full endpoint list.
 
 All requests need a bearer token: `-H "Authorization: Bearer $TOKEN"` (obtain via
 `POST /api/auth/login`). Base URL below is `$API` (e.g. `http://localhost:3100`).

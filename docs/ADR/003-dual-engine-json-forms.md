@@ -1,14 +1,32 @@
 # ADR-003: Dual-Engine Form Platform with JSON Forms (Data/UI/Print separation)
 
 ## Status
-**Superseded by [ADR-004](004-remove-formio-engine.md)** (2026-08-01). The
-dual-engine decision recorded here held while JSON Forms was unproven; the
-Form.io engine has since been removed and JSON Forms is the only engine. The
-JSON Forms architecture described below (separated Data/UI/Print schemas, the
-`omf` vocabulary, the shared form-core, cross-framework parity) all still
-stands — only the "keep both engines" part is reversed.
 
-Originally: Accepted (2026-07-24).
+**Superseded by [ADR-004](004-remove-formio-engine.md)** (2026-08-01).
+Originally Accepted (2026-07-24).
+
+> **This is a historical record.** It is kept because the JSON Forms
+> architecture it introduced is still the architecture — but the *dual-engine*
+> decision at its centre has been reversed. Form.io is gone; JSON Forms is the
+> only engine. Read the table below before trusting any statement further down,
+> which is written in the present tense as of July 2026.
+
+| From this ADR | Today |
+|---|---|
+| Two engines, chosen per form via an `engine` discriminator | **Reversed.** One engine. `engine`, `FormEngine` and the `FormDefinition` union are gone |
+| `packages/formio-core`, `packages/formio-react`, `packages/renderer` preserved | **Deleted** (ADR-004) |
+| React `FormRenderer` dispatches on `engine` to a Form.io or JSON Forms branch | **Reversed.** `FormRenderer` is a thin wrapper over `JsonFormsRenderer` |
+| Supported matrix `formio → React`; `jsonforms → React + Angular` | Simply React + Angular |
+| Separated Data / UI / Print schemas | **Still stands** |
+| `options.omf` vendor namespace + `Omf*` layout vocabulary | **Still stands**, and has grown (`recordTable`, `OmfTabsLayout`, scoring, column tables) |
+| `packages/form-core` as the framework-independent engine | **Still stands** |
+| `packages/form-design-tokens` for React/Angular parity | **Still stands** |
+| Ajv 2020-12 validation, client and server | **Still stands** |
+| Angular renderer over `@jsonforms/angular`, no Material | **Still stands** |
+
+The "Negative" consequence this ADR predicted — a 2 engines × 2 frameworks
+maintenance surface — is precisely what ADR-004 cites as the reason to remove
+Form.io.
 
 ## Context
 The original engine (ADR-001) is a forked Form.io whose schema couples data,
@@ -23,6 +41,9 @@ contract. At the same time, existing Form.io forms and the Form.io authoring
 path must be preserved, not thrown away.
 
 ## Decision
+
+> ⚠️ Reversed by [ADR-004](004-remove-formio-engine.md).
+
 Adopt a **pluggable dual-engine** model. A `FormDefinition` carries an `engine`
 discriminator:
 
@@ -55,7 +76,8 @@ Framework-independence is enforced by layering:
 
 Renderers only *interpret* schemas; no form-specific fields/labels/rules live in
 renderer code. Both framework renderers dispatch on `FormDefinition.engine`
-behind a stable `FormRenderer` prop seam.
+behind a stable `FormRenderer` prop seam. *(The prop seam survived ADR-004; the
+dispatch did not — `FormRenderer` now simply renders JSON Forms.)*
 
 The React dispatcher lives in **`packages/react-form-renderer`**: `<FormRenderer
 definition={...} />` routes a `formio` definition to the preserved
@@ -75,7 +97,8 @@ date) plus the same omf textarea/radio and six clinical controls, one-for-one
 with React. Both frameworks share `form-core` (Ajv 2020-12 + testers logic) and
 `form-design-tokens` (`--omf-*`), which is what makes the same jsonforms
 definition render *equivalently* across frameworks. Angular is jsonforms-only —
-there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
+there is no Form.io branch (Form.io has no healthy Angular v5 renderer). *(Since
+ADR-004 this is true of React too.)*
 
 ## Consequences
 - **Positive:** Clean separation of concerns; Ajv-validated data; one definition
@@ -83,7 +106,8 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   pipeline gets a framework-neutral target.
 - **Negative:** Dual-engine surface — clinical controls, print paths, scoring
   extraction, and tests can exist for 2 engines × 2 frameworks. Added build and
-  maintenance cost.
+  maintenance cost. *(This is the cost that proved decisive: see
+  [ADR-004](004-remove-formio-engine.md).)*
 - **Mitigation:** The `engine` discriminator + shared `form-core` +
   `form-design-tokens` + one control-registry contract keep the surface
   contained; Form.io × Angular is explicitly excluded. JSON Forms UI-schema
@@ -93,6 +117,10 @@ there is no Form.io branch (Form.io has no healthy Angular v5 renderer).
   screenshot-diff loop — not pixel-perfect (PDF-as-background is forbidden).
 
 ## Implementation status
+
+> Recorded as of the Phase 1–9 build (July 2026). Entries mentioning a Form.io
+> branch describe what was built then; those branches were removed by
+> [ADR-004](004-remove-formio-engine.md).
 - **Phase 1 (done):** `form-schema-types` contracts; `form-core` Ajv validation;
   hand-authored RRT/SBAR reference `FormDefinition` (validates end-to-end).
 - **Phase 2 (done):** `form-core` engine — scope/`$ref` resolution, binding,
@@ -167,3 +195,18 @@ All nine phases of the dual-engine build are complete. Remaining productionizati
 (documented as gaps): a NestJS+Postgres e2e/HTTP harness; wiring the review surface
 into apps/web; and a deployment-injected Chromium/WeasyPrint rasterizer for the
 print/visual-diff loop.
+
+**Since then:**
+
+- The Form.io half of everything above was removed
+  ([ADR-004](004-remove-formio-engine.md)).
+- Chromium now ships in the API image — but for sandboxed rendering of
+  script-built HTML mock-ups, not for the print rasterizer. **The
+  deployment-injected rasterizer for the print/visual-diff loop is still an open
+  gap**, even though a browser is now present to serve it.
+- apps/web gained the prompt-based *refine* flow on the form preview page
+  (`POST /forms/:id/jsonforms/refine`). The richer `ReviewSurface` component in
+  `packages/react-form-renderer` — preview beside low-confidence fields and
+  conversion warnings — is **still only proven in apps/react-demo**, so that
+  integration gap remains open too.
+- The NestJS+Postgres e2e/HTTP harness is still absent.

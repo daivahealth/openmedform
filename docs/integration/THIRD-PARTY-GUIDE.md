@@ -102,9 +102,9 @@ npm install /tmp/omf-pkgs/openmedform-form-schema-types-0.1.0.tgz \
             /tmp/omf-pkgs/openmedform-react-form-renderer-0.1.0.tgz
 ```
 
-> Import from `@openmedform/react-form-renderer/jsonforms` — this entry is **Form.io-free**. The
-> package root (`@openmedform/react-form-renderer`) also includes the dual-engine dispatcher, which
-> pulls in the Form.io stack; only use it if you also render Form.io-engine forms.
+> `@openmedform/react-form-renderer/jsonforms` and the package root are now equivalent — the root
+> is Form.io-free by construction since [ADR-004](../ADR/004-remove-formio-engine.md). The
+> `/jsonforms` subpath is kept as a stable alias so existing imports keep working.
 
 ---
 
