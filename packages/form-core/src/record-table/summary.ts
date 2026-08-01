@@ -151,3 +151,35 @@ function humanizeKey(key: string): string {
   const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }
+
+/**
+ * Whether a summary column can be edited straight in the table cell.
+ *
+ * A column that names one concrete field is editable — the cell renders that
+ * field's real control (date picker, select, number), so a row behaves like the
+ * grid it was converted from. Derived columns cannot: `countOf` counts a nested
+ * array and `pairWith` merges two fields into one cell, so neither maps to a
+ * single value to write back to.
+ */
+export function isColumnEditable(col: RecordTableColumn): boolean {
+  return !!col.path && !col.countOf && !col.pairWith;
+}
+
+/**
+ * Field names of a record that are NOT already shown as summary columns.
+ *
+ * Used to decide whether a row needs its detail panel at all. When every field
+ * is inline — a blood-sugar row, where all nine columns are the whole record —
+ * an "Open" button reveals an empty panel, so it is hidden. A treatment day with
+ * ~100 fields behind eight tabs obviously keeps it.
+ */
+export function fieldsOutsideColumns(
+  itemSchema: SeedSchema | undefined,
+  columns: RecordTableColumn[],
+): string[] {
+  const shown = new Set(
+    columns.flatMap((c) => [c.path, c.pairWith, c.countOf].filter(Boolean) as string[]),
+  );
+  return Object.keys(itemSchema?.properties ?? {}).filter((key) => !shown.has(key));
+}
+

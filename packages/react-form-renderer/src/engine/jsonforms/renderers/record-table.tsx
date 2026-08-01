@@ -20,7 +20,7 @@
  * a ~100-field record from swamping the page.
  */
 
-import { useCallback, useMemo, useState, type ComponentType } from 'react';
+import { useCallback, useMemo, useState, type ComponentType, type CSSProperties } from 'react';
 import type { ArrayLayoutProps, UISchemaElement } from '@jsonforms/core';
 import {
   rankWith,
@@ -37,6 +37,8 @@ import { withJsonFormsArrayLayoutProps, JsonFormsDispatch, useJsonForms } from '
 import {
   createRecordDefault,
   deriveRecordColumns,
+  fieldsOutsideColumns,
+  isColumnEditable,
   recordCellText,
   recordCountText,
   type RecordTableColumn,
@@ -50,6 +52,22 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
 const BORDER = 'var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4)';
 const PAD = 'var(--omf-control-padding, 8px)';
+
+/**
+ * The actions column is pinned to the right edge.
+ *
+ * A converted chart can easily run to ten columns and scroll horizontally. When
+ * Open/remove scroll out of view with it, a row becomes not just hard to edit
+ * but impossible to delete — there is no other affordance. Pinning keeps them
+ * on screen at any width.
+ */
+const STICKY_ACTIONS: CSSProperties = {
+  position: 'sticky',
+  right: 0,
+  zIndex: 1,
+  background: 'var(--omf-color-surface, #fff)',
+  boxShadow: 'inset 1px 0 0 var(--omf-color-border, #c8cdd4)',
+};
 
 function RecordTable(props: ArrayLayoutProps) {
   const {
@@ -102,6 +120,41 @@ function RecordTable(props: ArrayLayoutProps) {
         rootSchema,
       ),
     [uischemas, schema, uischema, path, rootSchema],
+  );
+
+  // With every field already a column there is nothing left for a panel to
+  // show, so the Open button is hidden rather than revealing an empty box.
+  const hasDetail = useMemo(
+    () => fieldsOutsideColumns(schema as never, columns).length > 0,
+    [schema, columns],
+  );
+
+  /**
+   * The live control for one editable cell.
+   *
+   * Dispatching a real Control at `records.<i>.<path>` reuses every existing
+   * renderer — date picker, select, number — so an inline cell behaves exactly
+   * like the same field in the detail panel, and writes to the same place. The
+   * label is suppressed because the column header already names it.
+   */
+  const cellControl = useCallback(
+    (index: number, col: RecordTableColumn) => (
+      <JsonFormsDispatch
+        schema={schema}
+        uischema={
+          {
+            type: 'Control',
+            scope: `#/properties/${(col.path ?? '').split('.').join('/properties/')}`,
+            label: false,
+          } as UISchemaElement
+        }
+        path={composePaths(path, String(index))}
+        enabled={enabled}
+        renderers={renderers}
+        cells={cells}
+      />
+    ),
+    [schema, path, enabled, renderers, cells],
   );
 
   const handleAdd = useCallback(() => {
@@ -256,6 +309,8 @@ function RecordTable(props: ArrayLayoutProps) {
                   onToggle={() => setOpenIndex(isOpen ? null : index)}
                   onRemove={() => handleRemove(index)}
                   enabled={enabled !== false}
+                  cellControl={cellControl}
+                  hasDetail={hasDetail}
                 >
                   <JsonFormsDispatch
                     schema={schema}
@@ -453,6 +508,10 @@ interface RecordRowProps {
   columns: RecordTableColumn[];
   colCount: number;
   enabled: boolean;
+  /** Renders the live control for an editable column's field. */
+  cellControl: (index: number, col: RecordTableColumn) => React.ReactNode;
+  /** False when every field is already a column, so a panel would be empty. */
+  hasDetail: boolean;
   onToggle: () => void;
   onRemove: () => void;
   children: React.ReactNode;
@@ -465,6 +524,8 @@ function RecordRow({
   columns,
   colCount,
   enabled,
+  cellControl,
+  hasDetail,
   onToggle,
   onRemove,
   children,
@@ -486,10 +547,15 @@ function RecordRow({
               fontSize: 'var(--omf-font-size-body, 14px)',
             }}
           >
-            {recordCellText(record, col)}
+            {/* A column naming one field is edited in place, exactly as the
+                source grid does. Derived columns (a nested-array count, a
+                paired "A / B") have no single value to write, so they stay
+                read-only text. */}
+            {isColumnEditable(col) ? cellControl(index, col) : recordCellText(record, col)}
           </td>
         ))}
-        <td style={{ border: BORDER, padding: PAD, whiteSpace: 'nowrap' }}>
+        <td style={{ ...STICKY_ACTIONS, border: BORDER, padding: PAD, whiteSpace: 'nowrap' }}>
+          {hasDetail && (
           <button
             type="button"
             className="omf-record-toggle"
@@ -507,6 +573,7 @@ function RecordRow({
           >
             {isOpen ? 'Close' : 'Open'}
           </button>
+          )}
           {enabled && (
             <button
               type="button"
