@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { FormConversionController } from './form-conversion.controller';
-import { FormConversionService } from './form-conversion.service';
+import {
+  FormConversionService,
+  assertConversionOutputComplete,
+} from './form-conversion.service';
 import type { RequestUser } from '../../common/types/jwt-payload.interface';
 
 const user: RequestUser = {
@@ -72,5 +75,33 @@ describe('HTML upload guards', () => {
     await controller.start(user, pdf, 'jsonforms', '127.0.0.1');
 
     expect(service.startConversion).toHaveBeenCalled();
+  });
+});
+
+describe('assertConversionOutputComplete', () => {
+  it('accepts a complete JSON object', () => {
+    expect(() => assertConversionOutputComplete('{"dataSchema":{}}')).not.toThrow();
+  });
+
+  it('accepts a complete object wrapped in markdown fences', () => {
+    expect(() =>
+      assertConversionOutputComplete('```json\n{"dataSchema":{}}\n```'),
+    ).not.toThrow();
+  });
+
+  it('rejects output that ran out of budget mid-object, naming the real cause', () => {
+    // The failure mode when a form is too large: valid-looking JSON that just
+    // stops. Without this the author sees "not valid JSON" and hunts their file.
+    expect(() =>
+      assertConversionOutputComplete('{"dataSchema":{"properties":{"a":{"type":"str'),
+    ).toThrow(/too large to convert in one pass/i);
+  });
+
+  it('leaves empty output for the assembler to report', () => {
+    expect(() => assertConversionOutputComplete('   ')).not.toThrow();
+  });
+
+  it('leaves non-JSON output (e.g. a refusal) for the assembler to report', () => {
+    expect(() => assertConversionOutputComplete('I cannot help with that')).not.toThrow();
   });
 });

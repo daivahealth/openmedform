@@ -23,9 +23,21 @@ export const HTML_MIME_TYPE = 'text/html';
  * much form, the model starts silently dropping later sections, so an oversized
  * mock-up is rejected with guidance to split it rather than converted into a
  * form that looks complete but is not.
+ *
+ * These two constants and CONVERSION_MAX_TOKENS move together — raising the
+ * field limit without raising the output budget just trades a clear rejection
+ * for a silently truncated form.
  */
-const MAX_HTML_FIELDS = 60;
-const MAX_HTML_TABLE_ROWS = 80;
+const MAX_HTML_FIELDS = 120;
+const MAX_HTML_TABLE_ROWS = 120;
+
+/**
+ * Output budget for a conversion call. Large enough for MAX_HTML_FIELDS worth
+ * of Data + UI + Print schema in one pass; providers cap this to their own
+ * ceiling, and `assertConversionOutputComplete` catches the case where a model
+ * still runs out mid-object.
+ */
+const CONVERSION_MAX_TOKENS = 32768;
 
 export interface ConversionInput {
   fileBuffer: Buffer;
@@ -264,13 +276,27 @@ export class FormConversionService {
         '- <input type="checkbox"> -> a boolean Control; <input type="radio"> group or <select> -> an enum Control (omf.control "radio" when the source draws radio circles).\n' +
         '- <label for=...> / adjacent text -> the dataSchema property "title" (keep the exact source-language text).\n' +
         '- Colour utility classes or inline colours on a section (e.g. "bg-red-50 border-red-200", "color:#c0392b") -> options.omf.accentColor; a leading emoji in the heading -> options.omf.icon.\n' +
-        '- A number printed at the end of a scored row -> options.omf.points.\n\n' +
-        `Cleaned HTML source:\n${extracted.cleanedHtml}`;
+        '- A number printed at the end of a scored row -> options.omf.points.\n\n';
+
+      // Scripts are stripped and the page is never executed, so a container the
+      // mock-up would have filled at runtime reaches the model as an empty box
+      // under a real heading — the exact shape that invites an invented control.
+      // Name them so the model reports the gap instead of guessing at it.
+      if (extracted.scriptFilledPlaceholders.length > 0) {
+        userPrompt +=
+          `These containers are EMPTY in the markup because this mock-up builds them with ` +
+          `JavaScript, which was removed: ${extracted.scriptFilledPlaceholders.join(', ')}. ` +
+          'Their real contents are unavailable. Do NOT invent fields for them: emit any ' +
+          'surrounding heading/hint text as a "Label" and add a POTENTIAL_MISSING_FIELD ' +
+          'warning naming the section.\n\n';
+      }
+
+      userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 
       rawOutput = await provider.generate(userPrompt, systemPrompt, {
         temperature: 0.2,
-        maxTokens: 16384,
+        maxTokens: CONVERSION_MAX_TOKENS,
         jsonMode: true,
       });
     } else if (input.mimeType === 'application/pdf') {
@@ -296,14 +322,14 @@ export class FormConversionService {
         }));
         rawOutput = await provider.generateWithImages(userPrompt, images, systemPrompt, {
           temperature: 0.2,
-          maxTokens: 16384,
+          maxTokens: CONVERSION_MAX_TOKENS,
           jsonMode: true,
         });
       } else {
         userPrompt += '\n\nNo page image is available. Preserve the extracted-text reading order in a conservative single-column layout unless the text itself provides unambiguous layout evidence; add an UNCERTAIN_SECTION_BOUNDARY warning for layout guesses.';
         rawOutput = await provider.generate(userPrompt, systemPrompt, {
           temperature: 0.2,
-          maxTokens: 16384,
+          maxTokens: CONVERSION_MAX_TOKENS,
           jsonMode: true,
         });
       }
@@ -324,10 +350,11 @@ export class FormConversionService {
           },
         ],
         systemPrompt,
-        { temperature: 0.2, maxTokens: 16384, jsonMode: true },
+        { temperature: 0.2, maxTokens: CONVERSION_MAX_TOKENS, jsonMode: true },
       );
     }
 
+    assertConversionOutputComplete(rawOutput);
     const assembled = this.assembler.assemble(rawOutput);
 
     const form = await this.createDraftForm(tenantId, userId, input.fileName, {
@@ -429,6 +456,25 @@ function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
   if (stats.fields === 0) {
     throw new BadRequestException(
       'No form fields were found in this HTML. Make sure the file is a form mock-up containing inputs, checkboxes, or selects — and that they are not hidden.',
+    );
+  }
+}
+
+/**
+ * Detect a response that ran out of output budget mid-object. Without this the
+ * assembler reports the generic "AI output was not valid JSON", which sends the
+ * author looking for a problem in their source file when the real cause is that
+ * the form is too large for one pass.
+ */
+export function assertConversionOutputComplete(rawOutput: string): void {
+  const trimmed = rawOutput.replace(/```(?:json|JSON)?\s*/gi, '').replace(/```\s*$/g, '').trim();
+  if (!trimmed) return; // Empty output is the assembler's error to report.
+
+  const looksLikeJson = trimmed.startsWith('{');
+  const endsCleanly = trimmed.endsWith('}');
+  if (looksLikeJson && !endsCleanly) {
+    throw new BadRequestException(
+      'The AI ran out of space before finishing this form, so the result was incomplete and has been discarded. The mock-up is too large to convert in one pass — split it into one file per section and convert them separately.',
     );
   }
 }
