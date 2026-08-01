@@ -414,8 +414,18 @@ Rendering is **not** trusting:
   model.
 
 Rendering is optional. If no browser is installed, or `HTML_RENDER_DISABLED=1`
-is set, `renderHtmlToDom` returns null and conversion falls back to the static
-markup with the previous error. Local dev and CI need no Chromium; the API image
+is set, conversion falls back to the static markup — and the rejection **says
+which** happened, because the advice differs completely:
+
+| Message | Cause | Who fixes it |
+|---|---|---|
+| "no headless browser is available in this deployment" | Chromium missing — a bare `npm run start:dev`, or an image built before it was added | **Operator**: rebuild the API image, or set `CHROMIUM_PATH` |
+| "automatic rendering is switched off (`HTML_RENDER_DISABLED=1`)" | Deliberately disabled | Operator, if unintended |
+| "rendered but produced no form fields" | The page ran and genuinely built nothing at load | Author: the form may need a click first |
+
+The first is an installation problem, not a problem with the uploaded file, and
+the message says so. The server also logs a warning once per process when a
+render is needed and no browser can be launched. Local dev and CI need no Chromium; the API image
 installs the Alpine `chromium` package and points `playwright-core` at it via
 `CHROMIUM_PATH`.
 

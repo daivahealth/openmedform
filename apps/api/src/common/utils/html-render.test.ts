@@ -9,7 +9,11 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { isHtmlRenderEnabled, renderHtmlToDom } from './html-render';
+import {
+  isHtmlRenderEnabled,
+  renderHtmlToDom,
+  renderHtmlToDomWithOutcome,
+} from './html-render';
 
 const original = { ...process.env };
 afterEach(() => {
@@ -45,5 +49,22 @@ describe('renderHtmlToDom', () => {
     // Callers treat null as "use the static markup"; a throw would fail the
     // whole conversion on a deployment that simply has no Chromium.
     await expect(renderHtmlToDom('<input name="a">')).resolves.toBeNull();
+  });
+});
+
+describe('renderHtmlToDomWithOutcome', () => {
+  it('reports "disabled" rather than a generic failure', async () => {
+    process.env.HTML_RENDER_DISABLED = '1';
+    await expect(renderHtmlToDomWithOutcome('<input>')).resolves.toEqual({ status: 'disabled' });
+  });
+
+  it('reports "unavailable" with a reason when no browser can be launched', async () => {
+    delete process.env.HTML_RENDER_DISABLED;
+    process.env.CHROMIUM_PATH = '/nonexistent/chromium-does-not-exist';
+    const outcome = await renderHtmlToDomWithOutcome('<input>');
+    // The caller turns this into "this deployment has no browser", which is an
+    // operator problem — distinct from "your file builds nothing".
+    expect(outcome.status).toBe('unavailable');
+    expect(outcome).toHaveProperty('detail');
   });
 });

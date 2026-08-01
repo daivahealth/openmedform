@@ -80,6 +80,16 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE_BASE }}/api:${{ github.sha }}
           service_account: openmedform-runtime@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          # --no-cpu-throttling is REQUIRED, not a tuning knob. Conversion runs
+          # fire-and-forget after the HTTP response is sent, and Cloud Run's
+          # default throttles an instance's CPU to near zero once a request
+          # completes. LLM calls survive that because they are network-bound;
+          # anything CPU-bound does not. Launching Chromium to render a
+          # script-built HTML mock-up is CPU-bound, so under the default it
+          # cannot finish inside its timeout and the upload is rejected.
+          # 1Gi gives Node + Chromium headroom (512Mi is enough to render but
+          # leaves nothing spare alongside a large LLM payload).
+          flags: --memory=1Gi --no-cpu-throttling
           secrets: |
             DATABASE_URL=DATABASE_URL:latest
             JWT_SECRET=JWT_SECRET:latest

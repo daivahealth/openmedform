@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { chromium, type Browser } from 'playwright-core';
 
 /**
@@ -38,8 +39,15 @@ import { chromium, type Browser } from 'playwright-core';
  * CI therefore need no Chromium.
  */
 
-/** Wall-clock cap for the whole render. A form mock-up needs a fraction of this. */
-const RENDER_TIMEOUT_MS = 10_000;
+/**
+ * Wall-clock cap for the whole render: browser launch, page load and settle.
+ *
+ * A warm launch renders a form mock-up in ~2s, but a COLD launch on a shared or
+ * contended CPU is far slower, and the budget has to cover launch as well as the
+ * page. 10s was too tight for that and produced a rejection that read like a
+ * problem with the uploaded file.
+ */
+const RENDER_TIMEOUT_MS = 30_000;
 
 /** Give load-time scripts a moment to finish building the DOM after `load`. */
 const SETTLE_MS = 250;
@@ -58,15 +66,46 @@ export function isHtmlRenderEnabled(): boolean {
 }
 
 /**
+ * Why a render did or did not happen.
+ *
+ * The caller needs this to tell an author something true. "No browser installed
+ * in this deployment" and "the page ran and genuinely built nothing" look
+ * identical from the outside but call for completely different advice — the
+ * first is an operator's problem, the second is the author's.
+ */
+export type HtmlRenderOutcome =
+  | { status: 'rendered'; html: string }
+  /** HTML_RENDER_DISABLED=1. */
+  | { status: 'disabled' }
+  /** No usable browser — not installed, or CHROMIUM_PATH points nowhere. */
+  | { status: 'unavailable'; detail: string }
+  /** A browser launched but the page did not survive it (timeout, crash). */
+  | { status: 'failed'; detail: string };
+
+const logger = new Logger('HtmlRender');
+
+/** Launch failures are an operator concern, so say it once rather than never. */
+let warnedUnavailable = false;
+
+/**
  * Render `html` and return `document.documentElement.outerHTML`.
  *
  * Returns null when rendering is disabled or no browser is available — callers
  * must treat that as "use the static markup", never as an error.
  */
 export async function renderHtmlToDom(html: string): Promise<string | null> {
-  if (!isHtmlRenderEnabled()) return null;
+  const outcome = await renderHtmlToDomWithOutcome(html);
+  return outcome.status === 'rendered' ? outcome.html : null;
+}
+
+/**
+ * As `renderHtmlToDom`, but reports why nothing came back.
+ */
+export async function renderHtmlToDomWithOutcome(html: string): Promise<HtmlRenderOutcome> {
+  if (!isHtmlRenderEnabled()) return { status: 'disabled' };
 
   let browser: Browser | undefined;
+  let launched = false;
   try {
     browser = await chromium.launch({
       executablePath: executablePath(),
@@ -76,6 +115,7 @@ export async function renderHtmlToDom(html: string): Promise<string | null> {
       args: ['--disable-dev-shm-usage', '--disable-gpu'],
       timeout: RENDER_TIMEOUT_MS,
     });
+    launched = true;
 
     const context = await browser.newContext({
       javaScriptEnabled: true,
@@ -99,11 +139,26 @@ export async function renderHtmlToDom(html: string): Promise<string | null> {
 
     const rendered = await page.evaluate(() => document.documentElement.outerHTML);
     await context.close();
-    return typeof rendered === 'string' && rendered.length > 0 ? rendered : null;
-  } catch {
-    // Missing browser, launch failure, timeout, runaway script — all mean the
-    // same thing to the caller: no rendered DOM, carry on with the markup.
-    return null;
+    if (typeof rendered !== 'string' || rendered.length === 0) {
+      return { status: 'failed', detail: 'the page produced no DOM' };
+    }
+    return { status: 'rendered', html: rendered };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
+    if (!launched) {
+      // No browser to launch. Silent fallback here is what made a missing
+      // Chromium indistinguishable from an empty mock-up, so say it once.
+      if (!warnedUnavailable) {
+        warnedUnavailable = true;
+        logger.warn(
+          `Headless browser unavailable, so HTML mock-ups that build their form at runtime cannot be converted: ${detail}. ` +
+            'Install Chromium in the API image, or point CHROMIUM_PATH at a local browser. ' +
+            'Set HTML_RENDER_DISABLED=1 to silence this.',
+        );
+      }
+      return { status: 'unavailable', detail };
+    }
+    return { status: 'failed', detail };
   } finally {
     await browser?.close().catch(() => undefined);
   }
