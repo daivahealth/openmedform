@@ -141,15 +141,24 @@ Setup notes:
   instance, move migrations to a Cloud Run Job or a deploy step.
 - **AI provider costs**: Claude/OpenAI tokens are pay-per-use (keys stored
   per-tenant, encrypted in Postgres via `AI_ENCRYPTION_KEY`).
-- **HTML rendering memory**: converting a mock-up that builds its form in
-  JavaScript launches headless Chromium for up to 10s (see
-  [PDF-TO-FORM](../features/PDF-TO-FORM.md#mock-ups-that-build-their-form-with-javascript)).
-  Give the API instance **at least 1 GiB**; Chromium is short-lived but not
-  free. The image sets `CHROMIUM_PATH=/usr/bin/chromium-browser`. Set
-  `HTML_RENDER_DISABLED=1` to turn the feature off — conversion then falls back
-  to reading the static markup, and a wholly script-built mock-up is rejected
-  with instructions instead of being converted.
-- **Chromium's sandbox needs kernel capabilities.** The renderer deliberately
-  does *not* pass `--no-sandbox`, since the sandbox is the isolation boundary
-  for untrusted uploaded code. Cloud Run's gVisor sandbox supports it; on a
-  hardened runtime that does not, disable rendering rather than weakening it.
+- **`--no-cpu-throttling` is required, not optional.** Conversion runs
+  fire-and-forget *after* the HTTP response is sent. Cloud Run's default
+  throttles an instance's CPU to near zero once a request completes, so
+  background work only progresses if it is network-bound. LLM calls survive
+  that; **CPU-bound work does not**. Launching Chromium to render a script-built
+  HTML mock-up is CPU-bound, so under the default it cannot finish and the
+  upload is rejected as if the file were at fault. `deploy.yml` sets
+  `--memory=1Gi --no-cpu-throttling` on the API for this reason.
+
+  Note this bills the instance for its whole lifetime, not just request time.
+  Keeping `maxScale` modest and letting it scale to zero bounds the cost.
+- **Memory**: 1 GiB. 512Mi is enough to render (verified against the production
+  image at that limit), but leaves nothing spare next to Node and a large LLM
+  payload.
+- **Chromium's own sandbox** stays enabled — the renderer never passes
+  `--no-sandbox`, since that sandbox is the isolation boundary for untrusted
+  uploaded code. Verified working in the deployed Alpine image. If a future
+  runtime cannot support it, disable rendering with `HTML_RENDER_DISABLED=1`
+  rather than weakening the sandbox.
+- The image sets `CHROMIUM_PATH=/usr/bin/chromium-browser`. See
+  [PDF-TO-FORM](../features/PDF-TO-FORM.md#mock-ups-that-build-their-form-with-javascript).

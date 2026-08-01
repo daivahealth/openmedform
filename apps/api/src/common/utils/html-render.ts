@@ -39,8 +39,15 @@ import { chromium, type Browser } from 'playwright-core';
  * CI therefore need no Chromium.
  */
 
-/** Wall-clock cap for the whole render. A form mock-up needs a fraction of this. */
-const RENDER_TIMEOUT_MS = 10_000;
+/**
+ * Wall-clock cap for the whole render: browser launch, page load and settle.
+ *
+ * A warm launch renders a form mock-up in ~2s, but a COLD launch on a shared or
+ * contended CPU is far slower, and the budget has to cover launch as well as the
+ * page. 10s was too tight for that and produced a rejection that read like a
+ * problem with the uploaded file.
+ */
+const RENDER_TIMEOUT_MS = 30_000;
 
 /** Give load-time scripts a moment to finish building the DOM after `load`. */
 const SETTLE_MS = 250;
