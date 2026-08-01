@@ -104,17 +104,36 @@ describe('assertConversionOutputComplete', () => {
     // hunting for a problem that is not in their file. The guard runs inside the
     // background conversion job, so it is exercised directly rather than through
     // the controller.
-    const guardFor = (html: string) => () =>
-      assertHtmlWithinBudget(extractFormHtml(html).stats);
+    const guardFor =
+      (html: string, outcome?: 'unavailable' | 'disabled' | 'failed' | 'rendered') => () =>
+        assertHtmlWithinBudget(extractFormHtml(html).stats, outcome);
+
+    const JS_BUILT = `<table id="t"><thead><tr><th>Parameter</th></tr></thead><tbody id="b"></tbody></table>
+       <script>buildEverything()</script>`;
 
     it('names JavaScript as the cause when the page ships scripts', () => {
-      const jsBuilt = guardFor(
-        `<table id="t"><thead><tr><th>Parameter</th></tr></thead><tbody id="b"></tbody></table>
-         <script>buildEverything()</script>`,
-      );
+      const jsBuilt = guardFor(JS_BUILT);
       expect(jsBuilt).toThrow(/builds its form with JavaScript/i);
       // …and says what to do about it
       expect(jsBuilt).toThrow(/outerHTML/i);
+    });
+
+    // The advice differs entirely by cause. Blaming the author's file for a
+    // missing browser wastes their time and hides an operator problem.
+    it('blames the deployment, not the file, when no browser is available', () => {
+      const g = guardFor(JS_BUILT, 'unavailable');
+      expect(g).toThrow(/no headless browser is available/i);
+      expect(g).toThrow(/installation issue, not a problem with your file/i);
+      expect(g).toThrow(/CHROMIUM_PATH/);
+    });
+
+    it('names the config flag when rendering is switched off', () => {
+      expect(guardFor(JS_BUILT, 'disabled')).toThrow(/HTML_RENDER_DISABLED/);
+    });
+
+    it('says the page produced nothing when a render did run', () => {
+      expect(guardFor(JS_BUILT, 'rendered')).toThrow(/rendered but produced no form fields/i);
+      expect(guardFor(JS_BUILT, 'failed')).toThrow(/did not produce any fields/i);
     });
 
     it('keeps the plain "not a form" message when there are no scripts', () => {

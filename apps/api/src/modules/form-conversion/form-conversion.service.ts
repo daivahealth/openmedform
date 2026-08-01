@@ -8,7 +8,10 @@ import type { ImageContent } from '../ai-builder/providers/llm-provider.interfac
 import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-prompt';
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
 import { extractFormHtml, type HtmlExtractStats } from '../../common/utils/html-extract';
-import { renderHtmlToDom } from '../../common/utils/html-render';
+import {
+  renderHtmlToDomWithOutcome,
+  type HtmlRenderOutcome,
+} from '../../common/utils/html-render';
 import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
 
 // Keep typical multi-page clinical forms visually grounded without sending an
@@ -227,11 +230,12 @@ export class FormConversionService {
     const sourceWarnings: string[] = [];
 
     if (input.mimeType === HTML_MIME_TYPE) {
+      this.lastRenderOutcome = 'not-attempted';
       const extracted = await this.extractHtmlSource(
         input.fileBuffer.toString('utf8'),
         sourceWarnings,
       );
-      assertHtmlWithinBudget(extracted.stats);
+      assertHtmlWithinBudget(extracted.stats, this.lastRenderOutcome);
       sourceWarnings.push(...extracted.warnings);
 
       let userPrompt =
@@ -462,6 +466,9 @@ export class FormConversionService {
    * Falls back to the static result whenever rendering is unavailable or fails
    * to improve on it, so a deployment without Chromium behaves exactly as before.
    */
+  /** Outcome of the most recent render attempt, for error reporting. */
+  private lastRenderOutcome: HtmlRenderOutcome['status'] | 'not-attempted' = 'not-attempted';
+
   private async extractHtmlSource(
     html: string,
     warnings: string[],
@@ -473,10 +480,17 @@ export class FormConversionService {
       (staticResult.stats.fields === 0 || staticResult.scriptFilledPlaceholders.length > 0);
     if (!needsRender) return staticResult;
 
-    const renderedHtml = await renderHtmlToDom(html);
-    if (!renderedHtml) return staticResult;
+    const outcome = await renderHtmlToDomWithOutcome(html);
+    if (outcome.status !== 'rendered') {
+      // Remember WHY, so a zero-field rejection can say something true rather
+      // than sending the author off to do by hand what the server should have
+      // done for them.
+      this.lastRenderOutcome = outcome.status;
+      return staticResult;
+    }
+    this.lastRenderOutcome = 'rendered';
 
-    const renderedResult = extractFormHtml(renderedHtml);
+    const renderedResult = extractFormHtml(outcome.html);
     // Only prefer the render if it actually recovered something. A mock-up whose
     // script does nothing useful should not lose its static content to a render
     // that happened to trip over an error partway through.
@@ -536,7 +550,10 @@ export class FormConversionService {
  * complete but silently lost its later sections (the failure mode a single
  * output-token budget produces). The message tells the author how to proceed.
  */
-export function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
+export function assertHtmlWithinBudget(
+  stats: HtmlExtractStats,
+  renderOutcome: HtmlRenderOutcome['status'] | 'not-attempted' = 'not-attempted',
+): void {
   if (stats.fields > MAX_HTML_FIELDS) {
     throw new BadRequestException(
       `This mock-up has about ${stats.fields} fields, which is more than one conversion pass can reliably produce (limit ${MAX_HTML_FIELDS}). Split it into one file per section and convert them separately.`,
@@ -548,13 +565,47 @@ export function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
     );
   }
   if (stats.fields === 0) {
-    // Distinguish the two very different causes. A mock-up that builds its whole
-    // form in JavaScript is the common one — an LLM-generated page often renders
-    // every row from a config array — and telling that author to "check the file
-    // is a form mock-up" sends them looking for a problem that is not there.
+    // A mock-up that builds its whole form in JavaScript is the common case, and
+    // the server normally renders it. What the author needs to hear depends
+    // entirely on WHY that did not happen here — telling someone to paste
+    // outerHTML by hand when the real problem is a missing browser in the
+    // deployment wastes their time and hides an operator issue.
     if (stats.scripts > 0) {
+      const MANUAL =
+        'As a workaround you can open the file in a browser, run ' +
+        '`copy(document.documentElement.outerHTML)` in the console, save that as a ' +
+        'new .html file, and upload that instead.';
+
+      if (renderOutcome === 'unavailable') {
+        throw new BadRequestException(
+          'This mock-up builds its form with JavaScript, and the server could not render it: no headless browser is available in this deployment. ' +
+            'This is an installation issue, not a problem with your file — the API image needs Chromium, or CHROMIUM_PATH must point at a browser. ' +
+            MANUAL,
+        );
+      }
+      if (renderOutcome === 'disabled') {
+        throw new BadRequestException(
+          'This mock-up builds its form with JavaScript, and automatic rendering is switched off in this deployment (HTML_RENDER_DISABLED=1). ' +
+            MANUAL,
+        );
+      }
+      if (renderOutcome === 'failed') {
+        throw new BadRequestException(
+          'This mock-up builds its form with JavaScript, but rendering it did not produce any fields — the page may error on load, or build its form only after a click. ' +
+            MANUAL,
+        );
+      }
+      if (renderOutcome === 'rendered') {
+        // Rendered successfully and still nothing: the page genuinely builds no
+        // fields at load time.
+        throw new BadRequestException(
+          'This mock-up was rendered but produced no form fields. Its script may build the form only in response to a click, or the fields may be hidden. ' +
+            MANUAL,
+        );
+      }
+      // No render was attempted — the generic explanation is the honest one.
       throw new BadRequestException(
-        'This mock-up builds its form with JavaScript, so the markup contains no fields to read. Conversion never executes the page (that is deliberate — an uploaded file is untrusted), so only what is written in the HTML can be converted. Open the file in a browser, run `copy(document.documentElement.outerHTML)` in the console, save that as a new .html file, and upload it instead.',
+        'This mock-up builds its form with JavaScript, so the markup contains no fields to read. ' + MANUAL,
       );
     }
     throw new BadRequestException(

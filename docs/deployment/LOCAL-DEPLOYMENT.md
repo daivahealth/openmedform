@@ -145,6 +145,31 @@ AI_OLLAMA_MODEL=llama3
 
 ---
 
+### 4. Optional: HTML mock-up rendering (API `.env`)
+
+Converting an HTML mock-up that **builds its form at runtime** needs a headless
+browser. The Docker image installs Chromium; a bare `npm run start:dev` has
+none, so those uploads fall back to the static markup and are rejected with
+"no headless browser is available in this deployment".
+
+Point the API at any local Chrome/Chromium to enable it:
+
+```bash
+# macOS
+CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# Linux
+CHROMIUM_PATH=/usr/bin/chromium
+```
+
+| Variable | Effect |
+|---|---|
+| `CHROMIUM_PATH` | Browser executable. Unset → Playwright looks for its own download, which the repo does not install. |
+| `HTML_RENDER_DISABLED=1` | Turns rendering off entirely and silences the startup warning. |
+
+Everything else converts fine without it — this only affects mock-ups whose
+fields do not exist in the markup. See
+[PDF-TO-FORM](../features/PDF-TO-FORM.md#mock-ups-that-build-their-form-with-javascript).
+
 ## Start Infrastructure (Docker)
 
 Start only the database service for local development:
