@@ -221,21 +221,48 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            <span>OpenMedForm</span>
+        <div className="mx-auto max-w-6xl px-6 py-8">
+          <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <span>OpenMedForm</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>AI-powered clinical form builder platform</span>
+              <a
+                href="https://github.com/daivahealth/openmedform"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="GitHub repository"
+              >
+                <Github className="h-5 w-5" />
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span>AI-powered clinical form builder platform</span>
+
+          {/* Sponsor credit. The logo is athma's own brand asset, so it is shown
+              as-is (never recoloured) and links back to athma.health. */}
+          <div className="mt-8 flex flex-col items-center gap-3 border-t pt-8">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              Primary sponsor
+            </span>
             <a
-              href="https://github.com/daivahealth/openmedform"
+              href="https://athma.health/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="GitHub repository"
+              className="transition-opacity hover:opacity-80"
+              aria-label="athma — primary sponsor of OpenMedForm"
             >
-              <Github className="h-5 w-5" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- a static
+                  SVG mark needs no next/image optimisation pipeline. */}
+              <img
+                src="/athma-logo.svg"
+                alt="athma"
+                width={132}
+                height={38}
+                className="h-9 w-auto"
+              />
             </a>
           </div>
         </div>
