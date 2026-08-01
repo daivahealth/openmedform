@@ -98,6 +98,12 @@ export interface HtmlExtractStats {
   tableRows: number;
   /** fieldset / section / heading — roughly "boxes on the page". */
   sections: number;
+  /**
+   * `<script>` elements present BEFORE stripping. Zero fields plus scripts means
+   * "this form is built at runtime", which is a completely different problem for
+   * the author than "this file is not a form" — see assertHtmlWithinBudget.
+   */
+  scripts: number;
   /** Length of the cleaned HTML actually handed to the model. */
   textLength: number;
 }
@@ -177,6 +183,8 @@ export function extractFormHtml(
   });
 
   const looksMultiDocument = (html.match(/<html[\s>]/gi) ?? []).length > 1;
+  // Counted before the stripping pass below removes them.
+  const scriptCount = root.querySelectorAll('script').length;
 
   // Must run BEFORE scripts are stripped: an empty container only implies
   // "filled at runtime" if the document actually shipped scripts.
@@ -214,6 +222,7 @@ export function extractFormHtml(
   }
 
   const stats = collectStats(root);
+  stats.scripts = scriptCount;
 
   let cleanedHtml = root.toString().replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   if (cleanedHtml.length > maxChars) {
@@ -270,6 +279,7 @@ function collectStats(root: HTMLElement): HtmlExtractStats {
     tables: root.querySelectorAll('table').length,
     tableRows: root.querySelectorAll('tr').length,
     sections: root.querySelectorAll('fieldset, section, h1, h2, h3').length,
+    scripts: 0,
     textLength: 0,
   };
 }

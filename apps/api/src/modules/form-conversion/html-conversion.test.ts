@@ -3,7 +3,9 @@ import { FormConversionController } from './form-conversion.controller';
 import {
   FormConversionService,
   assertConversionOutputComplete,
+  assertHtmlWithinBudget,
 } from './form-conversion.service';
+import { extractFormHtml } from '../../common/utils/html-extract';
 import type { RequestUser } from '../../common/types/jwt-payload.interface';
 
 const user: RequestUser = {
@@ -95,5 +97,36 @@ describe('assertConversionOutputComplete', () => {
 
   it('leaves non-JSON output (e.g. a refusal) for the assembler to report', () => {
     expect(() => assertConversionOutputComplete('I cannot help with that')).not.toThrow();
+  });
+
+  describe('zero-field diagnosis', () => {
+    // The two causes need different advice. Getting this wrong sends the author
+    // hunting for a problem that is not in their file. The guard runs inside the
+    // background conversion job, so it is exercised directly rather than through
+    // the controller.
+    const guardFor = (html: string) => () =>
+      assertHtmlWithinBudget(extractFormHtml(html).stats);
+
+    it('names JavaScript as the cause when the page ships scripts', () => {
+      const jsBuilt = guardFor(
+        `<table id="t"><thead><tr><th>Parameter</th></tr></thead><tbody id="b"></tbody></table>
+         <script>buildEverything()</script>`,
+      );
+      expect(jsBuilt).toThrow(/builds its form with JavaScript/i);
+      // …and says what to do about it
+      expect(jsBuilt).toThrow(/outerHTML/i);
+    });
+
+    it('keeps the plain "not a form" message when there are no scripts', () => {
+      const notAForm = guardFor('<h1>Policy document</h1><p>No fields here.</p>');
+      expect(notAForm).toThrow(/No form fields were found/i);
+      expect(notAForm).not.toThrow(/JavaScript/i);
+    });
+
+    it('stays quiet for a mock-up that has real fields, scripts or not', () => {
+      expect(
+        guardFor('<input type="text" name="a"><script>enhance()</script>'),
+      ).not.toThrow();
+    });
   });
 });

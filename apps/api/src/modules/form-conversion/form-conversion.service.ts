@@ -487,7 +487,7 @@ export class FormConversionService {
  * complete but silently lost its later sections (the failure mode a single
  * output-token budget produces). The message tells the author how to proceed.
  */
-function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
+export function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
   if (stats.fields > MAX_HTML_FIELDS) {
     throw new BadRequestException(
       `This mock-up has about ${stats.fields} fields, which is more than one conversion pass can reliably produce (limit ${MAX_HTML_FIELDS}). Split it into one file per section and convert them separately.`,
@@ -499,6 +499,15 @@ function assertHtmlWithinBudget(stats: HtmlExtractStats): void {
     );
   }
   if (stats.fields === 0) {
+    // Distinguish the two very different causes. A mock-up that builds its whole
+    // form in JavaScript is the common one — an LLM-generated page often renders
+    // every row from a config array — and telling that author to "check the file
+    // is a form mock-up" sends them looking for a problem that is not there.
+    if (stats.scripts > 0) {
+      throw new BadRequestException(
+        'This mock-up builds its form with JavaScript, so the markup contains no fields to read. Conversion never executes the page (that is deliberate — an uploaded file is untrusted), so only what is written in the HTML can be converted. Open the file in a browser, run `copy(document.documentElement.outerHTML)` in the console, save that as a new .html file, and upload it instead.',
+      );
+    }
     throw new BadRequestException(
       'No form fields were found in this HTML. Make sure the file is a form mock-up containing inputs, checkboxes, or selects — and that they are not hidden.',
     );

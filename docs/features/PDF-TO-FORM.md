@@ -372,6 +372,47 @@ Without this, an array falls through to the stock JSON Forms list widget, which
 renders as *"Add to … / Items / Valid / No data"* and looks nothing like the
 source.
 
+### When the whole form is built by JavaScript
+
+The extreme case: a mock-up whose markup carries **no fields at all**, because a
+script builds every row from a config array. The real NH Visual Infusion
+Phlebitis (VIP) form is exactly this — its markup is
+
+```html
+<table id="tbl-vip">
+  <thead><tr id="vip-head-row"><th>Parameter</th></tr></thead>
+  <tbody id="vip-body"></tbody>
+</table>
+```
+
+and `addCannula()` builds 22 rows and 23 fields at load time. Conversion counts
+zero fields and rejects the upload.
+
+The rejection **names the cause**: when a zero-field document also ships
+scripts, the error says the form is built by JavaScript and gives the fix,
+rather than the generic "make sure the file is a form mock-up", which sends the
+author looking for a problem that is not in their file.
+
+**The fix — upload the rendered DOM instead.** Open the mock-up in a browser
+and, in the console:
+
+```js
+copy(document.documentElement.outerHTML)
+```
+
+Paste into a new `.html` file and upload that. The script has already run, so
+every input, select and row is now real markup.
+
+Two things to check in the rendered file:
+
+- **Conditional fields stay hidden.** Anything still `display:none` (a "Please
+  specify…" input that only appears when "Other" is chosen) is stripped as
+  hidden content. Reveal those before uploading if they are real fields.
+- **Row count.** Rendering a repeating table produces however many rows were on
+  screen — export it with one representative row, not fifty. If the table is a
+  repeating log, one row is enough — see
+  [Repeating logs](#repeating-logs-recordtable).
+
 ### Size and complexity limits
 
 One conversion pass has to emit the whole Data + UI + Print schema set, so the
@@ -411,4 +452,4 @@ images (400 otherwise). Multi-document files are flagged with a warning.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
 - Hidden HTML is never converted, by design. If a mock-up legitimately hides a section (e.g. a conditional block), make it visible before uploading — the conversion warning will say what was removed.
-- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). The exception is a repeating log, whose `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable).
+- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).
