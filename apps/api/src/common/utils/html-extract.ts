@@ -118,6 +118,12 @@ export interface HtmlExtractResult {
    * the model invent something plausible for an empty box.
    */
   scriptFilledPlaceholders: string[];
+  /**
+   * Repeating record tables found in the markup — a populated `<thead>` with an
+   * empty `<tbody>` next to an "Add …" control. Recoverable, unlike
+   * `scriptFilledPlaceholders`: the converter turns each into a `recordTable`.
+   */
+  repeatingTables: RepeatingTableHint[];
 }
 
 export interface HtmlExtractOptions {
@@ -175,6 +181,7 @@ export function extractFormHtml(
   // Must run BEFORE scripts are stripped: an empty container only implies
   // "filled at runtime" if the document actually shipped scripts.
   const scriptFilledPlaceholders = findScriptFilledPlaceholders(root);
+  const repeatingTables = findRepeatingTables(root);
 
   let strippedTags = 0;
   for (const el of root.querySelectorAll('*')) {
@@ -240,7 +247,14 @@ export function extractFormHtml(
     );
   }
 
-  return { cleanedHtml, stats, warnings, looksMultiDocument, scriptFilledPlaceholders };
+  return {
+    cleanedHtml,
+    stats,
+    warnings,
+    looksMultiDocument,
+    scriptFilledPlaceholders,
+    repeatingTables,
+  };
 }
 
 function collectStats(root: HTMLElement): HtmlExtractStats {
@@ -286,6 +300,9 @@ function findScriptFilledPlaceholders(root: HTMLElement): string[] {
     // Empty means: no element children and no visible text of its own.
     if (el.querySelectorAll('*').length > 0) continue;
     if (el.text.trim().length > 0) continue;
+    // An empty <tbody> under a populated <thead> is NOT an unrecoverable gap —
+    // the header names every column, so it converts to a record table instead.
+    if (isRepeatingTableBody(el)) continue;
 
     // Only report containers something clearly targets, so anonymous spacer
     // divs stay quiet.
@@ -296,4 +313,81 @@ function findScriptFilledPlaceholders(root: HTMLElement): string[] {
     if (!names.includes(name)) names.push(name);
   }
   return names;
+}
+
+/** True for an empty `<tbody>` whose table has a header row naming the columns. */
+function isRepeatingTableBody(el: HTMLElement): boolean {
+  if ((el.rawTagName?.toLowerCase() ?? '') !== 'tbody') return false;
+  const table = el.closest?.('table');
+  return !!table && table.querySelectorAll('thead th').length > 0;
+}
+
+/**
+ * Detect repeating record tables: a `<table>` whose `<thead>` names the columns
+ * but whose `<tbody>` is empty, alongside an "Add …" control.
+ *
+ * This is the recoverable twin of `findScriptFilledPlaceholders`. Both look like
+ * "empty container in a scripted page", but here the markup DOES carry the
+ * structure — the header row names every column and the button names the thing
+ * being added — so the converter can emit a real `recordTable` rather than
+ * warning about a gap. Getting this distinction wrong in either direction is
+ * costly: warn on this and the user loses a whole treatment-day log; guess at a
+ * genuinely empty container and the form grows a control that was never on it.
+ */
+export interface RepeatingTableHint {
+  /** Column headings in source order, from the `<thead>`. */
+  columns: string[];
+  /** Text of the add control, e.g. '+ Add treatment day'. */
+  addLabel?: string;
+  /** Nearby count line, e.g. '0 treatment days logged this month'. */
+  countLabel?: string;
+}
+
+/** Buttons that add a row, as opposed to print/save/submit actions. */
+const ADD_BUTTON = /^\s*[+➕]?\s*(add|new)\b/i;
+
+function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {
+  const hints: RepeatingTableHint[] = [];
+
+  for (const table of root.querySelectorAll('table')) {
+    const headers = table
+      .querySelectorAll('thead th')
+      .map((th) => th.text.replace(/\s+/g, ' ').trim())
+      .filter((t) => t.length > 0);
+    if (headers.length === 0) continue;
+
+    const bodyRows = table.querySelectorAll('tbody tr').length;
+    if (bodyRows > 0) continue; // a table with real rows converts normally
+
+    // Look for the add control near the table: same parent, or the parent's
+    // parent, which is where a toolbar above the table usually sits.
+    const scopes = [table.parentNode, table.parentNode?.parentNode].filter(Boolean) as HTMLElement[];
+    let addLabel: string | undefined;
+    let countLabel: string | undefined;
+    for (const scope of scopes) {
+      if (!addLabel) {
+        const button = scope
+          .querySelectorAll('button, a, input[type="button"], input[type="submit"]')
+          .map((b) => (b.text || b.getAttribute('value') || '').replace(/\s+/g, ' ').trim())
+          .find((text) => ADD_BUTTON.test(text));
+        if (button) addLabel = button;
+      }
+      if (!countLabel) {
+        // Take the SHORTEST match: an ancestor div also "contains" the count
+        // line, but its text drags in the toolbar buttons around it.
+        const candidates = scope
+          .querySelectorAll('div, span, p')
+          .map((n) => n.text.replace(/\s+/g, ' ').trim())
+          .filter((t) => /^\d+\s+\S.*\b(logged|record|entr|row|item)/i.test(t) && t.length < 120)
+          .sort((a, b) => a.length - b.length);
+        countLabel = candidates[0];
+      }
+      if (addLabel && countLabel) break;
+    }
+
+    if (!addLabel) continue; // no add affordance → not a user-extendable log
+    hints.push({ columns: headers, addLabel, countLabel });
+  }
+
+  return hints;
 }

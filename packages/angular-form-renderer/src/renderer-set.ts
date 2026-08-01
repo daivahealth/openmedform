@@ -54,6 +54,12 @@ import {
   riskStratificationTester,
 } from './renderers/clinical-controls';
 import { ScoreSummaryComponent, scoreSummaryTester } from './renderers/score-controls';
+import {
+  RecordTableComponent,
+  recordTableTester,
+  OmfTabsLayoutComponent,
+  omfTabsTester,
+} from './renderers/record-table';
 
 /** Standard layout + input renderers. */
 export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
@@ -74,6 +80,11 @@ export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfTextareaTester, renderer: OmfTextareaControlComponent },
   { tester: omfRadioTester, renderer: OmfRadioControlComponent },
+  { tester: omfTabsTester, renderer: OmfTabsLayoutComponent },
+  // Repeating encounter log (add/remove records with an expandable detail
+  // panel). Outranks the standard array handling so a source "+ Add <thing>"
+  // table renders as that table rather than a generic list widget.
+  { tester: recordTableTester, renderer: RecordTableComponent },
 ];
 
 /** The six clinical custom controls. */

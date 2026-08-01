@@ -309,6 +309,80 @@ widget that appears nowhere on the source form. Two things prevent that:
 To convert such a section, inline the options as real markup (or paste the
 rendered DOM) before uploading.
 
+### Repeating logs (`recordTable`)
+
+Not every empty container is a lost cause. The common clinical counterpart is a
+table the user **adds rows to**, where the row is only a summary and the record's
+real fields live behind it — a treatment day, a medication round, an observation
+entry. In a mock-up it looks like this:
+
+```html
+<div class="label-tag">0 treatment days logged this month</div>
+<button onclick="cx_addSession()">+ Add treatment day</button>
+<table>
+  <thead><tr><th>Day</th><th>Date</th><th>Cycle / Day#</th>…</tr></thead>
+  <tbody id="cx_tbody"></tbody>   <!-- filled by script -->
+</table>
+```
+
+The `<tbody>` is empty for exactly the same reason as a JS-built section, but
+this one **is recoverable**: the `<thead>` names every column and the button
+names the thing being added. `findRepeatingTables()` picks that up before scripts
+are stripped and returns the columns, the add label and the count line, which the
+conversion prompt passes to the model verbatim. An empty `<tbody>` under a
+populated `<thead>` is therefore *excluded* from `scriptFilledPlaceholders` —
+warning about it would throw away a whole treatment-day log.
+
+A repeating log requires an add affordance (`Add …` / `New …`); a print-only grid
+with an empty body and no button is left as a plain table, since a clinician
+fills that by hand.
+
+It converts to a single array Control:
+
+```jsonc
+{
+  "type": "Control",
+  "scope": "#/properties/treatmentDays",
+  "options": {
+    "omf": {
+      "control": "recordTable",
+      "recordTable": {
+        "addLabel": "+ Add treatment day",
+        "countLabel": "{n} treatment day{s} logged this month",
+        "emptyLabel": "No treatment days logged for this month yet.",
+        "columns": [
+          { "label": "Date", "path": "date" },
+          { "label": "Cycle / Day#", "path": "timelog.cycle", "pairWith": "timelog.dayNum" },
+          { "label": "Adverse events", "countOf": "adverseEvents", "align": "center" }
+        ]
+      }
+    },
+    "detail": { "type": "OmfTabsLayout", "elements": [ /* one Group per stage */ ] }
+  }
+}
+```
+
+- `columns[].path` is a dot path **inside one record**; `pairWith` renders a
+  combined `A / B` header, and `countOf` counts a nested array.
+- `countLabel` substitutes `{n}` for the count and `{s}` for the plural `s`.
+- `options.detail` is the standard JSON Forms per-item UI schema. Use an
+  `OmfTabsLayout` when a record has more than ~15 fields — the source
+  Chemotherapy Monitoring record has around 100 across eight stages, and one
+  scrolling panel is unusable at the bedside.
+- Record tables **nest**: a treatment day's Drug Administration tab is itself a
+  `recordTable` over `drugs`, and the parent's "Drugs" column counts it.
+
+Both renderers implement this identically, and the summary-cell derivation lives
+once in `@openmedform/form-core`
+([`record-table/summary.ts`](../../packages/form-core/src/record-table/summary.ts))
+rather than being duplicated per framework — a log that showed a different date
+or adverse-event count in the EMR than in the web preview would be a clinical
+safety problem, not a cosmetic one.
+
+Without this, an array falls through to the stock JSON Forms list widget, which
+renders as *"Add to … / Items / Valid / No data"* and looks nothing like the
+source.
+
 ### Size and complexity limits
 
 One conversion pass has to emit the whole Data + UI + Print schema set, so the
@@ -348,4 +422,4 @@ images (400 otherwise). Multi-document files are flagged with a warning.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
 - Hidden HTML is never converted, by design. If a mock-up legitimately hides a section (e.g. a conditional block), make it visible before uploading — the conversion warning will say what was removed.
-- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript).
+- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). The exception is a repeating log, whose `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable).

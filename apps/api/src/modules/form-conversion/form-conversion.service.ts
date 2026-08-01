@@ -291,6 +291,26 @@ export class FormConversionService {
           'warning naming the section.\n\n';
       }
 
+      // The recoverable twin of the placeholder case above: the <tbody> is empty
+      // for the same reason (script removed), but the <thead> names every column
+      // and the button names the record, so the log IS reconstructable. Spell it
+      // out with the exact labels, or the model flattens it to a text line.
+      for (const t of extracted.repeatingTables) {
+        userPrompt +=
+          `REPEATING LOG: the table with columns [${t.columns.join(' | ')}] has an empty ` +
+          `<tbody> and an "${t.addLabel}" button — the user adds rows to it. Emit it as a ` +
+          'single array Control with options.omf.control "recordTable", NOT as a Label and ' +
+          'not as one Group per column. Set options.omf.recordTable.addLabel to ' +
+          `"${t.addLabel}"` +
+          (t.countLabel
+            ? `, countLabel to "${t.countLabel.replace(/^\d+/, '{n}').replace(/\bdays\b/, 'day{s}')}"`
+            : '') +
+          ', and columns to one entry per header above (use "pairWith" for a combined ' +
+          '"A / B" header and "countOf" for a header that counts nested records). The item ' +
+          'schema holds every field of ONE record; put its detail UI in options.detail as an ' +
+          '"OmfTabsLayout" whose children are Groups, one per stage of the record.\n\n';
+      }
+
       userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 

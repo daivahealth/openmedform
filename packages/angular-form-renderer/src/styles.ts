@@ -56,4 +56,71 @@ export const FIELD_STYLES = `
   .omf-group-header .omf-icon { flex: 0 0 auto; font-size: 1.1em; line-height: 1; }
   .omf-group-header .omf-group-title { flex: 1 1 auto; margin: 0; }
   .omf-legend { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+
+  /* --- record table (repeating encounter log) --- */
+  /* Mirrors the inline styles of the React recordTable so the same definition
+     looks identical in both frameworks. */
+  .omf-record-table { margin-bottom: var(--omf-section-gap, 16px); }
+  .omf-record-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .omf-record-count {
+    font-family: var(--omf-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: var(--omf-font-size-label, 13px); color: var(--omf-color-label, #3a4552);
+  }
+  .omf-record-add {
+    padding: 8px 16px; border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    border-radius: var(--omf-border-radius, 4px); background: var(--omf-color-accent, #4a2d5c);
+    color: #fff; font-weight: 600; font-size: var(--omf-font-size-body, 14px); cursor: pointer;
+  }
+  .omf-record-add[disabled] { cursor: not-allowed; opacity: .6; }
+  /* A flex/grid item defaults to min-width:auto, so a wide table would stretch
+     the host page instead of scrolling inside its own container. */
+  .omf-scroll-x { overflow-x: auto; min-width: 0; max-width: 100%; }
+  .omf-record-grid { width: 100%; border-collapse: collapse; }
+  .omf-record-grid th, .omf-record-grid td {
+    border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    padding: var(--omf-control-padding, 8px);
+  }
+  .omf-record-grid th {
+    background: var(--omf-color-header-bg, #4a2d5c); color: var(--omf-color-header-fg, #fff);
+    font-size: var(--omf-font-size-label, 13px); text-transform: uppercase;
+    letter-spacing: .4px; white-space: nowrap; text-align: left;
+  }
+  .omf-record-grid .omf-record-actions-col { width: 1%; }
+  .omf-record-grid tr.omf-record-open > td { background: var(--omf-color-section-bg, #f0eaf4); }
+  .omf-record-empty {
+    text-align: center; font-style: italic; color: var(--omf-color-muted, #6b7280);
+    padding: calc(var(--omf-control-padding, 8px) * 2);
+  }
+  .omf-record-actions { white-space: nowrap; }
+  .omf-record-toggle, .omf-record-remove {
+    padding: 4px 12px; border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    border-radius: var(--omf-border-radius, 4px); background: transparent;
+    font-weight: 600; cursor: pointer;
+  }
+  .omf-record-toggle { color: var(--omf-color-accent, #4a2d5c); }
+  .omf-record-remove { margin-left: 6px; padding: 4px 10px; color: var(--omf-color-danger, #a3312a); }
+  .omf-record-detail { background: #fff; }
+  /* The detail panel's own fields sit in a table cell; drop the trailing gap so
+     the last field does not float above the cell border. */
+  .omf-record-detail > * > .omf-field:last-child { margin-bottom: 0; }
+
+  /* --- tabs --- */
+  .omf-tablist {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    border-bottom: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    margin-bottom: var(--omf-section-gap, 16px);
+  }
+  .omf-tab {
+    appearance: none; border: none; background: transparent; padding: 8px 14px;
+    cursor: pointer; font-size: var(--omf-font-size-body, 14px); font-weight: 500;
+    color: var(--omf-color-label, #3a4552); border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .omf-tab-active {
+    font-weight: 700; color: var(--omf-color-accent, #4a2d5c);
+    border-bottom-color: var(--omf-color-accent, #4a2d5c);
+  }
 `;

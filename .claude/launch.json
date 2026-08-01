@@ -4,32 +4,56 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next start -p 3000"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next start -p 3000"
+      ],
       "port": 3000
     },
     {
       "name": "web-dev",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3001"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3001"
+      ],
       "port": 3001
     },
     {
       "name": "api",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/api && npx nest start"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/api && npx nest start"
+      ],
       "port": 3100
     },
     {
       "name": "react-demo",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/react-demo && npx vite --port 5175"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/react-demo && npx vite --port 5175"
+      ],
       "port": 5175
     },
     {
       "name": "angular-demo",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/sajithchandran/daiva-health/openmedform/apps/angular-demo && npx vite preview --port 5176 --strictPort"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/angular-demo && npx vite preview --port 5176 --strictPort"
+      ],
       "port": 5176
+    },
+    {
+      "name": "react-demo-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/react-demo && npx vite --port 5177 --strictPort"
+      ],
+      "port": 5177
     }
   ]
 }
