@@ -34,8 +34,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @openmedform/api exec prisma generate
 
-      # Only the first-party publishable packages are built here; the vendored
-      # Form.io forks (formio-core/formio-react) are not part of the release set.
+      # Only the publishable packages are built here; apps and demos are not
+      # part of the release set.
       - name: Build packages
         run: pnpm build:packages
 

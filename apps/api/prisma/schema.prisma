@@ -122,7 +122,6 @@ model Form {
   versions       FormVersion[]
   currentVersion FormVersion?    @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   submissions    Submission[]
-  aiMessages     FormAiMessage[]
 
   @@unique([tenantId, slug], name: "uq_form_tenant_slug")
   @@index([tenantId, status])
@@ -212,23 +211,6 @@ model AiProviderConfig {
   @@unique([tenantId, provider], name: "uq_ai_provider_tenant")
   @@index([tenantId])
   @@map("ai_provider_config")
-}
-
-// ─── Form AI Chat ───────────────────────────────────────────────────────────
-
-model FormAiMessage {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  formId    String   @map("form_id") @db.Uuid
-  role      String   @db.VarChar(20)
-  content   String   @db.Text
-  provider  String?  @db.VarChar(50)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-
-  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, formId])
-  @@map("form_ai_message")
 }
 
 // ─── Form Asset ──────────────────────────────────────────────────────────────

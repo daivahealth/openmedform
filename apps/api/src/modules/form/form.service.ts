@@ -7,7 +7,6 @@ import {
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { ScoringService } from '../scoring/scoring.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AiProviderConfigService } from '../settings/ai-provider-config.service';
 import { contentHash, verifyContentHash } from '../../common/utils/content-hash';
@@ -60,7 +59,6 @@ type VersionLike = {
 export class FormService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly scoringService: ScoringService,
     private readonly audit: AuditService,
     private readonly aiProviderConfigService: AiProviderConfigService,
   ) {}
@@ -307,21 +305,17 @@ export class FormService {
 
   /**
    * Permanently deletes a form and ALL of its related data (versions,
-   * submissions, AI chat messages). This is irreversible.
+   * submissions). This is irreversible.
    *
    * Order matters: submissions reference both form and form_version, and
    * Form.currentVersionId <-> FormVersion.formId form a circular FK, so we
-   * null the pointer before deleting versions. FormAiMessage cascades on
-   * form delete but is removed explicitly for clarity.
+   * null the pointer before deleting versions.
    */
   async remove(tenantId: string, id: string, actor?: ActorContext) {
     const form = await this.findOne(tenantId, id);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const submissions = await tx.submission.deleteMany({
-        where: { formId: form.id, tenantId },
-      });
-      await tx.formAiMessage.deleteMany({
         where: { formId: form.id, tenantId },
       });
       await tx.form.update({
@@ -686,46 +680,6 @@ export class FormService {
     });
   }
 
-  async getAiMessages(tenantId: string, formId: string) {
-    await this.findOne(tenantId, formId);
-    return this.prisma.formAiMessage.findMany({
-      where: { tenantId, formId },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, role: true, content: true, provider: true, createdAt: true },
-    });
-  }
-
-  async addAiMessage(
-    tenantId: string,
-    formId: string,
-    data: { role: string; content: string; provider?: string },
-  ) {
-    await this.findOne(tenantId, formId);
-    return this.prisma.formAiMessage.create({
-      data: {
-        tenantId,
-        formId,
-        role: data.role,
-        content: data.content,
-        provider: data.provider,
-      },
-      select: { id: true, role: true, content: true, provider: true, createdAt: true },
-    });
-  }
-
-  async clearAiMessages(tenantId: string, formId: string) {
-    await this.findOne(tenantId, formId);
-    await this.prisma.formAiMessage.deleteMany({
-      where: { tenantId, formId },
-    });
-    return { cleared: true };
-  }
-
-  /**
-   * The current user's form creation quota — the single source of truth used
-   * both to enforce the limit (assertFormLimit) and to report it to the
-   * dashboard notice, so the two can never drift.
-   */
   async getFormQuota(userId: string): Promise<FormQuota> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -776,13 +730,4 @@ export class FormService {
       .replace(/^-+|-+$/g, '');
   }
 
-  private async uniqueSlug(tenantId: string, name: string): Promise<string> {
-    const baseSlug = this.toSlug(name);
-    const existing = await this.prisma.form.findFirst({
-      where: { tenantId, slug: baseSlug },
-      select: { id: true },
-    });
-
-    return existing ? `${baseSlug}-${Date.now()}` : baseSlug;
-  }
 }

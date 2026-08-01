@@ -13,7 +13,6 @@ COPY packages/form-design-tokens/package.json packages/form-design-tokens/
 COPY packages/form-print-engine/package.json packages/form-print-engine/
 COPY packages/form-schema-types/package.json packages/form-schema-types/
 COPY packages/react-form-renderer/package.json packages/react-form-renderer/
-COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --filter @openmedform/web...
 
 # --- build ---

@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowLeft, CheckCircle2, ImagePlus, Images, Loader2, Pencil, Send, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ImagePlus, Images, Loader2, Send, Sparkles, X } from 'lucide-react';
 
 export default function FormPreviewPage() {
   const params = useParams();

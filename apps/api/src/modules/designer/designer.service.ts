@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -27,8 +27,6 @@ interface RefinementImage {
  */
 @Injectable()
 export class DesignerService {
-  private readonly logger = new Logger(DesignerService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,

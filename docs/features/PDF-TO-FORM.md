@@ -483,8 +483,7 @@ These thresholds are calibrated against the output budget rather than measured
 per model, so they are the dial to turn if legitimate mock-ups start being
 rejected.
 
-HTML converts to the **jsonforms engine only**; the Form.io path takes PDFs and
-images (400 otherwise). Multi-document files are flagged with a warning.
+Multi-document files are flagged with a warning.
 
 ## Limitations
 

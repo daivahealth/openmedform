@@ -52,11 +52,10 @@ pnpm --filter api start:dev         # Backend only
 ```
 
 ## Monorepo Structure
-- `packages/shared` — shared types (`@openmedform/shared`)
 - `apps/api` — NestJS backend
 - `apps/web` — Next.js frontend
 
-### Dual-engine form platform (JSON Forms + Form.io — see [ADR-003](../ADR/003-dual-engine-json-forms.md))
+### Form platform (JSON Forms — see [ADR-004](../ADR/004-remove-formio-engine.md))
 - `packages/form-schema-types` — Data/UI/Print schema + FormDefinition contracts
 - `packages/form-core` — framework-independent engine (Ajv 2020-12 validation,
   `$ref`/scope resolution, binding, conditional rules, i18n, control registry,
@@ -72,7 +71,7 @@ pnpm --filter api start:dev         # Backend only
   from a jsonforms definition + pure visual-diff primitives (`comparePixels`,
   `runVisualDiffLoop`). HTML→PDF/image rasterization (Playwright/Chromium or
   WeasyPrint) is injected at deployment, not bundled.
-- `apps/react-demo` — Vite demo rendering one form per engine through the
+- `apps/react-demo` — Vite demo rendering sample forms through the
   dispatcher: `pnpm --filter @openmedform/react-demo dev` (http://localhost:5175)
 - `apps/angular-demo` — Angular demo (Analog + Vite) rendering the same jsonforms
   reference the React demo does. It consumes the renderer library as source, and

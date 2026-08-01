@@ -123,8 +123,7 @@ preview** button is available on the form Preview and Fill screens (JSON Forms e
 ```
 packages/
 ├── renderer/          # @openmedform/renderer — React component for EMRs
-├── shared/            # @openmedform/shared — shared scoring engine
 └── form-core/         # framework-independent validation, scoring and binding
 ```
 
-The scoring engine lives in `packages/shared/` and is consumed by both the renderer package (client-side preview) and the API (server-side recalculation). The API maintains its own self-contained scoring service to avoid ESM/CJS module resolution issues in the NestJS runtime.
+Scoring runs in two places from one implementation: `packages/form-core` derives the live on-screen total that both renderers display, and the API recalculates authoritatively on submission. The API keeps a self-contained scoring service to avoid ESM/CJS resolution issues in the NestJS runtime — client-side totals are advisory, the server's are stored.

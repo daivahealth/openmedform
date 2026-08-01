@@ -11,12 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateJsonFormsForm } from '@/hooks/use-conversions';
 import { useAiProviders } from '@/hooks/use-ai-builder';
-import { CategorySelect } from '@/components/forms/category-select';
 import { AlertCircle, FileUp, Loader2 } from 'lucide-react';
 import axios from 'axios';
 

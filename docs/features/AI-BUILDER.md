@@ -37,7 +37,7 @@ and the Responses API.
 
 ## Form-Scoped Agent Flow
 
-- `POST /api/forms/from-file` accepts PDF or image files plus form metadata, generates a Form.io schema, validates it, creates a draft form version, and returns `{ form, schema, provider }`.
+- `POST /api/conversions` accepts a PDF, image or HTML mock-up, generates the separated Data/UI/Print schemas, Ajv-compile-checks the Data Schema, and creates a draft form in REVIEW status. Poll `GET /api/conversions/:id`.
 - `POST /api/forms/:id/ai/refine` verifies tenant access to the form, refines the live builder schema or latest saved schema, and returns a validated proposed schema for the chat UI.
 - JSON Forms previews expose **Refine with AI**, which streams `POST /api/forms/:id/jsonforms/refine`. It updates an unpublished draft in place or forks a draft from a published version, then refreshes the preview with the saved definition.
 - The refinement endpoint also accepts an optional image upload (`multipart/form-data`, field `image`) so users can attach a visual reference and describe corrections in chat.
@@ -57,7 +57,7 @@ The PDF/image generation prompt ([prompts/pdf-to-form-prompt.ts](../../apps/api/
 - **Same-line field groups** — multiple fields sharing one horizontal line become a single `columns` component so they stay side-by-side.
 - **Inline fill-in blanks** — `Label: ____` on one line uses `labelPosition: "left-left"` so the label sits beside the input.
 
-Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields), not pixel-exact. Exact borders, fonts, and spacing are not reproduced — Form.io's open-source renderer is a data-entry engine, not a PDF layout replicator. The relevant layout properties (`inline`, `labelPosition`, `table`/`columns` structures) pass through the schema assembler and validator unchanged.
+Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields), not pixel-exact. Exact borders, fonts and spacing are not reproduced on screen — the renderer is a responsive data-entry engine, not a PDF layout replicator. For paper-accurate output use the print engine, which reconstructs A4 from the Print Schema. Layout properties ride under `options.omf` (`screen.labelPosition`, `columns`, `variant`) and pass through the assembler unchanged.
 
 ## Security
 - LLM API keys can come from three sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant` (first match wins):
