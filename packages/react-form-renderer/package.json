@@ -40,9 +40,6 @@
     "@openmedform/form-design-tokens": "workspace:*",
     "@openmedform/form-schema-types": "workspace:*"
   },
-  "optionalDependencies": {
-    "@openmedform/renderer": "workspace:*"
-  },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
