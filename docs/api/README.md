@@ -59,7 +59,6 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 | GET | /api/forms/:id/versions/:versionId/integrity | Recompute a published version's content hash to detect tampering |
 | POST | /api/forms/:id/clone | Clone form |
 | GET | /api/forms/:id/export | Export an OpenMedForm template bundle for re-import |
-| GET | /api/forms/:id/export/formio | Download the stored native Form.io schema (`display`/`components`); available only for Form.io forms |
 | POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language; accepts JSON or multipart `image` visual reference (SSE stream; edits a draft or forks one if published) |
 
 ### Submissions
@@ -90,7 +89,7 @@ chosen engine, and for jsonforms per-field confidence + warnings are persisted.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/conversions | multipart: `file`, `engine` (formio\|jsonforms), optional `provider`, `instructions`. Returns the created job. Accepts PDF, PNG/JPEG/WebP/GIF, and **HTML** (`text/html`, jsonforms engine only, max 2MB — 400 otherwise). Oversized/empty HTML mock-ups are rejected with guidance rather than half-converted |
+| POST | /api/conversions | multipart: `file`, optional `provider`, `instructions`. Returns the created job. Accepts PDF, PNG/JPEG/WebP/GIF, and **HTML** (`text/html`, max 2MB — 400 otherwise). Oversized/empty HTML mock-ups are rejected with guidance rather than half-converted |
 | POST | /api/conversions/:id/accept | Accept a reviewed job: promote the draft form REVIEW→DRAFT, mark job COMPLETED (audited) |
 | GET | /api/conversions | List conversion jobs for the tenant |
 | GET | /api/conversions/:id | Job status + persisted warnings |

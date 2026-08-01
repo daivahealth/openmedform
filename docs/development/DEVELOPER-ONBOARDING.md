@@ -52,8 +52,6 @@ pnpm --filter api start:dev         # Backend only
 ```
 
 ## Monorepo Structure
-- `packages/formio-core` — forked formio.js (`@openmedform/formio-core`)
-- `packages/formio-react` — forked @formio/react (`@openmedform/formio-react`)
 - `packages/shared` — shared types (`@openmedform/shared`)
 - `apps/api` — NestJS backend
 - `apps/web` — Next.js frontend
@@ -65,12 +63,11 @@ pnpm --filter api start:dev         # Backend only
   serialization); no React/Angular imports
 - `packages/form-design-tokens` — shared `--omf-*` CSS variables + TS tokens for
   cross-framework visual parity
-- `packages/react-form-renderer` — React engine dispatcher: `<FormRenderer
-  definition={...} />` routes `formio` → `@openmedform/renderer` (preserved) and
-  `jsonforms` → `@jsonforms/react` + custom controls
+- `packages/react-form-renderer` — React renderer: `<FormRenderer
+  definition={...} />` over `@jsonforms/react` + the custom clinical controls
 - `packages/angular-form-renderer` — Angular 20 standalone JSON Forms renderer
   (`<omf-form [definition]="...">`): custom token-styled renderers over
-  `@jsonforms/angular`, no Angular Material (jsonforms engine only)
+  `@jsonforms/angular`, no Angular Material
 - `packages/form-print-engine` — reconstructs A4 print HTML/CSS (`@page` in mm)
   from a jsonforms definition + pure visual-diff primitives (`comparePixels`,
   `runVisualDiffLoop`). HTML→PDF/image rasterization (Playwright/Chromium or

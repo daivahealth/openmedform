@@ -8,7 +8,7 @@ import {
   useUpdateSubmission,
   useCompleteSubmission,
 } from '@/hooks/use-submissions';
-import { DualFormRenderer, formEngine } from '@/components/forms/dual-form-renderer';
+import { JsonFormsRendererWrapper } from '@/components/forms/jsonforms-renderer-wrapper';
 import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -255,39 +255,31 @@ export default function FormFillPage() {
     );
   }
 
-  const isJsonForms = formEngine(form) === 'JSONFORMS';
-
   return (
     <div className="w-full py-4">
       <div className="mb-4 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">{form.name}</h1>
-        {isJsonForms && (
-          <PrintPreviewButton form={form as never} data={jsonFormsData} />
-        )}
+        <PrintPreviewButton form={form as never} data={jsonFormsData} />
       </div>
 
       {isPatientForm && <PatientHeaderBar context={patientContext} />}
 
       <div className="rounded-lg border bg-white p-6">
-        <DualFormRenderer
+        <JsonFormsRendererWrapper
           form={form}
           onChange={(data) => {
             setJsonFormsData(data);
             handleChange(data);
           }}
-          onSubmit={handleSubmit}
         />
-        {/* Form.io renders its own submit button; jsonforms needs an explicit one. */}
-        {isJsonForms && (
-          <div className="mt-6 flex justify-end">
-            <Button
-              onClick={() => handleSubmit(jsonFormsData)}
-              disabled={completeSubmission.isPending}
-            >
-              {completeSubmission.isPending ? 'Submitting...' : 'Submit'}
-            </Button>
-          </div>
-        )}
+        <div className="mt-6 flex justify-end">
+          <Button
+            onClick={() => handleSubmit(jsonFormsData)}
+            disabled={completeSubmission.isPending}
+          >
+            {completeSubmission.isPending ? 'Submitting...' : 'Submit'}
+          </Button>
+        </div>
       </div>
     </div>
   );

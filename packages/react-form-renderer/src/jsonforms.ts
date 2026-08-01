@@ -1,10 +1,10 @@
 /**
  * @openmedform/react-form-renderer/jsonforms
  *
- * Formio-free entry point. Import from here when your app only needs the
- * JSON Forms engine (the portable, engine-separated definitions produced by the
- * "Download" / export flow). This avoids pulling in the heavy Form.io stack that
- * the top-level `FormRenderer` dispatcher depends on.
+ * Retained as a stable alias of the package root. It existed to offer a
+ * Form.io-free entry point back when the root pulled in the Form.io stack; with
+ * that engine removed the root is already Form.io-free, so the two are
+ * equivalent and existing imports keep working.
  *
  *   import { JsonFormsRenderer } from '@openmedform/react-form-renderer/jsonforms';
  */

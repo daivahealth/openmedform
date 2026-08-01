@@ -1,83 +1,27 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  UploadedFile,
-  UseInterceptors,
-  BadRequestException,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { AiBuilderService } from './ai-builder.service';
-import { GenerateFormDto } from './dto/generate-form.dto';
-import { RefineFormDto } from './dto/refine-form.dto';
+import { Controller, Get } from '@nestjs/common';
+import { ProviderRegistry } from './providers/provider-registry';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 
+/**
+ * What remains of the AI builder surface after the Form.io engine was removed.
+ *
+ * The schema-generation endpoints (`generate`, `generate-from-pdf`, `refine`)
+ * emitted Form.io component trees and are gone. Form creation now runs through
+ * the conversion pipeline (`POST /api/conversions`) and the prompt-based
+ * designer (`POST /api/forms/:id/jsonforms/refine`), both of which emit the
+ * separated Data/UI/Print schemas.
+ *
+ * Provider discovery is engine-independent, so it stays here — the settings and
+ * conversion UIs both read it to populate their provider pickers.
+ */
 @Controller('ai')
 export class AiBuilderController {
-  constructor(private readonly aiBuilderService: AiBuilderService) {}
-
-  @Post('generate')
-  generate(@CurrentUser() user: RequestUser, @Body() dto: GenerateFormDto) {
-    return this.aiBuilderService.generate(
-      user.tenantId,
-      dto.prompt,
-      dto.provider,
-      dto.category,
-      undefined,
-      user.userId,
-    );
-  }
-
-  @Post('generate-from-pdf')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (file.mimetype !== 'application/pdf') {
-          cb(new BadRequestException('Only PDF files are accepted'), false);
-          return;
-        }
-        cb(null, true);
-      },
-    }),
-  )
-  async generateFromPdf(
-    @CurrentUser() user: RequestUser,
-    @UploadedFile() file: Express.Multer.File,
-    @Body('provider') provider?: string,
-    @Body('instructions') instructions?: string,
-  ) {
-    if (!file) {
-      throw new BadRequestException('PDF file is required');
-    }
-
-    return this.aiBuilderService.generateFromPdf(
-      user.tenantId,
-      file.buffer,
-      provider,
-      instructions,
-      user.userId,
-    );
-  }
-
-  @Post('refine')
-  refine(@CurrentUser() user: RequestUser, @Body() dto: RefineFormDto) {
-    return this.aiBuilderService.refine(
-      user.tenantId,
-      dto.currentSchema,
-      dto.instruction,
-      dto.conversationHistory,
-      dto.provider,
-      undefined,
-      user.userId,
-    );
-  }
+  constructor(private readonly providerRegistry: ProviderRegistry) {}
 
   @Get('providers')
   async listProviders(@CurrentUser() user: RequestUser) {
-    const providers = await this.aiBuilderService.listProviders(user.tenantId);
-    return { providers };
+    const set = await this.providerRegistry.getProvidersForTenant(user.tenantId);
+    return { providers: this.providerRegistry.listProviderNames(set) };
   }
 }

@@ -11,7 +11,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FormEngine } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { decodeUploadFilename } from '../../common/utils/filename';
@@ -59,7 +58,6 @@ export class FormConversionController {
   start(
     @CurrentUser() user: RequestUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body('engine') engine: string,
     @Ip() ip: string,
     @Body('provider') provider?: string,
     @Body('instructions') instructions?: string,
@@ -67,19 +65,7 @@ export class FormConversionController {
     if (!file) {
       throw new BadRequestException('A source file is required');
     }
-    const engineTarget = (engine ?? 'JSONFORMS').toUpperCase();
-    if (engineTarget !== 'FORMIO' && engineTarget !== 'JSONFORMS') {
-      throw new BadRequestException('engine must be "formio" or "jsonforms"');
-    }
-
     if (file.mimetype === 'text/html') {
-      // HTML mock-ups convert only to the jsonforms engine; the Form.io path
-      // takes PDFs and images only.
-      if (engineTarget !== 'JSONFORMS') {
-        throw new BadRequestException(
-          'HTML mock-ups can only be converted with the JSON Forms engine.',
-        );
-      }
       if (file.size > MAX_HTML_BYTES) {
         throw new BadRequestException(
           `HTML files are limited to ${MAX_HTML_BYTES / 1024 / 1024}MB (this one is ${(file.size / 1024 / 1024).toFixed(1)}MB). A single-page form mock-up should be far smaller.`,
@@ -94,7 +80,6 @@ export class FormConversionController {
         fileBuffer: file.buffer,
         fileName: decodeUploadFilename(file.originalname),
         mimeType: file.mimetype,
-        engineTarget: engineTarget as FormEngine,
         providerName: provider,
         instructions,
       },

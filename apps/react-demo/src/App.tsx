@@ -2,21 +2,18 @@ import { useMemo, useState } from 'react';
 import { FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
 import { rrtSbarReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
-import { formioSample } from './formio-sample';
 import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
 import { chemoLogSample } from './chemo-log-sample';
 
-type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'formio' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'table' | 'review';
 
-const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'formio', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'table', FormDefinition> = {
   jsonforms: rrtSbarReference,
   vte: vteSample,
   table: signoffSample,
-  chemo: chemoLogSample,
-  formio: formioSample,
 };
-const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'formio', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'table', 'review'];
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');

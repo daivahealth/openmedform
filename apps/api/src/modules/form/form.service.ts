@@ -50,8 +50,6 @@ export interface FormQuota {
 
 /** The immutable content of a version, used for the published content hash. */
 type VersionLike = {
-  engine: string;
-  schema?: unknown;
   dataSchema?: unknown;
   uiSchema?: unknown;
   printSchema?: unknown;
@@ -68,22 +66,23 @@ export class FormService {
   ) {}
 
   /**
-   * The canonical payload hashed at publish time. For the formio engine that is
-   * the coupled `schema`; for jsonforms it is the separated data/ui/print
-   * schemas plus translations. Engine is included so two engines with the same
-   * shape never collide.
+   * The canonical payload hashed at publish time: the separated data/ui/print
+   * schemas plus translations.
+   *
+   * `engine` is pinned to the literal 'JSONFORMS' rather than dropped along with
+   * the column. The hash of an already-published version must keep recomputing
+   * to the same value, or `GET /forms/:id/versions/:versionId/integrity` would
+   * report every existing published form as tampered with. This field is frozen
+   * for hash stability — do not remove it or change its value.
    */
   private versionPayload(version: VersionLike): Record<string, unknown> {
-    if (version.engine === 'JSONFORMS') {
-      return {
-        engine: version.engine,
-        dataSchema: version.dataSchema ?? null,
-        uiSchema: version.uiSchema ?? null,
-        printSchema: version.printSchema ?? null,
-        translations: version.translations ?? null,
-      };
-    }
-    return { engine: version.engine ?? 'FORMIO', schema: version.schema ?? null };
+    return {
+      engine: 'JSONFORMS',
+      dataSchema: version.dataSchema ?? null,
+      uiSchema: version.uiSchema ?? null,
+      printSchema: version.printSchema ?? null,
+      translations: version.translations ?? null,
+    };
   }
 
   async create(
@@ -115,7 +114,8 @@ export class FormService {
         data: {
           formId: created.id,
           version: 1,
-          schema: {},
+          dataSchema: { type: 'object', properties: {} },
+          uiSchema: { schemaVersion: '1.0', layout: { type: 'VerticalLayout', elements: [] } },
         },
       });
 
@@ -136,45 +136,6 @@ export class FormService {
     });
 
     return form;
-  }
-
-  async createWithSchema(
-    tenantId: string,
-    userId: string,
-    dto: CreateFormDto,
-    schema: Record<string, unknown>,
-  ) {
-    await this.assertFormLimit(userId);
-    const slug = await this.uniqueSlug(tenantId, dto.name);
-    const jsonSchema = schema as unknown as Prisma.InputJsonValue;
-
-    return this.prisma.$transaction(async (tx) => {
-      const form = await tx.form.create({
-        data: {
-          tenantId,
-          name: dto.name,
-          slug,
-          description: dto.description,
-          category: dto.category,
-          tags: dto.tags ?? [],
-          formType: dto.formType,
-          createdById: userId,
-        },
-      });
-
-      const version = await tx.formVersion.create({
-        data: {
-          formId: form.id,
-          version: 1,
-          schema: jsonSchema,
-        },
-      });
-
-      return tx.form.update({
-        where: { id: form.id },
-        data: { currentVersionId: version.id },
-      });
-    });
   }
 
   async findAll(tenantId: string) {
@@ -229,56 +190,6 @@ export class FormService {
     });
   }
 
-  async saveSchema(tenantId: string, id: string, schema: Record<string, unknown>) {
-    const form = await this.findOne(tenantId, id);
-    const jsonSchema = schema as unknown as Prisma.InputJsonValue;
-
-    const latestVersion = await this.prisma.formVersion.findFirst({
-      where: { formId: form.id },
-      orderBy: { version: 'desc' },
-    });
-
-    if (latestVersion && !latestVersion.publishedAt) {
-      return this.prisma.$transaction(async (tx) => {
-        const updated = await tx.formVersion.update({
-          where: { id: latestVersion.id },
-          data: { schema: jsonSchema },
-        });
-        await tx.form.update({
-          where: { id: form.id },
-          data: { currentVersionId: updated.id },
-        });
-        return updated;
-      });
-    }
-
-    const nextVersion = (latestVersion?.version ?? 0) + 1;
-    return this.prisma.$transaction(async (tx) => {
-      const created = await tx.formVersion.create({
-        data: {
-          formId: form.id,
-          version: nextVersion,
-          schema: jsonSchema,
-        },
-      });
-      await tx.form.update({
-        where: { id: form.id },
-        data: { currentVersionId: created.id },
-      });
-      return created;
-    });
-  }
-
-  async getLatestSchema(tenantId: string, id: string) {
-    const form = await this.findOne(tenantId, id);
-    const latestVersion = form.versions?.[0] ?? form.currentVersion;
-
-    return (latestVersion?.schema ?? {
-      display: 'form',
-      components: [],
-    }) as Record<string, unknown>;
-  }
-
   async publish(tenantId: string, id: string, actor?: ActorContext) {
     const form = await this.findOne(tenantId, id);
 
@@ -295,15 +206,6 @@ export class FormService {
       throw new BadRequestException('Latest version is already published');
     }
 
-    // Formio scoring rules are extracted from the coupled schema; jsonforms
-    // versions carry no formio scoring tree.
-    const schema = (latestVersion.schema ?? {}) as Record<string, unknown>;
-    const scoringRules =
-      latestVersion.engine === 'JSONFORMS'
-        ? {}
-        : this.scoringService.extractRulesFromSchema(schema);
-    const hasScoringRules = Object.keys(scoringRules).length > 0;
-
     // Immutability: hash the canonical published payload so later tampering is
     // detectable (verifyIntegrity). The version becomes read-only once
     // publishedAt is set — subsequent edits fork a new draft (see saveSchema).
@@ -315,9 +217,6 @@ export class FormService {
         data: {
           publishedAt: new Date(),
           contentHash: hash,
-          ...(hasScoringRules
-            ? { scoringRules: scoringRules as unknown as Prisma.InputJsonValue }
-            : {}),
         },
       });
 
@@ -342,7 +241,6 @@ export class FormService {
       details: {
         formId: form.id,
         version: published.version,
-        engine: published.engine,
         contentHash: hash,
       },
     });
@@ -481,17 +379,18 @@ export class FormService {
       });
 
       const sourceVersion = source.currentVersion ?? source.versions?.[0];
-      const schema = (sourceVersion?.schema ?? {}) as Prisma.InputJsonValue;
-      const scoringRules = sourceVersion?.scoringRules
-        ? (sourceVersion.scoringRules as Prisma.InputJsonValue)
-        : undefined;
+      const copy = (v: unknown) =>
+        v === null || v === undefined ? undefined : (v as Prisma.InputJsonValue);
 
       await tx.formVersion.create({
         data: {
           formId: form.id,
           version: 1,
-          schema,
-          ...(scoringRules !== undefined ? { scoringRules } : {}),
+          dataSchema: copy(sourceVersion?.dataSchema),
+          uiSchema: copy(sourceVersion?.uiSchema),
+          printSchema: copy(sourceVersion?.printSchema),
+          translations: copy(sourceVersion?.translations),
+          scoringRules: copy(sourceVersion?.scoringRules),
         },
       });
 
@@ -506,7 +405,7 @@ export class FormService {
    * separated dataSchema / uiSchema / printSchema / translations (the exact
    * shape the @openmedform renderers accept as their `definition` prop), so an
    * external app can render the form and collect responses without this backend.
-   * For formio it carries the coupled schema + scoringRules. Exports the
+   * Exports the
    * published version if present, otherwise the latest draft (so designers can
    * download work in progress).
    */
@@ -678,7 +577,7 @@ export class FormService {
     const base = {
       openmedform: '1.0',
       exportedAt: new Date().toISOString(),
-      engine: version.engine === 'JSONFORMS' ? 'jsonforms' : 'formio',
+      engine: 'jsonforms',
       formCode: form.slug,
       name: form.name,
       description: form.description ?? undefined,
@@ -689,7 +588,7 @@ export class FormService {
       status: form.status,
     };
 
-    if (version.engine === 'JSONFORMS') {
+    {
       const translations = version.translations as
         | { defaultLanguage?: string }
         | null;
@@ -715,43 +614,6 @@ export class FormService {
       };
     }
 
-    // formio engine
-    return {
-      ...base,
-      schema: (version.schema ?? { display: 'form', components: [] }) as Record<
-        string,
-        unknown
-      >,
-      scoringRules: (version.scoringRules as Record<string, unknown> | null) ?? {},
-      assets,
-      patientContextFields:
-        form.formType === 'PATIENT'
-          ? ['patientName', 'patientMrn', 'age', 'gender', 'encounterId']
-          : [],
-    };
-  }
-
-  /**
-   * Return the stored Form.io definition without the OpenMedForm template
-   * envelope. This is the portable shape expected by Form.io consumers:
-   * `{ display, components }` (plus any other native Form.io properties).
-   */
-  async exportNativeFormioSchema(tenantId: string, id: string) {
-    const form = await this.findOne(tenantId, id);
-    const version = form.currentVersion ?? form.versions?.[0];
-    if (!version) {
-      throw new BadRequestException('Form has no version to export');
-    }
-    if (version.engine === 'JSONFORMS') {
-      throw new BadRequestException(
-        'Native Form.io export is only available for Form.io forms',
-      );
-    }
-
-    return (version.schema ?? {
-      display: 'form',
-      components: [],
-    }) as Record<string, unknown>;
   }
 
   async importTemplate(tenantId: string, userId: string, template: Record<string, unknown>) {
@@ -766,50 +628,34 @@ export class FormService {
       throw new BadRequestException('Invalid template: missing form name');
     }
 
-    // engine defaults to formio for legacy templates that predate the field.
-    const engine: 'FORMIO' | 'JSONFORMS' =
-      String(template.engine ?? 'formio').toUpperCase() === 'JSONFORMS'
-        ? 'JSONFORMS'
-        : 'FORMIO';
-
     const json = (v: unknown) => v as unknown as Prisma.InputJsonValue;
 
-    // Build the engine-specific version payload, validating required artifacts.
-    let versionData: Prisma.FormVersionUncheckedCreateWithoutFormInput;
-    if (engine === 'JSONFORMS') {
-      const dataSchema = template.dataSchema as Record<string, unknown> | undefined;
-      const uiSchema = template.uiSchema as Record<string, unknown> | undefined;
-      if (!dataSchema || !uiSchema) {
-        throw new BadRequestException(
-          'Invalid jsonforms template: missing dataSchema or uiSchema',
-        );
-      }
-      versionData = {
-        version: 1,
-        engine: 'JSONFORMS',
-        dataSchema: json(dataSchema),
-        uiSchema: json(uiSchema),
-        ...(template.printSchema ? { printSchema: json(template.printSchema) } : {}),
-        ...(template.translations ? { translations: json(template.translations) } : {}),
-        ...(template.conversionMetadata
-          ? { conversionMetadata: json(template.conversionMetadata) }
-          : {}),
-      };
-    } else {
-      const schema = template.schema as Record<string, unknown> | undefined;
-      if (!schema) {
-        throw new BadRequestException('Invalid formio template: missing schema');
-      }
-      const scoringRules = template.scoringRules as Record<string, unknown> | undefined;
-      versionData = {
-        version: 1,
-        engine: 'FORMIO',
-        schema: json(schema),
-        ...(scoringRules && Object.keys(scoringRules).length > 0
-          ? { scoringRules: json(scoringRules) }
-          : {}),
-      };
+    // Form.io templates (engine "formio", carrying a coupled `schema`) are
+    // rejected rather than silently half-imported — there is no engine left to
+    // render them. Templates predating the engine field are Form.io by origin.
+    const engine = String(template.engine ?? 'formio').toUpperCase();
+    if (engine !== 'JSONFORMS') {
+      throw new BadRequestException(
+        'This template targets the Form.io engine, which is no longer supported. Re-create the form by converting its source document.',
+      );
     }
+
+    const dataSchema = template.dataSchema as Record<string, unknown> | undefined;
+    const uiSchema = template.uiSchema as Record<string, unknown> | undefined;
+    if (!dataSchema || !uiSchema) {
+      throw new BadRequestException('Invalid template: missing dataSchema or uiSchema');
+    }
+
+    const versionData: Prisma.FormVersionUncheckedCreateWithoutFormInput = {
+      version: 1,
+      dataSchema: json(dataSchema),
+      uiSchema: json(uiSchema),
+      ...(template.printSchema ? { printSchema: json(template.printSchema) } : {}),
+      ...(template.translations ? { translations: json(template.translations) } : {}),
+      ...(template.conversionMetadata
+        ? { conversionMetadata: json(template.conversionMetadata) }
+        : {}),
+    };
 
     const baseSlug = this.toSlug(baseName);
     const existing = await this.prisma.form.findFirst({

@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,16 +18,6 @@ const nextConfig = {
     '@openmedform/form-print-engine',
     '@openmedform/form-schema-types',
   ],
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@openmedform/formio-core': path.resolve(
-        __dirname,
-        'node_modules/@openmedform/formio-core/lib/cjs/index.js',
-      ),
-    };
-    return config;
-  },
 };
 
 export default nextConfig;

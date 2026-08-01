@@ -1,7 +1,14 @@
 # ADR-003: Dual-Engine Form Platform with JSON Forms (Data/UI/Print separation)
 
 ## Status
-Accepted
+**Superseded by [ADR-004](004-remove-formio-engine.md)** (2026-08-01). The
+dual-engine decision recorded here held while JSON Forms was unproven; the
+Form.io engine has since been removed and JSON Forms is the only engine. The
+JSON Forms architecture described below (separated Data/UI/Print schemas, the
+`omf` vocabulary, the shared form-core, cross-framework parity) all still
+stands — only the "keep both engines" part is reversed.
+
+Originally: Accepted (2026-07-24).
 
 ## Context
 The original engine (ADR-001) is a forked Form.io whose schema couples data,

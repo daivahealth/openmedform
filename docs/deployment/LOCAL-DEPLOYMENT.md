@@ -178,28 +178,7 @@ This installs all dependencies across the monorepo (workspaces in `apps/*` and `
 
 ---
 
-## Build Vendored Packages
-
-Some packages in the monorepo are vendored forks that need manual compilation before they can be imported.
-
-### Build `@openmedform/formio-core`
-
-```bash
-cd packages/formio-core
-npx tsc --project tsconfig.cjs.json
-cd ../..
-```
-
-This compiles the forked formio.js from source (`src/*.js`) to `lib/cjs/`. Without this step, imports from `@openmedform/formio-core` will fail at runtime.
-
-> 🔧 If you also use the renderer package in development, rebuild it as well:
-> ```bash
-> cd packages/renderer && npx tsup && cd ../..
-> ```
-
----
-
-## Database Setup
+## Database
 
 ### Run Migrations
 
@@ -406,22 +385,6 @@ docker compose -f docker-compose.dev.yml exec -T postgres \
 Then reconfigure providers via the Settings UI.
 
 ### Package Resolution Errors
-
-**Error:** `Cannot find module '@openmedform/formio-core'`
-
-The vendored package needs to be built first:
-
-```bash
-cd packages/formio-core && npx tsc --project tsconfig.cjs.json && cd ../..
-```
-
-**Error:** `Module not found: Can't resolve '...'`
-
-Ensure all dependencies are installed:
-
-```bash
-pnpm install
-```
 
 ### NestJS Build / TypeScript Errors
 

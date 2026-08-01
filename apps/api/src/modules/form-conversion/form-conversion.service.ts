@@ -1,8 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, type FormEngine } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
-import { AiBuilderService } from '../ai-builder/ai-builder.service';
 import { AiUsageService } from '../ai-builder/ai-usage.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
@@ -43,20 +42,19 @@ export interface ConversionInput {
   fileBuffer: Buffer;
   fileName: string;
   mimeType: string;
-  engineTarget: FormEngine;
   providerName?: string;
   instructions?: string;
 }
 
 /**
- * AI PDF/image → form conversion pipeline (Phase 6), engine-targeted.
+ * AI PDF/image/HTML → JSON Forms conversion pipeline.
  *
  * A ConversionJob row tracks each run (PENDING → RUNNING → REVIEW | FAILED) so
  * status can be polled; the actual conversion runs in the background (a
  * lightweight fire-and-forget — no external queue). The author chooses the
- * target engine: FORMIO reuses the existing AiBuilderService; JSONFORMS emits
- * the separated Data/UI/Print schemas + translations with per-field confidence
- * and warnings, which are persisted so uncertain elements are never lost.
+ * Conversion emits the separated Data/UI/Print schemas + translations with
+ * per-field confidence and warnings, which are persisted so uncertain elements
+ * are never lost.
  */
 @Injectable()
 export class FormConversionService {
@@ -65,7 +63,6 @@ export class FormConversionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly aiBuilder: AiBuilderService,
     private readonly providerRegistry: ProviderRegistry,
     private readonly aiUsage: AiUsageService,
     private readonly assembler: JsonFormsAssemblerService,
@@ -82,7 +79,6 @@ export class FormConversionService {
       data: {
         tenantId,
         status: 'PENDING',
-        engineTarget: input.engineTarget,
         provider: input.providerName ?? null,
         sourceFileName: input.fileName,
         createdById: userId,
@@ -155,10 +151,12 @@ export class FormConversionService {
     });
 
     try {
-      const { formId, pageCount, warningCount } =
-        input.engineTarget === 'JSONFORMS'
-          ? await this.convertToJsonForms(tenantId, userId, jobId, input)
-          : await this.convertToFormio(tenantId, userId, input);
+      const { formId, pageCount, warningCount } = await this.convertToJsonForms(
+        tenantId,
+        userId,
+        jobId,
+        input,
+      );
 
       await this.prisma.conversionJob.update({
         where: { id: jobId },
@@ -177,7 +175,7 @@ export class FormConversionService {
         action: 'ai.convert',
         resourceType: 'conversion_job',
         resourceId: jobId,
-        details: { engine: input.engineTarget, formId, warnings: warningCount },
+        details: { formId, warnings: warningCount },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -193,39 +191,9 @@ export class FormConversionService {
         action: 'ai.convert.failed',
         resourceType: 'conversion_job',
         resourceId: jobId,
-        details: { engine: input.engineTarget, error: message },
+        details: { error: message },
       });
     }
-  }
-
-  private async convertToFormio(
-    tenantId: string,
-    userId: string,
-    input: ConversionInput,
-  ): Promise<{ formId: string; pageCount?: number; warningCount: number }> {
-    const result =
-      input.mimeType === 'application/pdf'
-        ? await this.aiBuilder.generateFromPdf(
-            tenantId,
-            input.fileBuffer,
-            input.providerName,
-            input.instructions,
-            userId,
-          )
-        : await this.aiBuilder.generateFromImage(
-            tenantId,
-            input.fileBuffer,
-            input.mimeType,
-            input.providerName,
-            input.instructions,
-            userId,
-          );
-
-    const form = await this.createDraftForm(tenantId, userId, input.fileName, {
-      engine: 'FORMIO',
-      schema: result.schema as unknown as Prisma.InputJsonValue,
-    });
-    return { formId: form.id, warningCount: 0 };
   }
 
   private async convertToJsonForms(
@@ -378,7 +346,6 @@ export class FormConversionService {
     const assembled = this.assembler.assemble(rawOutput);
 
     const form = await this.createDraftForm(tenantId, userId, input.fileName, {
-      engine: 'JSONFORMS',
       dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
       uiSchema: assembled.uiSchema as unknown as Prisma.InputJsonValue,
       printSchema: assembled.printSchema as unknown as Prisma.InputJsonValue,
@@ -417,7 +384,65 @@ export class FormConversionService {
     return { formId: form.id, pageCount, warningCount: warnings.length };
   }
 
-  /** Create a REVIEW-status draft form + its v1 version for the chosen engine. */
+  /** Create a REVIEW-status draft form + its v1 version. */
+  /**
+   * Create a form from a natural-language description, with no source document
+   * ("build a pre-anaesthesia checkup form").
+   *
+   * Shares the conversion system prompt and assembler with the file path, so a
+   * described form and a converted one land in exactly the same shape. Runs
+   * synchronously rather than as a conversion_job: there is no upload to poll
+   * behind, and the caller shows the draft immediately.
+   */
+  async createFromPrompt(
+    tenantId: string,
+    userId: string,
+    input: { name: string; prompt: string; category?: string; providerName?: string },
+  ) {
+    const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
+    const baseProvider = this.providerRegistry.getProvider(providerSet, input.providerName);
+    if (!baseProvider) {
+      throw new Error('No AI providers are configured');
+    }
+
+    const usageRowIds: bigint[] = [];
+    const provider = this.aiUsage.meter(baseProvider, {
+      tenantId,
+      userId,
+      operation: 'generate.jsonforms',
+      collectRowIds: usageRowIds,
+    });
+
+    let userPrompt =
+      'Build a clinical form from this description. There is no source document, so ' +
+      'derive the sections, fields and validation from the description alone and keep ' +
+      'the layout conventional for the described form.\n\n' +
+      `Form name: ${input.name}\n`;
+    if (input.category) userPrompt += `Category: ${input.category}\n`;
+    userPrompt += `\nDescription:\n${input.prompt}`;
+
+    const rawOutput = await provider.generate(userPrompt, getPdfToJsonFormsPrompt(), {
+      temperature: 0.2,
+      maxTokens: CONVERSION_MAX_TOKENS,
+      jsonMode: true,
+    });
+
+    assertConversionOutputComplete(rawOutput);
+    const assembled = this.assembler.assemble(rawOutput);
+
+    const form = await this.createDraftForm(tenantId, userId, input.name, {
+      dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
+      uiSchema: assembled.uiSchema as unknown as Prisma.InputJsonValue,
+      printSchema: assembled.printSchema as unknown as Prisma.InputJsonValue,
+      translations: assembled.translations as unknown as Prisma.InputJsonValue,
+      conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
+      scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
+    });
+
+    await this.aiUsage.attachFormId(usageRowIds, form.id);
+    return { form, warnings: assembled.warnings };
+  }
+
   private async createDraftForm(
     tenantId: string,
     userId: string,

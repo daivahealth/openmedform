@@ -63,20 +63,18 @@ Multi-tenant isolation root.
 Immutable once published (enforced: on publish a SHA-256 `content_hash` of the
 canonical payload is stored; edits after publish fork a new draft, and
 `GET /forms/:id/versions/:versionId/integrity` recomputes the hash to detect
-tampering). Each edit creates a new version. Dual-engine — see [ADR-003](../ADR/003-dual-engine-json-forms.md).
+tampering). Each edit creates a new version. JSON Forms only — see [ADR-004](../ADR/004-remove-formio-engine.md).
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | UUID PK | |
 | form_id | UUID FK | → form |
 | version | INT | Auto-increment per form |
-| engine | ENUM | FORMIO \| JSONFORMS (default FORMIO) |
-| schema | JSONB | formio engine: full formio.js JSON schema (nullable) |
-| data_schema | JSONB | jsonforms engine: JSON Schema 2020-12 (nullable) |
-| ui_schema | JSONB | jsonforms engine: UI/layout schema (nullable) |
-| print_schema | JSONB | jsonforms engine: A4 print schema (nullable) |
-| translations | JSONB | jsonforms engine: translation bundle (nullable) |
-| scoring_rules | JSONB | Extracted scoring config (formio) |
+| data_schema | JSONB | JSON Schema 2020-12 (nullable) |
+| ui_schema | JSONB | UI/layout schema (nullable) |
+| print_schema | JSONB | A4 print schema (nullable) |
+| translations | JSONB | Translation bundle (nullable) |
+| scoring_rules | JSONB | Scoring config used by the server-side engine |
 | metadata | JSONB | Display settings, theme overrides |
 | conversion_metadata | JSONB | Per-field confidence/warnings from AI conversion |
 | content_hash | VARCHAR(64) | SHA-256 of canonical published payload (immutability) |
@@ -123,7 +121,7 @@ Async PDF→form conversion tracking (consumed in Phase 6). Persisted warnings
 ensure uncertain elements are never silently dropped.
 
 `conversion_job`: id, tenant_id, form_id?, status ENUM (PENDING, RUNNING, REVIEW,
-COMPLETED, FAILED), engine_target ENUM (FORMIO \| JSONFORMS), provider, model,
+COMPLETED, FAILED), provider, model,
 source_file_name, page_count, similarity_score, error, created_by_id, created_at,
 completed_at. `conversion_warning`: id, conversion_job_id FK, type, message,
 binding?, source_page?, confidence?, created_at.

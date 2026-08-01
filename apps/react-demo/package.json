@@ -2,7 +2,7 @@
   "name": "@openmedform/react-demo",
   "version": "0.1.0",
   "private": true,
-  "description": "Thin React demo proving the same FormDefinition renders through the dual-engine dispatcher (one jsonforms form + one formio form).",
+  "description": "Thin React demo rendering OpenMedForm JSON Forms definitions through the shared React renderer.",
   "type": "module",
   "scripts": {
     "dev": "vite",

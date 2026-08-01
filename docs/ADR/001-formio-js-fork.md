@@ -1,7 +1,11 @@
 # ADR-001: Fork formio.js for Form Engine
 
 ## Status
-Accepted
+**Superseded by [ADR-004](004-remove-formio-engine.md)** (2026-08-01). The
+Form.io fork has been removed; JSON Forms is the only engine. Retained for
+decision history — the reasoning below explains why the fork existed.
+
+Originally: Accepted
 
 ## Context
 We need a form builder that supports complex clinical assessment forms with scoring matrices, color-coded grids, conditional logic, calculated totals, and reference tables. Survey tools (Formbricks, Heyform) cannot handle these layouts. The Form.io server uses MongoDB and OSL-3.0 license.

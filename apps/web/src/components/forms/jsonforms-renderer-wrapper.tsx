@@ -3,7 +3,7 @@
 import { JsonFormsRenderer } from '@openmedform/react-form-renderer';
 import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 
-/** A form version as returned by the API (jsonforms engine). */
+/** A form version as returned by the API. */
 export interface ApiVersion {
   version?: number;
   engine?: string;
@@ -58,7 +58,6 @@ export function toJsonFormsDefinition(
     language:
       (v?.translations as { defaultLanguage?: string } | undefined)?.defaultLanguage ?? 'en',
     status: (form.status ?? 'DRAFT') as JsonFormsFormDefinition['status'],
-    engine: 'jsonforms',
     dataSchema: (v?.dataSchema ?? {}) as JsonFormsFormDefinition['dataSchema'],
     uiSchema: (v?.uiSchema ?? FALLBACK_UI) as JsonFormsFormDefinition['uiSchema'],
     printSchema: (v?.printSchema ?? FALLBACK_PRINT) as JsonFormsFormDefinition['printSchema'],
@@ -70,9 +69,8 @@ export function toJsonFormsDefinition(
 }
 
 /**
- * Renders a jsonforms-engine form from the API shape by assembling a
- * FormDefinition and delegating to the shared React renderer. The Form.io
- * engine keeps using FormRendererWrapper; DualFormRenderer picks between them.
+ * Renders a form from the API shape by assembling a FormDefinition and
+ * delegating to the shared React renderer.
  */
 export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChange }: Props) {
   const definition = toJsonFormsDefinition(form, version);

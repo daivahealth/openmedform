@@ -15,7 +15,7 @@ This file is intentionally policy-heavy. It defines how agents should work, whic
 OpenMedForm is an **AI-powered clinical form builder platform**. It enables healthcare organizations to create, manage, and deploy complex clinical assessment forms (e.g., VTE risk assessments, falls risk evaluations, consent forms) with scoring logic, conditional sections, and reference tables.
 
 **It IS:**
-- A drag-and-drop form builder for complex clinical forms (based on a forked formio.js)
+- An AI-first form authoring surface (convert a document or describe the form, then refine by prompt — there is no drag-and-drop builder)
 - An AI-powered form generation engine (multi-provider LLM: Claude, OpenAI, Minimax, Kimi, Ollama)
 - A form rendering and submission management platform
 - A versioned form schema store with immutable published versions
@@ -88,11 +88,12 @@ When a change is made, update the correct documentation family.
 ```text
 openmedform/
 ├── packages/
-│   ├── formio-core/            # Forked formio.js → @openmedform/formio-core
-│   │   └── src/
-│   │       └── components/
-│   │           └── clinical/   # Custom clinical components (ScoringMatrix, etc.)
-│   ├── formio-react/           # Forked @formio/react → @openmedform/formio-react
+│   ├── form-schema-types/      # Data / UI / Print contracts + the `omf` vocabulary
+│   ├── form-core/              # Framework-independent engine (Ajv, scoring, binding)
+│   ├── form-design-tokens/     # Shared --omf-* CSS variables (React/Angular parity)
+│   ├── react-form-renderer/    # React renderer + clinical controls
+│   ├── angular-form-renderer/  # Angular renderer + the same controls
+│   ├── form-print-engine/      # UI/Print schema → A4 HTML/CSS → PDF
 │   └── shared/                 # Shared types, constants, scoring engine types
 ├── apps/
 │   ├── api/                    # NestJS 10 backend
@@ -179,11 +180,11 @@ openmedform/
 
 ## Form Engine Rules
 
-- Form schemas are stored as JSON in `form_version.schema`. This is the single source of truth.
+- A form version stores separated `data_schema` / `ui_schema` / `print_schema` (+ `translations`). Together these are the single source of truth. JSON Forms is the only engine — see docs/ADR/004-remove-formio-engine.md.
 - Published form versions are immutable. Editing after publish creates a new draft version.
 - Every submission must reference the exact `form_version_id` it was filled against.
 - Scoring is recalculated server-side on submission completion — never trust client-calculated scores.
-- Custom clinical components must extend formio.js base classes and register via `Formio.registerComponent()`.
+- Custom clinical controls are selected by `options.omf.control` and must be implemented in BOTH renderers (React and Angular) with shared logic in `form-core`, so the same definition renders equivalently in the web app and in an EMR.
 
 ## Technology Stack
 
@@ -193,8 +194,8 @@ openmedform/
 | ORM | Prisma | ^6 |
 | Database | PostgreSQL | 16 |
 | Frontend | Next.js (App Router) | 14 |
-| Form Engine | formio.js (forked) | ^5 |
-| Form React | @formio/react (forked) | ^6 |
+| Form Engine | JSON Forms (@jsonforms/core) | ^3.8 |
+| Renderers | @jsonforms/react + @jsonforms/angular | ^3.8 |
 | UI | Radix UI + Tailwind CSS | Latest |
 | State | Zustand + React Query v5 | Latest |
 | Monorepo | Turborepo + pnpm | Latest |
