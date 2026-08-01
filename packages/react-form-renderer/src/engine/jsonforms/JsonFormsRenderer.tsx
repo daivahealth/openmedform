@@ -47,6 +47,9 @@ const SCOPED_CSS = `
    the scroll wrappers so wide tables stay contained wherever we are embedded. */
 .omf-jsonforms-scope { min-width: 0; max-width: 100%; }
 .omf-jsonforms-scope .omf-scroll-x { min-width: 0; max-width: 100%; }
+/* A record's detail panel sits inside a table cell; drop the trailing gap so the
+   last field does not float above the cell border. */
+.omf-jsonforms-scope .omf-record-detail > * > .omf-field:last-child { margin-bottom: 0; }
 `;
 
 export function JsonFormsRenderer({

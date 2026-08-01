@@ -44,6 +44,8 @@ import {
   riskStratificationTester,
 } from './renderers/clinical-controls';
 import { ScoreSummaryControl, scoreSummaryTester } from './renderers/score-controls';
+import { RecordTableControl, recordTableTester } from './renderers/record-table';
+import { OmfTabsLayoutControl, omfTabsTester } from './renderers/tabs-layout';
 
 /** omf-aware standard controls (textarea, radio). */
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
@@ -56,6 +58,11 @@ export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfLabelTester, renderer: OmfLabelControl },
   { tester: omfHorizontalTester, renderer: OmfHorizontalLayoutControl },
   { tester: omfTableTester, renderer: OmfTableLayoutControl },
+  { tester: omfTabsTester, renderer: OmfTabsLayoutControl },
+  // Repeating encounter log (add/remove records with an expandable detail
+  // panel). Beats the vanilla array renderer, whose generic list widget looks
+  // nothing like the source table.
+  { tester: recordTableTester, renderer: RecordTableControl },
 ];
 
 /** The six clinical custom controls. */

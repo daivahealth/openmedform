@@ -110,7 +110,60 @@ export interface OmfOptions {
     width?: string;
     align?: 'left' | 'center' | 'right';
   }>;
+  /**
+   * Configuration for a `recordTable` control — an array of objects the user can
+   * add to and remove from, shown as a log: a toolbar with a live count and an
+   * add button, one summary row per record, and an expandable inline detail
+   * panel for the selected row.
+   *
+   * This reproduces the very common clinical pattern of a repeating encounter
+   * log (treatment days, medication rounds, observation entries) where the table
+   * is only a summary and the real form lives behind each row. The per-record UI
+   * schema is the standard JSON Forms `options.detail`; typically an
+   * `OmfTabsLayout` so the detail is tabbed rather than one long scroll.
+   */
+  recordTable?: OmfRecordTableOptions;
   [key: string]: unknown;
+}
+
+/** Summary column of a `recordTable`, read from each record's own data. */
+export interface OmfRecordTableColumn {
+  /** Header text, e.g. 'Cycle / Day#'. */
+  label: string;
+  /**
+   * Dot path to the value INSIDE one record, e.g. 'date' or 'timelog.cycle'.
+   * Omit for a purely derived column (see `countOf` / `pairWith`).
+   */
+  path?: string;
+  /**
+   * Render `<count>` of a nested array on the record instead of a value, e.g.
+   * 'adverseEvents' → the number of adverse events logged for that day.
+   */
+  countOf?: string;
+  /**
+   * Render two values in one cell as `a / b` — how paper forms print combined
+   * columns like 'Start / Finish' or 'Cycle / Day#'. Paired with `path`.
+   */
+  pairWith?: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface OmfRecordTableOptions {
+  /** Add-button label, e.g. '+ Add treatment day'. */
+  addLabel?: string;
+  /**
+   * Count line above the table. `{n}` is replaced with the record count, and
+   * `{s}` with '' or 's' for naive pluralisation — e.g.
+   * '{n} treatment day{s} logged this month'.
+   */
+  countLabel?: string;
+  /** Shown in place of rows when the array is empty. */
+  emptyLabel?: string;
+  /** Confirmation prompt before removing a record. */
+  removeConfirm?: string;
+  /** Summary columns, in display order. */
+  columns?: OmfRecordTableColumn[];
 }
 
 export interface UiOptions {
@@ -141,6 +194,14 @@ export type OmfLayoutType =
   | 'OmfGridLayout'
   | 'OmfTableLayout'
   | 'OmfTableRow'
+  /**
+   * A tab strip over its child elements: each child is one tab page, titled by
+   * that child's `label`. Used as the `options.detail` of a `recordTable` so a
+   * ~100-field record reads as tabs instead of one long scroll, matching source
+   * forms that group a record's detail behind a tab bar. Falls back to stacked
+   * sections when printed.
+   */
+  | 'OmfTabsLayout'
   | 'OmfPatientHeader'
   | 'OmfCheckboxGroup'
   | 'OmfSignatureBlock'
