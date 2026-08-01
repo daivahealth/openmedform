@@ -6,17 +6,19 @@ import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
 import { chemoLogSample } from './chemo-log-sample';
 import { vipCannulaSample } from './vip-cannula-sample';
+import { bloodSugarSample } from './blood-sugar-sample';
 
-type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs' | 'review';
 
-const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs', FormDefinition> = {
   jsonforms: rrtSbarReference,
   vte: vteSample,
   table: signoffSample,
   chemo: chemoLogSample,
   vip: vipCannulaSample,
+  bgs: bloodSugarSample,
 };
-const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'bgs', 'review'];
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -102,7 +104,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : key === 'vip' ? 'cannula chart' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : key === 'vip' ? 'cannula chart' : key === 'bgs' ? 'blood sugar' : `${key} engine`}
         </button>
       ))}
     </div>
