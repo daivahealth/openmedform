@@ -8,6 +8,7 @@ import type { ImageContent } from '../ai-builder/providers/llm-provider.interfac
 import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-prompt';
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
 import { extractFormHtml, type HtmlExtractStats } from '../../common/utils/html-extract';
+import { renderHtmlToDom } from '../../common/utils/html-render';
 import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
 
 // Keep typical multi-page clinical forms visually grounded without sending an
@@ -226,9 +227,10 @@ export class FormConversionService {
     const sourceWarnings: string[] = [];
 
     if (input.mimeType === HTML_MIME_TYPE) {
-      // The upload is untrusted and is used as INERT TEXT ONLY: never rendered,
-      // never executed, no network access. See html-extract.ts for the model.
-      const extracted = extractFormHtml(input.fileBuffer.toString('utf8'));
+      const extracted = await this.extractHtmlSource(
+        input.fileBuffer.toString('utf8'),
+        sourceWarnings,
+      );
       assertHtmlWithinBudget(extracted.stats);
       sourceWarnings.push(...extracted.warnings);
 
@@ -441,6 +443,53 @@ export class FormConversionService {
 
     await this.aiUsage.attachFormId(usageRowIds, form.id);
     return { form, warnings: assembled.warnings };
+  }
+
+  /**
+   * Read an uploaded mock-up, rendering it first when the markup alone is not
+   * convertible.
+   *
+   * An LLM-generated mock-up routinely builds its whole form at runtime from a
+   * config array, so the static markup holds no fields at all — or holds some,
+   * plus named-but-empty containers a script would have filled. Both are
+   * recovered by executing the page in a locked-down headless browser (see
+   * html-render.ts for the isolation model) and re-reading the resulting DOM.
+   *
+   * The rendered DOM goes back through the SAME extractor, so every rule still
+   * applies: scripts stripped, attribute allow-list enforced, hidden content
+   * removed. Rendering widens what can be read, never what reaches the model.
+   *
+   * Falls back to the static result whenever rendering is unavailable or fails
+   * to improve on it, so a deployment without Chromium behaves exactly as before.
+   */
+  private async extractHtmlSource(
+    html: string,
+    warnings: string[],
+  ): Promise<ReturnType<typeof extractFormHtml>> {
+    const staticResult = extractFormHtml(html);
+
+    const needsRender =
+      staticResult.stats.scripts > 0 &&
+      (staticResult.stats.fields === 0 || staticResult.scriptFilledPlaceholders.length > 0);
+    if (!needsRender) return staticResult;
+
+    const renderedHtml = await renderHtmlToDom(html);
+    if (!renderedHtml) return staticResult;
+
+    const renderedResult = extractFormHtml(renderedHtml);
+    // Only prefer the render if it actually recovered something. A mock-up whose
+    // script does nothing useful should not lose its static content to a render
+    // that happened to trip over an error partway through.
+    if (renderedResult.stats.fields <= staticResult.stats.fields) return staticResult;
+
+    const gained = renderedResult.stats.fields - staticResult.stats.fields;
+    warnings.push(
+      `This mock-up builds part of its form with JavaScript. It was rendered in a sandboxed browser to recover ${gained} additional field(s); the rendered markup was then sanitised exactly like a static upload.`,
+    );
+    this.logger.log(
+      `Rendered a script-built mock-up: fields ${staticResult.stats.fields} -> ${renderedResult.stats.fields}`,
+    );
+    return renderedResult;
   }
 
   private async createDraftForm(

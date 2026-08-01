@@ -21,7 +21,23 @@ RUN npx nest build
 FROM node:20-alpine AS runtime
 # poppler-utils provides pdftoppm, used to render PDF pages to images for the
 # vision-based AI conversion pipeline (falls back to text extraction if absent).
-RUN apk add --no-cache poppler-utils
+#
+# chromium renders HTML mock-ups that build their form at runtime, so the
+# generated fields can be read (see common/utils/html-render.ts). Playwright's
+# bundled build does not support Alpine, so the distro package is used and
+# playwright-core is pointed at it via CHROMIUM_PATH. Set HTML_RENDER_DISABLED=1
+# to turn the feature off; conversion then falls back to the static markup.
+RUN apk add --no-cache \
+      poppler-utils \
+      chromium \
+      nss \
+      freetype \
+      harfbuzz \
+      ca-certificates \
+      ttf-freefont
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+# playwright-core must not try to download its own browser at install time.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 
 # pnpm layout: apps/api/node_modules holds relative symlinks into the root
