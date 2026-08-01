@@ -2,12 +2,17 @@
 
 ## Status
 
-Accepted (2026-08-01). **Supersedes [ADR-001](001-formio-js-fork.md)** (fork
-formio.js) and **[ADR-003](003-dual-engine-json-forms.md)** (keep both engines).
+Accepted (2026-08-01).
+
+Retained because it answers "why is there no drag-and-drop builder, and what
+happened to these endpoints?" The ADRs it reversed — the Form.io fork and the
+dual-engine decision — have been deleted rather than kept as superseded records,
+so a newcomer is not led through architecture that no longer exists.
+[ADR-003](003-json-forms-platform.md) now describes the platform as it stands.
 
 ## Context
 
-ADR-003 locked in a *dual-engine* platform: the forked Form.io engine preserved
+The platform was originally *dual-engine*: the forked Form.io engine preserved
 alongside a new JSON Forms engine, selected per form by an `engine`
 discriminator. That was the right call while JSON Forms was unproven — it let
 the new path be built without putting existing forms at risk.
@@ -18,7 +23,7 @@ It is no longer the right call:
   `JSONFORMS`, and the clinical control set (scored checklists, checklist
   matrices, column tables, record tables, tabbed record detail, score summaries
   with risk bands) is only implemented there.
-- **The dual-engine tax was real, and ADR-003 predicted it.** Every clinical
+- **The dual-engine tax was real, and was predicted at the time.** Every clinical
   control, print path, scoring extraction and test potentially existed for
   2 engines × 2 frameworks. Form.io × Angular was never viable at all, which is
   why the EMR integration has always been JSON Forms.

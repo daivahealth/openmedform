@@ -23,7 +23,8 @@ interface RefinementImage {
  * Data/UI/Print schemas with natural language (no drag-and-drop). Reuses the
  * provider abstraction and the conversion assembler (so the refined Data Schema
  * is Ajv-compile-checked). Edits to an unpublished draft update it in place;
- * refining a published version forks a new draft (immutability, see ADR-003).
+ * refining a published version forks a new draft (immutability — see
+ * docs/architecture/DATA-MODEL.md).
  */
 @Injectable()
 export class DesignerService {
