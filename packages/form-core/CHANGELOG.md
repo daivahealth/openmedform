@@ -1,5 +1,47 @@
 # @openmedform/form-core
 
+## 1.1.0
+
+### Minor Changes
+
+- a2127c1: Make `recordTable` rows editable in place.
+
+  A summary column naming one concrete field now renders that field's real control
+  in the cell — date picker, select, number — so a row is filled in exactly as on
+  the grid it was converted from. Previously every cell was read-only text and the
+  only way to edit was the detail panel, which made a wide observation chart
+  effectively unusable.
+
+  - Derived columns stay read-only: `countOf` and `pairWith` have no single value
+    to write back.
+  - The actions column is **pinned to the right edge**. On a ten-column chart it
+    used to scroll out of view, leaving a row with no way to be deleted.
+  - `Open` is hidden when every field is already a column, since the panel it
+    opens would be empty. Records with more fields keep it.
+  - `isColumnEditable()` and `fieldsOutsideColumns()` added to form-core, shared
+    by both renderers so a row behaves identically in the web app and an EMR.
+
+- f57194d: Support matrix-shaped record tables and never fall back to the stock array widget.
+
+  - `omf.recordTable.orientation: "columns"` renders records as columns with field
+    labels down the left, mirroring paper charts that compare instances side by
+    side (a cannula chart, an observation matrix). `instanceLabel` supplies the
+    column noun — `"Cannula"` heads them "Cannula 1", "Cannula 2". Both
+    orientations store identical data; the default stays `rows`.
+  - Any array-of-objects control **without** `omf.recordTable` config now renders
+    as a record table with columns derived from the item schema, instead of
+    falling through to `@jsonforms/vanilla-renderers`' generic list. The
+    "Add to … / Items / Valid / No data" widget is unreachable in both renderers.
+  - `deriveRecordColumns()` added to form-core, shared by both renderers so a
+    derived table is identical in the web app and in an EMR.
+  - `omf.columns` entries accept an optional `key`, which `checklistMatrix` needs
+    and the type had never modelled.
+
+### Patch Changes
+
+- Updated dependencies [f57194d]
+  - @openmedform/form-schema-types@1.1.0
+
 ## 1.0.0
 
 ### Major Changes
