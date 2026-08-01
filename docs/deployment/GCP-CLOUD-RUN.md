@@ -8,7 +8,7 @@ Production deployment: **API + Web on Cloud Run**, **Supabase Postgres**,
 | Component | Platform | Notes |
 |-----------|----------|-------|
 | Database | Supabase Postgres | Prisma via direct connection `:5432` (API is a persistent server, not serverless) |
-| API | Cloud Run (`openmedform-api`) | Docker — `apps/api/Dockerfile` (includes poppler-utils); handles SSE + long LLM calls |
+| API | Cloud Run (`openmedform-api`) | Docker — `apps/api/Dockerfile` (includes poppler-utils + chromium); handles SSE + long LLM calls |
 | Web | Cloud Run (`openmedform-web`) | Docker — Next.js `output: 'standalone'`, `apps/web/Dockerfile` |
 | Storage | none | Conversion uploads are ephemeral (memory → temp → discarded); form assets live in Postgres (`form_asset.data`) |
 | CI/CD | GitHub Actions | `.github/workflows/deploy.yml`, keyless auth via Workload Identity Federation |
@@ -141,3 +141,15 @@ Setup notes:
   instance, move migrations to a Cloud Run Job or a deploy step.
 - **AI provider costs**: Claude/OpenAI tokens are pay-per-use (keys stored
   per-tenant, encrypted in Postgres via `AI_ENCRYPTION_KEY`).
+- **HTML rendering memory**: converting a mock-up that builds its form in
+  JavaScript launches headless Chromium for up to 10s (see
+  [PDF-TO-FORM](../features/PDF-TO-FORM.md#mock-ups-that-build-their-form-with-javascript)).
+  Give the API instance **at least 1 GiB**; Chromium is short-lived but not
+  free. The image sets `CHROMIUM_PATH=/usr/bin/chromium-browser`. Set
+  `HTML_RENDER_DISABLED=1` to turn the feature off — conversion then falls back
+  to reading the static markup, and a wholly script-built mock-up is rejected
+  with instructions instead of being converted.
+- **Chromium's sandbox needs kernel capabilities.** The renderer deliberately
+  does *not* pass `--no-sandbox`, since the sandbox is the isolation boundary
+  for untrusted uploaded code. Cloud Run's gVisor sandbox supports it; on a
+  hardened runtime that does not, disable rendering rather than weakening it.
