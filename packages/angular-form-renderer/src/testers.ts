@@ -5,7 +5,7 @@
  * UI element to the same conceptual control.
  */
 
-import type { UISchemaElement } from '@jsonforms/core';
+import { rankWith, uiTypeIs, type UISchemaElement } from '@jsonforms/core';
 
 /** Rank for omf/clinical custom controls — must beat the standard controls. */
 export const OMF_CONTROL_RANK = 20;
@@ -25,3 +25,13 @@ export function readOmf(uischema: UISchemaElement | undefined): Record<string, u
 export function omfControlIs(control: string) {
   return (uischema: UISchemaElement): boolean => readOmf(uischema)?.control === control;
 }
+
+/**
+ * Selects the repeating-encounter-log control. Declared here rather than beside
+ * the component so it stays importable without pulling in Angular — the record
+ * table's selection behaviour is worth unit-testing on its own.
+ */
+export const recordTableTester = rankWith(OMF_CONTROL_RANK, omfControlIs('recordTable'));
+
+/** Selects the tab-strip layout used for a record's detail panel. */
+export const omfTabsTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTabsLayout'));

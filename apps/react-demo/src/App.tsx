@@ -4,6 +4,7 @@ import { rrtSbarReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
+import { chemoLogSample } from './chemo-log-sample';
 
 type Mode = 'jsonforms' | 'vte' | 'table' | 'review';
 
@@ -98,7 +99,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : `${key} engine`}
         </button>
       ))}
     </div>

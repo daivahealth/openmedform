@@ -172,6 +172,17 @@ describe('extractFormHtml — complexity measurement', () => {
       expect(warnings).toEqual([]);
     });
 
+    it('does not flag an empty tbody whose thead names the columns', () => {
+      // Recoverable — see the repeating-table tests below. Flagging it would
+      // lose a whole treatment-day log to a warning.
+      const { scriptFilledPlaceholders } = extractFormHtml(
+        `<div class="toolbar"><button>+ Add treatment day</button></div>
+         <table><thead><tr><th>Day</th><th>Date</th></tr></thead><tbody id="cx_tbody"></tbody></table>
+         <script>fill()</script>`,
+      );
+      expect(scriptFilledPlaceholders).toEqual([]);
+    });
+
     it('ignores anonymous and non-empty containers', () => {
       const { scriptFilledPlaceholders } = extractFormHtml(
         `<div></div>
@@ -180,6 +191,82 @@ describe('extractFormHtml — complexity measurement', () => {
          <script>noop()</script>`,
       );
       expect(scriptFilledPlaceholders).toEqual([]);
+    });
+  });
+
+  describe('repeating record tables', () => {
+    const chemo = `
+      <div class="toolbar">
+        <div class="label-tag">0 treatment days logged this month</div>
+        <button>Print form</button>
+        <button>+ Add treatment day</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Day</th><th>Date</th><th>Cycle&nbsp;/&nbsp;Day#</th>
+          <th>Adverse events</th><th>Nurse</th>
+        </tr></thead>
+        <tbody id="cx_tbody"></tbody>
+      </table>
+      <script>cx_render()</script>`;
+
+    it('recovers the columns, add label and count line from the markup', () => {
+      const { repeatingTables } = extractFormHtml(chemo);
+      expect(repeatingTables).toHaveLength(1);
+      expect(repeatingTables[0].columns).toEqual([
+        'Day',
+        'Date',
+        'Cycle / Day#',
+        'Adverse events',
+        'Nurse',
+      ]);
+      expect(repeatingTables[0].addLabel).toBe('+ Add treatment day');
+      expect(repeatingTables[0].countLabel).toBe('0 treatment days logged this month');
+    });
+
+    it('takes the tightest count line, not an ancestor that swallows the toolbar', () => {
+      const { repeatingTables } = extractFormHtml(chemo);
+      expect(repeatingTables[0].countLabel).not.toMatch(/Print form/);
+    });
+
+    it('ignores a table that already has data rows', () => {
+      const { repeatingTables } = extractFormHtml(
+        `<button>+ Add row</button>
+         <table><thead><tr><th>A</th></tr></thead><tbody><tr><td>x</td></tr></tbody></table>`,
+      );
+      expect(repeatingTables).toEqual([]);
+    });
+
+    it('ignores an empty table with no add affordance', () => {
+      // A print-only grid the clinician fills by hand is not an extendable log.
+      const { repeatingTables } = extractFormHtml(
+        '<table><thead><tr><th>Time</th><th>Initials</th></tr></thead><tbody></tbody></table>',
+      );
+      expect(repeatingTables).toEqual([]);
+    });
+
+    it('does not mistake Print/Save/Submit buttons for an add control', () => {
+      const { repeatingTables } = extractFormHtml(
+        `<button>Print form</button><button>Save draft</button><button>Submit</button>
+         <table><thead><tr><th>A</th></tr></thead><tbody></tbody></table>`,
+      );
+      expect(repeatingTables).toEqual([]);
+    });
+
+    it('requires a header row — an empty table with no thead is not recoverable', () => {
+      const { repeatingTables } = extractFormHtml(
+        '<button>+ Add entry</button><table><tbody></tbody></table>',
+      );
+      expect(repeatingTables).toEqual([]);
+    });
+
+    it('accepts "New …" as an add affordance', () => {
+      const { repeatingTables } = extractFormHtml(
+        `<button>New medication</button>
+         <table><thead><tr><th>Drug</th><th>Dose</th></tr></thead><tbody></tbody></table>`,
+      );
+      expect(repeatingTables).toHaveLength(1);
+      expect(repeatingTables[0].addLabel).toBe('New medication');
     });
   });
 });

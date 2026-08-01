@@ -14,6 +14,7 @@
  * - i18n        — translation-bundle resolution
  * - registry    — control-registry contract shared by both renderers
  * - serialization — empty-draft / prune / submit-payload helpers
+ * - record-table  — summary-cell derivation shared by both renderers
  */
 
 export * from './validation/validate-data';
@@ -24,6 +25,7 @@ export * from './i18n/translate';
 export * from './registry/control-registry';
 export * from './serialization/response';
 export * from './scoring/score';
+export * from './record-table/summary';
 
 export { rrtSbarReference } from './fixtures/rrt-sbar.reference';
 export {
