@@ -1,7 +1,7 @@
 /**
  * @openmedform/form-schema-types
  *
- * Framework-independent contract types for the dual-engine form platform.
+ * Framework-independent contract types for the OpenMedForm form platform.
  * No runtime dependencies — types + small narrowing helpers only.
  */
 
