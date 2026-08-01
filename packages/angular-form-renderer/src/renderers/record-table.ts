@@ -23,6 +23,7 @@ import {
 } from '@jsonforms/core';
 import {
   createRecordDefault,
+  deriveRecordColumns,
   recordCellText,
   recordCountText,
   type RecordTableColumn,
@@ -52,6 +53,72 @@ import { OmfLayoutBase } from './layouts';
       </div>
 
       <div class="omf-scroll-x">
+        @if (byColumn) {
+          <!-- Records as COLUMNS: field labels down the left, one column per
+               record — mirrors paper charts that compare instances side by
+               side. Same data as row mode; only the axes swap. -->
+          @if (records.length === 0) {
+            <p class="omf-record-empty">{{ emptyLabel }}</p>
+          } @else {
+            <table class="omf-record-grid">
+              <thead>
+                <tr>
+                  <th class="omf-record-param-col">Parameter</th>
+                  @for (record of records; track $index) {
+                    <th>{{ instanceLabel }} {{ $index + 1 }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (col of columns; track col.label) {
+                  <tr>
+                    <td class="omf-record-param-cell">{{ col.label }}</td>
+                    @for (record of records; track $index) {
+                      <td
+                        [style.text-align]="col.align || 'left'"
+                        [class.omf-record-open]="openIndex === $index"
+                      >
+                        {{ cellText(record, col) }}
+                      </td>
+                    }
+                  </tr>
+                }
+                <tr>
+                  <td class="omf-record-param-cell"></td>
+                  @for (record of records; track $index) {
+                    <td class="omf-record-actions">
+                      <button
+                        type="button"
+                        class="omf-record-toggle"
+                        [attr.aria-expanded]="openIndex === $index"
+                        (click)="toggle($index)"
+                      >
+                        {{ openIndex === $index ? 'Close' : 'Open' }}
+                      </button>
+                      @if (isEnabled()) {
+                        <button
+                          type="button"
+                          class="omf-record-remove"
+                          [attr.aria-label]="'Remove record ' + ($index + 1)"
+                          (click)="removeRecord($index)"
+                        >
+                          ✕
+                        </button>
+                      }
+                    </td>
+                  }
+                </tr>
+                @if (openIndex !== null && openIndex < records.length) {
+                  <tr>
+                    <td class="omf-record-detail" [attr.colspan]="records.length + 1">
+                      <jsonforms-outlet [renderProps]="detailProps(openIndex)"></jsonforms-outlet>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        } @else {
         <table class="omf-record-grid">
           <thead>
             <tr>
@@ -107,6 +174,7 @@ import { OmfLayoutBase } from './layouts';
             }
           </tbody>
         </table>
+        }
       </div>
     </div>
   `,
@@ -123,9 +191,27 @@ export class RecordTableComponent extends JsonFormsArrayControl {
     return (readOmf(this.uischema)?.['recordTable'] ?? {}) as RecordTableConfig;
   }
 
-  get columns(): RecordTableColumn[] {
-    return this.config.columns ?? [];
+  /** Noun heading each record column, e.g. 'Cannula' -> "Cannula 1". */
+  get instanceLabel(): string {
+    return this.config.instanceLabel ?? 'Record';
   }
+
+  /** True when records should run across as columns rather than down as rows. */
+  get byColumn(): boolean {
+    return this.config.orientation === 'columns';
+  }
+
+  get columns(): RecordTableColumn[] {
+    const configured = this.config.columns;
+    if (configured?.length) return configured;
+    // Unconfigured array: derive a usable table rather than falling back to the
+    // stock list widget. Cached because Angular calls getters every CD pass.
+    if (!this.derivedColumns) {
+      this.derivedColumns = deriveRecordColumns(this.itemSchema as never);
+    }
+    return this.derivedColumns;
+  }
+  private derivedColumns?: RecordTableColumn[];
 
   get records(): unknown[] {
     return Array.isArray(this.data) ? (this.data as unknown[]) : [];

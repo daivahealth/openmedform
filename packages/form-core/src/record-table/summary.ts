@@ -26,6 +26,19 @@ export interface RecordTableColumn {
 }
 
 export interface RecordTableConfig {
+  /**
+   * 'rows' (default) puts one record per row; 'columns' puts one record per
+   * COLUMN with field labels down the left, mirroring paper charts that compare
+   * instances side by side. Same data either way — purely a fidelity choice.
+   */
+  orientation?: 'rows' | 'columns';
+  /**
+   * Noun for one record, used to head each column in `orientation: 'columns'`
+   * — 'Cannula' yields "Cannula 1", "Cannula 2". Defaults to 'Record'. Getting
+   * this right is most of the point of column mode: the chart should read like
+   * the paper it replaces.
+   */
+  instanceLabel?: string;
   addLabel?: string;
   countLabel?: string;
   emptyLabel?: string;
@@ -103,4 +116,38 @@ export function createRecordDefault(schema: SeedSchema | undefined): Record<stri
     else if (prop.type === 'array') out[key] = [];
   }
   return out;
+}
+
+/**
+ * Derive summary columns for an array the author never configured.
+ *
+ * A model that emits an array of objects without `omf.recordTable` used to fall
+ * through to the stock JSON Forms list widget — the "Add to X / Items / Valid /
+ * No data" block that looks nothing like a clinical form. Deriving a reasonable
+ * table instead means an unconfigured array degrades to something usable rather
+ * than to something broken.
+ *
+ * Picks the leading scalar properties, which in practice are the identifying
+ * ones (a date, a name, a code) because generators emit them first. Nested
+ * objects and arrays are skipped — they belong in the detail panel, not a cell.
+ */
+export function deriveRecordColumns(
+  itemSchema: SeedSchema | undefined,
+  limit = 4,
+): RecordTableColumn[] {
+  const columns: RecordTableColumn[] = [];
+  for (const [key, raw] of Object.entries(itemSchema?.properties ?? {})) {
+    if (columns.length >= limit) break;
+    const prop = raw as SeedSchema & { title?: string };
+    const type = Array.isArray(prop.type) ? prop.type[0] : prop.type;
+    if (type === 'object' || type === 'array') continue;
+    columns.push({ label: prop.title ?? humanizeKey(key), path: key });
+  }
+  return columns;
+}
+
+/** `insertedBy` -> `Inserted by`, for a property with no title. */
+function humanizeKey(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }

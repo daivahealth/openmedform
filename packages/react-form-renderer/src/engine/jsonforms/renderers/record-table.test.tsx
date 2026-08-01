@@ -182,4 +182,171 @@ describe('recordTable', () => {
     expect(screen.getByText('0 treatment days logged this month')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
+
+  describe('unconfigured arrays (the safety net)', () => {
+    // An array of objects with NO omf config at all — what a model emits when
+    // it half-recognises a repeating group. This used to fall through to the
+    // stock JSON Forms list widget, which is what produced the
+    // "Day & Date / Add to Day & Date / Valid / No data" block on the VIP form.
+    const bare = {
+      ...treatmentLog,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          days: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                dayDate: { type: 'string', title: 'Day & Date' },
+                shift: { type: 'string', title: 'Time (M/E/N)' },
+                nested: { type: 'object', properties: { x: { type: 'string' } } },
+              },
+            },
+          },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [{ type: 'Control', scope: '#/properties/days' }],
+        },
+      },
+    } as unknown as JsonFormsFormDefinition;
+
+    it('never renders the stock list widget', () => {
+      render(<JsonFormsRenderer definition={bare} />);
+      expect(screen.queryByText('No data')).toBeNull();
+      expect(screen.queryByText(/^Add to/)).toBeNull();
+      expect(screen.queryByText('Valid')).toBeNull();
+    });
+
+    it('derives summary columns from the item schema instead', () => {
+      render(<JsonFormsRenderer definition={bare} />);
+      expect(screen.getByText('Day & Date')).toBeTruthy();
+      expect(screen.getByText('Time (M/E/N)')).toBeTruthy();
+      // A nested object is not a summary cell — it belongs in the detail panel.
+      expect(screen.queryByText('Nested')).toBeNull();
+    });
+
+    it('still supports adding a record', () => {
+      render(<JsonFormsRenderer definition={bare} />);
+      const add = screen.getByRole('button', { name: /^\+ Add/ });
+      fireEvent.click(add);
+      expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    });
+  });
+
+  describe('column orientation (paper-mirroring)', () => {
+    // The VIP cannula chart shape: parameters down the left, one column per
+    // cannula. Same data as row mode — only the axes swap.
+    const cannulaChart = {
+      ...treatmentLog,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          cannulas: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                insDate: { type: 'string', title: 'Date of Insertion' },
+                site: { type: 'string', title: 'Site' },
+                gauge: { type: 'string', title: 'Size of Cannula (Gauge)' },
+              },
+            },
+          },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/cannulas',
+              options: {
+                omf: {
+                  control: 'recordTable',
+                  recordTable: {
+                    orientation: 'columns',
+                    addLabel: '+ Add Cannula',
+                    emptyLabel: 'No cannulas recorded.',
+                    columns: [
+                      { label: 'Date of Insertion', path: 'insDate' },
+                      { label: 'Site', path: 'site' },
+                      { label: 'Size of Cannula (Gauge)', path: 'gauge' },
+                    ],
+                  },
+                },
+                detail: {
+                  type: 'VerticalLayout',
+                  elements: [{ type: 'Control', scope: '#/properties/site' }],
+                },
+              },
+            },
+          ],
+        },
+      },
+    } as unknown as JsonFormsFormDefinition;
+
+    it('puts the field labels down the left, not across the top', () => {
+      render(<JsonFormsRenderer definition={cannulaChart} />);
+      fireEvent.click(screen.getByRole('button', { name: '+ Add Cannula' }));
+
+      // The parameter spine lives in the first cell of each body row.
+      const firstCells = Array.from(document.querySelectorAll('tbody tr')).map(
+        (tr) => tr.querySelector('td')?.textContent,
+      );
+      expect(firstCells).toContain('Date of Insertion');
+      expect(firstCells).toContain('Site');
+      expect(firstCells).toContain('Size of Cannula (Gauge)');
+      // …and the header row carries record instances, not field names.
+      const headers = Array.from(document.querySelectorAll('thead th')).map((th) => th.textContent);
+      expect(headers).toEqual(['Parameter', 'Record 1']);
+    });
+
+    it('adds a column per record rather than a row', () => {
+      render(<JsonFormsRenderer definition={cannulaChart} />);
+      const add = screen.getByRole('button', { name: '+ Add Cannula' });
+      fireEvent.click(add);
+      fireEvent.click(add);
+      fireEvent.click(add);
+
+      const headers = Array.from(document.querySelectorAll('thead th')).map((th) => th.textContent);
+      expect(headers).toEqual(['Parameter', 'Record 1', 'Record 2', 'Record 3']);
+
+      // Adding auto-opens the new record, so close it for a clean row count.
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      // Body rows stay at one per FIELD (3) plus the actions row — records grew
+      // sideways, not downward.
+      expect(document.querySelectorAll('tbody tr').length).toBe(4);
+    });
+
+    it('still opens a detail panel spanning the full width', () => {
+      render(<JsonFormsRenderer definition={cannulaChart} />);
+      // Adding auto-opens the record, mirroring the source form's behaviour.
+      fireEvent.click(screen.getByRole('button', { name: '+ Add Cannula' }));
+
+      const detail = document.querySelector('.omf-record-detail');
+      expect(detail).toBeTruthy();
+      expect(detail?.getAttribute('colspan')).toBe('2');
+      expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    });
+
+    it('shows the empty label before any record exists', () => {
+      render(<JsonFormsRenderer definition={cannulaChart} />);
+      expect(screen.getByText('No cannulas recorded.')).toBeTruthy();
+    });
+
+    it('defaults to row orientation when not specified', () => {
+      render(<JsonFormsRenderer definition={treatmentLog} />);
+      const headers = Array.from(document.querySelectorAll('thead th')).map((th) => th.textContent);
+      // treatmentLog declares no orientation, so fields stay across the top.
+      expect(headers).toContain('Date');
+      expect(headers).not.toContain('Parameter');
+    });
+  });
 });

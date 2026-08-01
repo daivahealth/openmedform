@@ -5,15 +5,18 @@ import type { FormDefinition } from '@openmedform/form-schema-types';
 import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
 import { chemoLogSample } from './chemo-log-sample';
+import { vipCannulaSample } from './vip-cannula-sample';
 
-type Mode = 'jsonforms' | 'vte' | 'table' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'review';
 
-const definitions: Record<'jsonforms' | 'vte' | 'table', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip', FormDefinition> = {
   jsonforms: rrtSbarReference,
   vte: vteSample,
   table: signoffSample,
+  chemo: chemoLogSample,
+  vip: vipCannulaSample,
 };
-const modes: Mode[] = ['jsonforms', 'vte', 'table', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'review'];
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -99,7 +102,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : key === 'vip' ? 'cannula chart' : `${key} engine`}
         </button>
       ))}
     </div>

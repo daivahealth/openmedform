@@ -15,7 +15,6 @@ export const signoffSample: FormDefinition = {
   version: '1',
   language: 'en',
   status: 'DRAFT',
-  engine: 'jsonforms',
   dataSchema: {
     type: 'object',
     additionalProperties: false,

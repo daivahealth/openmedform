@@ -22,10 +22,21 @@
 
 import { useCallback, useMemo, useState, type ComponentType } from 'react';
 import type { ArrayLayoutProps, UISchemaElement } from '@jsonforms/core';
-import { rankWith, composePaths, findUISchema, Generate, Resolve } from '@jsonforms/core';
+import {
+  rankWith,
+  composePaths,
+  findUISchema,
+  Generate,
+  Resolve,
+  and,
+  uiTypeIs,
+  schemaMatches,
+  or,
+} from '@jsonforms/core';
 import { withJsonFormsArrayLayoutProps, JsonFormsDispatch, useJsonForms } from '@jsonforms/react';
 import {
   createRecordDefault,
+  deriveRecordColumns,
   recordCellText,
   recordCountText,
   type RecordTableColumn,
@@ -61,7 +72,12 @@ function RecordTable(props: ArrayLayoutProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const cfg = (readOmf(uischema)?.recordTable ?? {}) as RecordTableConfig;
-  const columns = cfg.columns ?? [];
+  // An array the author never configured still gets a usable table rather than
+  // the stock list widget — see deriveRecordColumns.
+  const columns = useMemo(
+    () => (cfg.columns?.length ? cfg.columns : deriveRecordColumns(schema as never)),
+    [cfg.columns, schema],
+  );
 
   // `data` on an array layout is the COUNT, not the array; the records
   // themselves have to be resolved out of the form context by path.
@@ -110,6 +126,7 @@ function RecordTable(props: ArrayLayoutProps) {
   if (!visible) return null;
 
   const colCount = columns.length + 1;
+  const byColumn = cfg.orientation === 'columns';
 
   return (
     <div className="omf-record-table" style={{ marginBottom: 'var(--omf-section-gap, 16px)' }}>
@@ -153,6 +170,29 @@ function RecordTable(props: ArrayLayoutProps) {
       </div>
 
       <div className="omf-scroll-x" style={{ overflowX: 'auto' }}>
+        {byColumn ? (
+          <ColumnOrientedTable
+            instanceLabel={cfg.instanceLabel}
+            columns={columns}
+            records={records}
+            count={count}
+            emptyLabel={cfg.emptyLabel}
+            openIndex={openIndex}
+            enabled={enabled !== false}
+            onToggle={(i) => setOpenIndex(openIndex === i ? null : i)}
+            onRemove={handleRemove}
+            detail={(index) => (
+              <JsonFormsDispatch
+                schema={schema}
+                uischema={detailUiSchema}
+                path={composePaths(path, String(index))}
+                enabled={enabled}
+                renderers={renderers}
+                cells={cells}
+              />
+            )}
+          />
+        ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
@@ -230,8 +270,179 @@ function RecordTable(props: ArrayLayoutProps) {
             })}
           </tbody>
         </table>
+        )}
       </div>
     </div>
+  );
+}
+
+interface ColumnOrientedProps {
+  instanceLabel?: string;
+  columns: RecordTableColumn[];
+  records: unknown[];
+  count: number;
+  emptyLabel?: string;
+  openIndex: number | null;
+  enabled: boolean;
+  onToggle: (index: number) => void;
+  onRemove: (index: number) => void;
+  detail: (index: number) => React.ReactNode;
+}
+
+/**
+ * Records as COLUMNS: field labels down the left, one column per record.
+ *
+ * This is how paper charts that compare instances side by side are drawn — a
+ * cannula chart puts "Date of Insertion", "Site", "Gauge" down the side and
+ * gives each cannula its own column. Rendering it the same way means a nurse
+ * reads the screen exactly as they read the sheet.
+ *
+ * The data is identical to the row-oriented form; only the axes swap. The
+ * expanded detail panel spans the full width beneath, as it does in row mode,
+ * because a record's full field set never fits inside one column.
+ */
+function ColumnOrientedTable({
+  instanceLabel,
+  columns,
+  records,
+  count,
+  emptyLabel,
+  openIndex,
+  enabled,
+  onToggle,
+  onRemove,
+  detail,
+}: ColumnOrientedProps) {
+  if (count === 0) {
+    return (
+      <p
+        style={{
+          border: BORDER,
+          padding: 'calc(var(--omf-control-padding, 8px) * 2)',
+          textAlign: 'center',
+          fontStyle: 'italic',
+          color: 'var(--omf-color-muted, #6b7280)',
+          margin: 0,
+        }}
+      >
+        {emptyLabel ?? 'No records yet.'}
+      </p>
+    );
+  }
+
+  const headerCell: React.CSSProperties = {
+    border: BORDER,
+    padding: PAD,
+    background: 'var(--omf-color-header-bg, #4a2d5c)',
+    color: 'var(--omf-color-header-fg, #fff)',
+    fontSize: 'var(--omf-font-size-label, 13px)',
+    textTransform: 'uppercase',
+    letterSpacing: '.4px',
+    textAlign: 'left',
+    whiteSpace: 'nowrap',
+  };
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr>
+          <th style={{ ...headerCell, minWidth: 170 }}>Parameter</th>
+          {Array.from({ length: count }).map((_, index) => (
+            <th key={index} style={headerCell}>
+              {`${instanceLabel ?? 'Record'} ${index + 1}`}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {columns.map((col, r) => (
+          <tr key={r}>
+            <td
+              style={{
+                border: BORDER,
+                padding: PAD,
+                background: 'var(--omf-color-section-bg, #f7f8fa)',
+                fontWeight: 'var(--omf-label-weight, 600)' as never,
+                fontSize: 'var(--omf-font-size-label, 13px)',
+                color: 'var(--omf-color-label, #3a4552)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {col.label}
+            </td>
+            {Array.from({ length: count }).map((_, index) => (
+              <td
+                key={index}
+                style={{
+                  border: BORDER,
+                  padding: PAD,
+                  textAlign: col.align ?? 'left',
+                  fontSize: 'var(--omf-font-size-body, 14px)',
+                  background:
+                    openIndex === index ? 'var(--omf-color-section-bg, #f0eaf4)' : undefined,
+                }}
+              >
+                {recordCellText(records[index], col)}
+              </td>
+            ))}
+          </tr>
+        ))}
+        <tr>
+          <td style={{ border: BORDER, padding: PAD }} />
+          {Array.from({ length: count }).map((_, index) => (
+            <td key={index} style={{ border: BORDER, padding: PAD, whiteSpace: 'nowrap' }}>
+              <button
+                type="button"
+                className="omf-record-toggle"
+                onClick={() => onToggle(index)}
+                aria-expanded={openIndex === index}
+                style={{
+                  padding: '4px 12px',
+                  border: BORDER,
+                  borderRadius: 'var(--omf-border-radius, 4px)',
+                  background: 'transparent',
+                  color: 'var(--omf-color-accent, #4a2d5c)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {openIndex === index ? 'Close' : 'Open'}
+              </button>
+              {enabled && (
+                <button
+                  type="button"
+                  className="omf-record-remove"
+                  onClick={() => onRemove(index)}
+                  aria-label={`Remove record ${index + 1}`}
+                  style={{
+                    marginLeft: 6,
+                    padding: '4px 10px',
+                    border: BORDER,
+                    borderRadius: 'var(--omf-border-radius, 4px)',
+                    background: 'transparent',
+                    color: 'var(--omf-color-danger, #a3312a)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </td>
+          ))}
+        </tr>
+        {openIndex !== null && openIndex < count && (
+          <tr>
+            <td
+              colSpan={count + 1}
+              className="omf-record-detail"
+              style={{ border: BORDER, padding: PAD, background: '#fff' }}
+            >
+              {detail(openIndex)}
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -329,5 +540,28 @@ function RecordRow({
   );
 }
 
-export const recordTableTester = rankWith(OMF_CONTROL_RANK, omfControlIs('recordTable'));
+/**
+ * Matches an explicit `recordTable`, and ALSO any array-of-objects control that
+ * carries no omf config at all.
+ *
+ * The second half is the safety net: without it such an array falls through to
+ * `@jsonforms/vanilla-renderers`' generic list ("Add to X / Items / Valid / No
+ * data"), which is unusable on a clinical form. A generated table is imperfect;
+ * that widget is broken.
+ */
+const isObjectArrayControl = and(
+  uiTypeIs('Control'),
+  schemaMatches(
+    (s) =>
+      s?.type === 'array' &&
+      !!s.items &&
+      !Array.isArray(s.items) &&
+      (s.items as { type?: string }).type === 'object',
+  ),
+);
+
+export const recordTableTester = rankWith(
+  OMF_CONTROL_RANK,
+  or(omfControlIs('recordTable'), isObjectArrayControl),
+);
 export const RecordTableControl: ComponentType<any> = withJsonFormsArrayLayoutProps(RecordTable);

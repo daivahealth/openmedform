@@ -285,6 +285,35 @@ export class FormConversionService {
           '"OmfTabsLayout" whose children are Groups, one per stage of the record.\n\n';
       }
 
+      // A MATRIX table is the transpose of the repeating log above: fields run
+      // down, record instances run across. Without this the model reliably turns
+      // the instance heading into a column, drops the per-instance fields, and
+      // leaves any nested group unconfigured — which is exactly what happened to
+      // the VIP cannula chart. Spell out the full row-label list so nothing can
+      // be silently dropped.
+      for (const m of extracted.transposedMatrices) {
+        userPrompt +=
+          `MATRIX TABLE: the table headed "${m.labelHeader}" is TRANSPOSED — its ROWS are the ` +
+          `fields of ONE record and each remaining COLUMN is a separate record instance ` +
+          `(${m.instanceHeaders.join(', ')}). ` +
+          `Emit ONE array Control with options.omf.control "recordTable" whose item schema has ` +
+          `exactly these ${m.rowLabels.length} fields, in this order: ` +
+          m.rowLabels.map((l) => `"${l}"`).join(', ') +
+          '. ' +
+          `"${m.instanceHeaders[0]}" is an INSTANCE NAME, not a field and not a column — never emit it as either. ` +
+          (m.addInstanceLabel
+            ? `Set options.omf.recordTable.addLabel to "${m.addInstanceLabel}". `
+            : '') +
+          (m.addNestedLabel
+            ? `The "${m.addNestedLabel}" control inside a column heading means each record ALSO contains its own ` +
+              'repeating group: put the fields that repeat per sub-record into a NESTED array property, and give ' +
+              `that nested array its own options.omf.control "recordTable" with addLabel "${m.addNestedLabel}". ` +
+              'A nested array left without recordTable config renders as an unusable generic list widget. '
+            : '') +
+          'Summary columns should be the few most identifying fields, not all of them; the rest belong in ' +
+          'options.detail as an OmfTabsLayout.\n\n';
+      }
+
       userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 
