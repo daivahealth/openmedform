@@ -1,4 +1,4 @@
--- Remove the Form.io engine (ADR-004 supersedes ADR-001 and ADR-003).
+-- Remove the Form.io engine (see docs/ADR/004-remove-formio-engine.md).
 --
 -- JSON Forms is now the only engine, so the engine discriminator and the single
 -- coupled Form.io `schema` column go away.

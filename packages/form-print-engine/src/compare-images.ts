@@ -6,7 +6,7 @@
  * with a headless browser, diff against the source page image, ask the LLM to
  * patch the schema, repeat until the threshold or max retries) is defined here
  * as interfaces; the rasterizer + PNG decoder are injected in deployment
- * (Playwright/Chromium is not bundled — see the package README / ADR-003).
+ * (the rasterizer is injected, not bundled — see docs/ADR/003-json-forms-platform.md).
  */
 
 export interface ImageComparison {

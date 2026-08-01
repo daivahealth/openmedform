@@ -7,7 +7,7 @@
  * descendant renderer inherits the `--omf-*` custom properties.
  *
  * There is no Form.io branch here by design: Form.io has no healthy Angular v5
- * renderer, so Angular is jsonforms-only (see ADR-003).
+ * renderer over @jsonforms/angular (see docs/ADR/003-json-forms-platform.md).
  *
  * ECHO-LOOP GUARD (important): a host that binds `[data]` back to the SAME
  * object it just received from `(dataChange)` — e.g.

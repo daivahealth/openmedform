@@ -4,9 +4,12 @@
 The AI builder generates JSON Forms definitions — separated Data / UI / Print schemas — from natural-language prompts and from source documents, using configurable LLM providers.
 
 ## Modes
-1. **Prompt → Form** — describe what you want, get a form schema
-2. **Refine** — conversational iteration on a form's latest draft schema
-3. **PDF → Form** — upload a clinical form PDF, AI extracts the structure and creates a draft form
+1. **Describe → Form** — `POST /api/forms/from-prompt`: describe the form in
+   words and get a draft
+2. **Convert → Form** — `POST /api/conversions`: upload a PDF, image or HTML
+   mock-up and the structure is extracted from it
+3. **Refine** — `POST /api/forms/:id/jsonforms/refine`: iterate on a draft in
+   natural language, optionally with a reference image attached
 
 ## Provider Support
 | Provider | Config Env Var | JSON Mode |
@@ -18,13 +21,16 @@ The AI builder generates JSON Forms definitions — separated Data / UI / Print 
 | Ollama (local) | AI_OLLAMA_BASE_URL | Varies |
 
 ## Pipeline
-1. User sends prompt
-2. System prompt assembled (component catalog + schema rules + few-shot examples)
-3. LLM generates JSON
-4. SchemaAssembler post-processes (fix JSON quirks, deduplicate keys, inject defaults)
-5. SchemaValidator validates (structural checks, component types, key uniqueness)
-6. Invalid schemas are rejected before client delivery
-7. Validated schema is returned to the builder as a proposed change or saved as a new draft form
+1. The source (prompt text, or a PDF/image/HTML mock-up) is prepared — an HTML
+   upload is sanitised, and rendered first if it builds its form at runtime
+2. The conversion system prompt is assembled
+3. The LLM returns the Data / UI / Print schemas plus translations
+4. `JsonFormsAssemblerService` extracts and normalises the four artifacts,
+   repairing dangling `$ref`s and flattening warnings
+5. The Data Schema is **compile-checked under Ajv 2020-12**; output truncated
+   mid-object is rejected rather than saved as a partial form
+6. A draft form is created in `REVIEW` status, with per-field confidence and
+   warnings persisted to `conversion_warning`
 
 ### OpenAI transport and model selection
 
@@ -38,26 +44,48 @@ and the Responses API.
 ## Form-Scoped Agent Flow
 
 - `POST /api/conversions` accepts a PDF, image or HTML mock-up, generates the separated Data/UI/Print schemas, Ajv-compile-checks the Data Schema, and creates a draft form in REVIEW status. Poll `GET /api/conversions/:id`.
-- `POST /api/forms/:id/ai/refine` verifies tenant access to the form, refines the live builder schema or latest saved schema, and returns a validated proposed schema for the chat UI.
-- JSON Forms previews expose **Refine with AI**, which streams `POST /api/forms/:id/jsonforms/refine`. It updates an unpublished draft in place or forks a draft from a published version, then refreshes the preview with the saved definition.
-- The refinement endpoint also accepts an optional image upload (`multipart/form-data`, field `image`) so users can attach a visual reference and describe corrections in chat.
-- The chat UI requires the user to apply the proposed schema before the builder auto-save writes it through `PUT /api/forms/:id/schema`.
-- Published versions remain immutable. Further applied edits create or update the latest draft version through the normal form service.
-- PDF generation uses page-image vision when `pdftoppm` is available and the selected provider supports image input.
-- Vital sign observation charts should use the custom `vitalSignsChart` component instead of generic static tables.
-- PDF generation includes a visual QA repair pass that compares a source PDF page image with a backend-rendered PNG preview of the generated schema.
+- The form preview page exposes **Refine with AI**, which streams
+  `POST /api/forms/:id/jsonforms/refine` over SSE. It updates an unpublished
+  draft in place, or forks a new draft from a published version, then refreshes
+  the preview with the saved definition.
+- Refinement accepts an optional image upload (`multipart/form-data`, field
+  `image`) so a visual reference can accompany the instruction.
+- Published versions remain immutable — refining one always forks a draft.
+- PDF conversion uses page-image vision when `pdftoppm` is available and the
+  selected provider supports image input.
+- Observation charts map to the `vitalSignsChart` control rather than a generic
+  static table.
 
-### Layout fidelity (PDF → Form)
+### Layout fidelity
 
-The PDF/image generation prompt ([prompts/pdf-to-form-prompt.ts](../../apps/api/src/modules/ai-builder/prompts/pdf-to-form-prompt.ts)) reproduces the paper form's **row-based layout**, not just a flat vertical stack of fields:
+The conversion prompt
+([prompts/pdf-to-jsonforms-prompt.ts](../../apps/api/src/modules/ai-builder/prompts/pdf-to-jsonforms-prompt.ts))
+reproduces the source's **row-based layout**, not a flat vertical stack:
 
-- **Page-level two-column layouts** — when the whole page is split into two independent vertical tracks running in parallel (e.g. a left track of checklists and a right track of SBAR narrative), the generator reconstructs it as one top-level `columns` (width 6/6): all left-track blocks in the left column, all right-track blocks in the right. Text/vision extraction interleaves the two tracks line-by-line; the generator is instructed to ignore that interleaving rather than scatter one track's sections through the other. SBAR sections (Situation/Background/Assessment/Recommendation) are kept together in order in the right column. This is the most fragile case — reliability varies with how cleanly the source PDF separates its columns.
-- **Paired yes/no boxes** — a label followed by two mutually-exclusive boxes (`□YES □NO`, `□ΝΑΙ □ΟΧΙ`) becomes **one `radio` with `inline: true`** and two values, never two separate checkboxes. A single standalone `□` (one risk factor / presence-absence) stays a `checkbox`.
-- **Left spine labels** — many paper forms have a left column of bold category labels (e.g. `Αλλεργίες`, `Ζωτικά Σημεία`, `Εκτίμηση Δέρματος`) naming the row of fields to their right. Each labelled row becomes one `columns` component whose **first column is a narrow `htmlelement` (`strong`) holding the label text**, followed by the row's field columns. These labels must always be rendered visibly — the generator must not encode a category only in a component `key` (keys are invisible to the user).
-- **Same-line field groups** — multiple fields sharing one horizontal line become a single `columns` component so they stay side-by-side.
-- **Inline fill-in blanks** — `Label: ____` on one line uses `labelPosition: "left-left"` so the label sits beside the input.
+- **Two-column pages** — a page split into two parallel vertical tracks (e.g. a
+  left checklist track and a right SBAR narrative track) becomes one
+  `HorizontalLayout` per track, not interleaved sections. Text and vision
+  extraction interleaves the tracks line-by-line; the prompt instructs the model
+  to ignore that. This remains the most fragile case.
+- **Paired yes/no boxes** — a label followed by two mutually exclusive boxes
+  (`□YES □NO`) becomes **one enum Control** rendered as a radio, never two
+  checkboxes. A single standalone `□` stays a boolean.
+- **Left-spine labels** — a left column of bold category labels naming the row
+  of fields beside it becomes an `OmfTableLayout` of `OmfTableRow`s, so the
+  labels line up as a real column.
+- **Same-line groups** — fields sharing a horizontal line become one
+  `HorizontalLayout`.
+- **Inline blanks** — `Label: ____` sets `options.omf.screen.labelPosition:
+  "left"`.
+- **Scored domains, repeating logs and reassessment grids** map to the
+  `scoringMatrix`, `recordTable` and `checklistMatrix` controls — see
+  [PDF-TO-FORM](PDF-TO-FORM.md).
 
-Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side fields), not pixel-exact. Exact borders, fonts and spacing are not reproduced on screen — the renderer is a responsive data-entry engine, not a PDF layout replicator. For paper-accurate output use the print engine, which reconstructs A4 from the Print Schema. Layout properties ride under `options.omf` (`screen.labelPosition`, `columns`, `variant`) and pass through the assembler unchanged.
+Fidelity is **structural** (rows, groupings, inline yes/no, side-by-side
+fields), not pixel-exact. Exact borders, fonts and spacing are not reproduced on
+screen — the renderer is a responsive data-entry engine, not a PDF layout
+replicator. For paper-accurate output use the print engine, which reconstructs
+A4 from the Print Schema.
 
 ## Security
 - LLM API keys can come from three sources, resolved per tenant by `ProviderRegistry.getProvidersForTenant` (first match wins):
