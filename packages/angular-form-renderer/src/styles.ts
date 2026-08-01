@@ -103,6 +103,15 @@ export const FIELD_STYLES = `
     padding: calc(var(--omf-control-padding, 8px) * 2);
   }
   .omf-record-actions { white-space: nowrap; }
+  /* Pin the actions column: a converted chart can run to ten columns and
+     scroll, and if Open/remove scroll away a row cannot be deleted at all. */
+  .omf-record-grid .omf-record-actions-sticky {
+    position: sticky; right: 0; z-index: 1;
+    background: var(--omf-color-surface, #fff);
+    box-shadow: inset 1px 0 0 var(--omf-color-border, #c8cdd4);
+  }
+  /* An inline cell control should fill its cell and lose its outer gap. */
+  .omf-record-grid td .omf-field { margin-bottom: 0; }
   .omf-record-toggle, .omf-record-remove {
     padding: 4px 12px; border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
     border-radius: var(--omf-border-radius, 4px); background: transparent;

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   createRecordDefault,
+  fieldsOutsideColumns,
+  isColumnEditable,
   EMPTY_CELL,
   readRecordPath,
   recordCellText,
@@ -108,3 +110,46 @@ describe('createRecordDefault', () => {
     expect(createRecordDefault(undefined)).toEqual({});
   });
 });
+
+describe('isColumnEditable', () => {
+  it('allows a column that names one concrete field', () => {
+    expect(isColumnEditable({ label: 'Date', path: 'date' })).toBe(true);
+  });
+
+  it('refuses derived columns, which have no single value to write back', () => {
+    expect(isColumnEditable({ label: 'Drugs', countOf: 'drugs' })).toBe(false);
+    expect(isColumnEditable({ label: 'Start / Finish', path: 'a', pairWith: 'b' })).toBe(false);
+    expect(isColumnEditable({ label: 'Nothing' })).toBe(false);
+  });
+});
+
+describe('fieldsOutsideColumns', () => {
+  const schema = {
+    type: 'object',
+    properties: { day: {}, date: {}, grbs: {}, nurse: {} },
+  } as never;
+
+  it('lists the fields a detail panel would need to show', () => {
+    expect(fieldsOutsideColumns(schema, [{ label: 'Day', path: 'day' }])).toEqual([
+      'date',
+      'grbs',
+      'nurse',
+    ]);
+  });
+
+  it('returns nothing when every field is already a column — no panel needed', () => {
+    const columns = [
+      { label: 'Day', path: 'day' },
+      { label: 'Date', path: 'date' },
+      { label: 'GRBS', path: 'grbs' },
+      { label: 'Nurse', path: 'nurse' },
+    ];
+    expect(fieldsOutsideColumns(schema, columns)).toEqual([]);
+  });
+
+  it('counts fields referenced by pairWith and countOf as shown', () => {
+    const paired = [{ label: 'Day / Date', path: 'day', pairWith: 'date' }];
+    expect(fieldsOutsideColumns(schema, paired)).toEqual(['grbs', 'nurse']);
+  });
+});
+

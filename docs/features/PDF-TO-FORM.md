@@ -411,6 +411,28 @@ The detector deliberately ignores: tables whose first column also holds inputs
 (an ordinary data grid), tables with no inputs at all (a score legend or dosing
 reference), and anything under three rows.
 
+#### Rows are edited in place
+
+A summary column that names **one concrete field** renders that field's real
+control in the cell — date picker, select, number — so a row is filled in
+exactly as on the source grid. Derived columns stay read-only text, because they
+have no single value to write back: `countOf` counts a nested array, `pairWith`
+merges two fields into one cell.
+
+Two consequences worth knowing:
+
+- **The actions column is pinned.** A converted chart can run to ten columns and
+  scroll sideways. If `Open` / remove scroll out of view, a row becomes not just
+  hard to edit but impossible to delete — there is no other affordance.
+- **`Open` is hidden when there is nothing behind it.** If every field of the
+  record is already a column — a blood-sugar row, say — a detail panel would be
+  empty, so the button is omitted. Records with more fields than columns keep
+  it, and the detail panel remains the place for the rest.
+
+This is what makes a nine-column observation chart usable: all nine cells are
+live, and the row still deletes. A treatment day with ~100 fields keeps its
+tabbed panel; only its handful of summary columns are inline.
+
 #### Column orientation
 
 Set `omf.recordTable.orientation: "columns"` to render records the way the paper

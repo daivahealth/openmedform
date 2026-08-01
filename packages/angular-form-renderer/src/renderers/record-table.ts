@@ -24,6 +24,8 @@ import {
 import {
   createRecordDefault,
   deriveRecordColumns,
+  fieldsOutsideColumns,
+  isColumnEditable,
   recordCellText,
   recordCountText,
   type RecordTableColumn,
@@ -141,17 +143,30 @@ import { OmfLayoutBase } from './layouts';
             @for (record of records; track $index) {
               <tr [class.omf-record-open]="openIndex === $index">
                 @for (col of columns; track col.label) {
-                  <td [style.text-align]="col.align || 'left'">{{ cellText(record, col) }}</td>
+                  <td [style.text-align]="col.align || 'left'">
+                    <!-- A column naming one field is edited in place, as on the
+                         source grid. Derived columns (countOf / pairWith) have
+                         no single value to write back, so they stay text. -->
+                    @if (editable(col)) {
+                      <jsonforms-outlet
+                        [renderProps]="cellProps($index, col)"
+                      ></jsonforms-outlet>
+                    } @else {
+                      {{ cellText(record, col) }}
+                    }
+                  </td>
                 }
-                <td class="omf-record-actions">
-                  <button
-                    type="button"
-                    class="omf-record-toggle"
-                    [attr.aria-expanded]="openIndex === $index"
-                    (click)="toggle($index)"
-                  >
-                    {{ openIndex === $index ? 'Close' : 'Open' }}
-                  </button>
+                <td class="omf-record-actions omf-record-actions-sticky">
+                  @if (hasDetail) {
+                    <button
+                      type="button"
+                      class="omf-record-toggle"
+                      [attr.aria-expanded]="openIndex === $index"
+                      (click)="toggle($index)"
+                    >
+                      {{ openIndex === $index ? 'Close' : 'Open' }}
+                    </button>
+                  }
                   @if (isEnabled()) {
                     <button
                       type="button"
@@ -234,6 +249,42 @@ export class RecordTableComponent extends JsonFormsArrayControl {
     return recordCellText(record, col);
   }
 
+  /** True when this column maps to one concrete field and can be edited inline. */
+  editable(col: RecordTableColumn): boolean {
+    return isColumnEditable(col);
+  }
+
+  /**
+   * False when every field is already a column, so a detail panel would be
+   * empty and its Open button pointless.
+   */
+  get hasDetail(): boolean {
+    return fieldsOutsideColumns(this.itemSchema as never, this.columns).length > 0;
+  }
+
+  // Stable render-props per (row, column), so the outlet does not re-dispatch
+  // the cell control on every change-detection pass.
+  private readonly cellCache = new Map<string, OwnPropsOfRenderer>();
+
+  /** Render props for one editable cell's real control. */
+  cellProps(index: number, col: RecordTableColumn): OwnPropsOfRenderer {
+    const key = `${index}::${col.path}`;
+    let cached = this.cellCache.get(key);
+    if (!cached) {
+      cached = {
+        uischema: {
+          type: 'Control',
+          scope: `#/properties/${(col.path ?? '').split('.').join('/properties/')}`,
+          label: false,
+        } as unknown as UISchemaElement,
+        schema: this.itemSchema,
+        path: `${this.propsPath}.${index}`,
+      };
+      this.cellCache.set(key, cached);
+    }
+    return cached;
+  }
+
   toggle(index: number): void {
     this.openIndex = this.openIndex === index ? null : index;
   }
@@ -250,6 +301,7 @@ export class RecordTableComponent extends JsonFormsArrayControl {
     if (confirmText && !window.confirm(confirmText)) return;
     const next = this.records.filter((_, i) => i !== index);
     this.detailCache.clear();
+    this.cellCache.clear();
     this.onChange({ value: next });
     if (this.openIndex === index) this.openIndex = null;
     else if (this.openIndex !== null && this.openIndex > index) this.openIndex -= 1;

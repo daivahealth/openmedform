@@ -144,34 +144,102 @@ describe('recordTable', () => {
     expect(screen.getByText('1 treatment day logged this month')).toBeTruthy();
   });
 
-  it('writes an edited detail field back into the record and into the summary row', () => {
+  it('edits a field inline in the summary row', () => {
     render(<JsonFormsRenderer definition={treatmentLog} />);
     fireEvent.click(screen.getByRole('button', { name: '+ Add treatment day' }));
 
-    const dateInput = document.querySelector('input') as HTMLInputElement;
+    // The Date column names one field, so its cell IS the control — a nurse
+    // types straight into the row, as on the source grid.
+    const dateCell = document.querySelectorAll('tbody tr')[0].querySelectorAll('td')[0];
+    const dateInput = dateCell.querySelector('input') as HTMLInputElement;
+    expect(dateInput).toBeTruthy();
+
     fireEvent.change(dateInput, { target: { value: '2026-08-01' } });
 
-    // Asserted through the summary cell rather than the renderer's onChange
-    // prop: under jsdom, `fireEvent.change` does not make @jsonforms/react emit
-    // onChange at all (reproducible against a bare <JsonForms> too), so an
-    // onChange assertion here would test the harness, not the control. The
-    // summary cell is the stronger check anyway — it proves the edit reached
-    // treatmentDays[0].date AND that the row re-read it.
-    const summaryCells = Array.from(document.querySelectorAll('tbody td')).map((c) => c.textContent);
-    expect(summaryCells).toContain('2026-08-01');
+    // Asserted through the control's own value rather than the renderer's
+    // onChange prop: under jsdom, `fireEvent.change` does not make
+    // @jsonforms/react emit onChange at all (reproducible against a bare
+    // <JsonForms> too), so an onChange assertion would test the harness.
+    // A controlled input holding the value proves it reached the store.
+    expect(
+      (dateCell.querySelector('input') as HTMLInputElement).value,
+    ).toBe('2026-08-01');
   });
 
-  it('renders a nested-array column as a count and an empty value as an em dash', () => {
+  it('keeps derived columns read-only while plain columns become inputs', () => {
     render(<JsonFormsRenderer definition={treatmentLog} />);
     fireEvent.click(screen.getByRole('button', { name: '+ Add treatment day' }));
 
-    // adverseEvents is seeded to [] by createDefault, so the count column is 0…
-    const cells = Array.from(document.querySelectorAll('tbody td')).map((c) => c.textContent);
-    expect(cells).toContain('0');
-    // …and unfilled string columns print an em dash rather than "undefined".
-    expect(cells).toContain('—');
-    // The paired column prints both halves.
-    expect(cells).toContain('— / —');
+    const cells = Array.from(document.querySelectorAll('tbody td'));
+    const text = cells.map((c) => c.textContent);
+
+    // countOf and pairWith have no single value to write back, so they stay
+    // text: a count of the seeded empty array, and both halves em-dashed.
+    expect(text).toContain('0');
+    expect(text).toContain('— / —');
+
+    // A countOf cell must NOT become an input.
+    const countCell = cells.find((c) => c.textContent === '0');
+    expect(countCell?.querySelector('input, select')).toBeNull();
+
+    // …whereas plain columns (Date, Nurse) are now editable in place.
+    const inputs = document.querySelectorAll('tbody tr:first-child td input');
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('hides Open when every field is already a column', () => {
+    // A blood-sugar style row: all fields visible inline, so a detail panel
+    // would be empty and the button is pointless.
+    const allInline = {
+      ...treatmentLog,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          rows: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                day: { type: 'string', title: 'Day' },
+                grbs: { type: 'number', title: 'GRBS' },
+              },
+            },
+          },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/rows',
+              options: {
+                omf: {
+                  control: 'recordTable',
+                  recordTable: {
+                    addLabel: '+ Add Row',
+                    columns: [
+                      { label: 'Day', path: 'day' },
+                      { label: 'GRBS', path: 'grbs' },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    } as unknown as JsonFormsFormDefinition;
+
+    render(<JsonFormsRenderer definition={allInline} />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add Row' }));
+
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
+    // …but the row is fully editable and still removable.
+    expect(document.querySelectorAll('tbody tr:first-child td input').length).toBe(2);
+    expect(screen.getByRole('button', { name: /Remove record 1/ })).toBeTruthy();
   });
 
   it('removes a record and drops its detail panel', () => {
