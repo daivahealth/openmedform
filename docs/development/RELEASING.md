@@ -47,7 +47,7 @@ Nothing is published until the "Version Packages" PR is merged.
 `.github/workflows/ci.yml` runs on every PR and on pushes to `main`:
 
 - `pnpm install --frozen-lockfile`
-- `pnpm build:packages` (scoped to the four publishable packages — the vendored Form.io forks are not
+- `pnpm build:packages` (scoped to the publishable packages — apps and demos are not
   in the release set and are not built here)
 - `pnpm test`
 

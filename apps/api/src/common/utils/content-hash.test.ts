@@ -10,8 +10,8 @@ describe('content-hash', () => {
   });
 
   it('changes when content changes', () => {
-    const base = contentHash({ engine: 'FORMIO', schema: { a: 1 } });
-    expect(contentHash({ engine: 'FORMIO', schema: { a: 2 } })).not.toBe(base);
+    const base = contentHash({ engine: 'JSONFORMS', dataSchema: { a: 1 } });
+    expect(contentHash({ engine: 'JSONFORMS', dataSchema: { a: 2 } })).not.toBe(base);
   });
 
   it('produces a 64-char hex sha-256 digest', () => {

@@ -20,8 +20,6 @@ import { FormService } from './form.service';
 import { FormConversionService } from '../form-conversion/form-conversion.service';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
-import { SaveSchemaDto } from './dto/save-schema.dto';
-import { RefineFormAgentDto } from './dto/refine-form-agent.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 
@@ -33,35 +31,6 @@ const ASSET_FILE_TYPES = [
   'image/svg+xml',
   'application/pdf',
 ];
-
-const SUPPORTED_SOURCE_FILE_TYPES = [
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-];
-
-function isSupportedSourceFile(mimetype: string) {
-  return SUPPORTED_SOURCE_FILE_TYPES.includes(mimetype);
-}
-
-function sourceFileFilter(
-  _req: unknown,
-  file: Express.Multer.File,
-  cb: (error: Error | null, acceptFile: boolean) => void,
-) {
-  if (!isSupportedSourceFile(file.mimetype)) {
-    cb(
-      new BadRequestException(
-        'Only PDF, PNG, JPEG, WebP, or GIF files are accepted',
-      ),
-      false,
-    );
-    return;
-  }
-  cb(null, true);
-}
 
 @Controller('forms')
 export class FormController {
@@ -270,31 +239,6 @@ export class FormController {
       user.userId,
       template,
     );
-  }
-
-  @Get(':id/ai/messages')
-  getAiMessages(
-    @CurrentUser() user: RequestUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.formService.getAiMessages(user.tenantId, id);
-  }
-
-  @Post(':id/ai/messages')
-  addAiMessage(
-    @CurrentUser() user: RequestUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { role: string; content: string; provider?: string },
-  ) {
-    return this.formService.addAiMessage(user.tenantId, id, body);
-  }
-
-  @Delete(':id/ai/messages')
-  clearAiMessages(
-    @CurrentUser() user: RequestUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.formService.clearAiMessages(user.tenantId, id);
   }
 
   @Get(':id/deletion-summary')

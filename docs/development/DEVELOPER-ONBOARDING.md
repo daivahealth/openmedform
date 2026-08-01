@@ -52,7 +52,6 @@ pnpm --filter api start:dev         # Backend only
 ```
 
 ## Monorepo Structure
-- `packages/shared` — shared types (`@openmedform/shared`)
 - `apps/api` — NestJS backend
 - `apps/web` — Next.js frontend
 

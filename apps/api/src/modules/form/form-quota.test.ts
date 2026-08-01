@@ -34,9 +34,10 @@ function makeService(opts: {
   const aiProviderConfigService = {
     hasOwnActiveProvider: vi.fn().mockResolvedValue(opts.hasOwnProvider ?? false),
   };
+  // (prisma, audit, aiProviderConfigService) — ScoringService was removed from
+  // FormService along with the Form.io coupled-schema rule extraction.
   const service = new FormService(
     prisma as any,
-    {} as any,
     {} as any,
     aiProviderConfigService as unknown as AiProviderConfigService,
   );

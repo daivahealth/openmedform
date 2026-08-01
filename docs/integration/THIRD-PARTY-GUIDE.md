@@ -13,7 +13,7 @@ Design in OpenMedForm  ──►  Download definition (JSON)  ──►  Install
 ```
 
 The **JSON Forms engine** is the portable path (data / layout / print separated). This guide covers
-it end to end. (The Form.io engine is for forms authored in the drag-and-drop builder and is not the
+it end to end. (Form.io was removed in [ADR-004](../ADR/004-remove-formio-engine.md); JSON Forms is the
 portable target — see [Limitations](#limitations).)
 
 ---
@@ -348,7 +348,5 @@ build (`tsc`, or `ng-packagr` for the Angular library), so `dist/` is always fre
 - **Assets**: upload logos/images via the **Assets** dialog on a form's Preview screen; they are
   stored with the form and bundled (as base64 `dataUri`) into the export's `assets[]`. AI-converted
   forms start with none — add them in the Assets dialog. (Assets attach to the form's latest version.)
-- **Form.io engine**: not the portable target. Importing the package root pulls the Form.io stack;
-  use the `/jsonforms` entry for external apps.
 - **Exact print fidelity**: screen rendering is a faithful *structural* reproduction, not pixel-exact;
   pixel fidelity is the print engine's job.

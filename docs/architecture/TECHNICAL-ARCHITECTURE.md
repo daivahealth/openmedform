@@ -16,8 +16,7 @@ openmedform/
 ├── packages/form-design-tokens Shared CSS variables — React/Angular visual parity
 ├── packages/react-form-renderer   React renderer + clinical controls
 ├── packages/angular-form-renderer Angular renderer + the same controls
-├── packages/form-print-engine  UI/Print schema → A4 HTML/CSS → PDF
-└── packages/shared             Shared TypeScript types and constants
+└── packages/form-print-engine  UI/Print schema → A4 HTML/CSS → PDF
 ```
 
 ## System Architecture

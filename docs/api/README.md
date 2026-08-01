@@ -52,7 +52,7 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 | PUT | /api/forms/:id/schema | Save form schema (auto-save) |
 | POST | /api/forms/from-file | Upload PDF/image, generate schema, and create draft form. `name` and `category` are required (400 otherwise) |
 | POST | /api/forms/from-pdf | Compatibility alias for PDF/image generation (same required fields as from-file) |
-| POST | /api/forms/from-prompt | JSON `{ name, prompt, category, description?, formType?, provider? }`: AI generates a Form.io schema from the prompt and creates a draft form (subject to the creation quota). `name`, `prompt`, and `category` are required (400 otherwise). Returns `{ form, schema, provider }` |
+| POST | /api/forms/from-prompt | JSON `{ name, prompt, category?, description?, formType?, provider? }`: AI generates the separated Data/UI/Print schemas from the prompt and creates a draft form (subject to the creation quota). `name` and `prompt` are required (400 otherwise). Returns `{ form, warnings }` |
 | POST | /api/forms/:id/ai/refine | Refine a form schema with AI chat; accepts JSON or multipart image reference |
 | POST | /api/forms/:id/publish | Publish current draft (stores an immutable SHA-256 `content_hash`; audit-logged) |
 | GET | /api/forms/:id/versions | List versions |
