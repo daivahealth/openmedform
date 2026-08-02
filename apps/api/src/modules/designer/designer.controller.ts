@@ -16,6 +16,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { DesignerService } from './designer.service';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
+import { Throttle } from '@nestjs/throttler';
+import { AI_THROTTLE } from '../../common/throttle.config';
 
 @Controller('forms')
 export class DesignerController {
@@ -25,6 +27,7 @@ export class DesignerController {
    * Prompt-based refinement of a jsonforms form, streamed over SSE (same
    * transport the Form.io AI-refine uses), so the review UI can show progress.
    */
+  @Throttle(AI_THROTTLE)
   @Post(':id/jsonforms/refine')
   @UseInterceptors(
     FileInterceptor('image', {

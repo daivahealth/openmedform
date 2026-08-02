@@ -22,6 +22,8 @@ import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
+import { Throttle } from '@nestjs/throttler';
+import { AI_THROTTLE, UPLOAD_THROTTLE } from '../../common/throttle.config';
 
 const ASSET_FILE_TYPES = [
   'image/png',
@@ -64,6 +66,7 @@ export class FormController {
    * generator the file-conversion pipeline uses, creates a draft (subject to the
    * per-user quota) and returns it for review in the designer.
    */
+  @Throttle(AI_THROTTLE)
   @Post('from-prompt')
   async createFromPrompt(
     @CurrentUser() user: RequestUser,
@@ -159,6 +162,7 @@ export class FormController {
     return this.formService.exportTemplate(user.tenantId, id);
   }
 
+  @Throttle(UPLOAD_THROTTLE)
   @Post(':id/assets')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -229,6 +233,7 @@ export class FormController {
     });
   }
 
+  @Throttle(UPLOAD_THROTTLE)
   @Post('import')
   importTemplate(
     @CurrentUser() user: RequestUser,

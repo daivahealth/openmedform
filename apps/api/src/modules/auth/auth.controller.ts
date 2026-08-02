@@ -10,6 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
+import { AUTH_THROTTLE } from '../../common/throttle.config';
 import { Request, Response } from 'express';
 import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
@@ -27,6 +29,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post('login')
   login(@Body() dto: LoginDto, @Ip() ip: string) {
     return this.authService.login(dto, ip);
@@ -34,6 +37,7 @@ export class AuthController {
 
   /** Starts the Google OAuth2 handshake (redirects to Google). */
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   googleLogin() {

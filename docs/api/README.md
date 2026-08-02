@@ -1,5 +1,13 @@
 # API Reference
 
+
+> **Rate limits.** All endpoints are throttled. Login is 10/min per IP; AI
+> endpoints (`/api/conversions`, `/api/forms/from-prompt`,
+> `/api/forms/:id/jsonforms/refine`) are 10/min **per user**; uploads 30/min;
+> everything else 300/min. Exceeding a limit returns **429** with a
+> `Retry-After` header. `GET /api/health` is exempt. See
+> [security/AUTH-AND-RBAC](../security/AUTH-AND-RBAC.md#rate-limiting).
+
 ## Base URL
 `http://localhost:3100/api`
 
