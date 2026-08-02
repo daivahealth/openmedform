@@ -1,7 +1,7 @@
 # GCP Cloud Run Deployment
 
 Production deployment: **API + Web on Cloud Run**, **Supabase Postgres**,
-**Google SSO**, CI/CD from GitHub Actions (issue #26).
+**Google + Microsoft SSO**, CI/CD from GitHub Actions (issue #26).
 
 ## Architecture
 
@@ -47,7 +47,13 @@ Registry, Secret Manager, IAM Credentials) and creates:
   repo (keyless — no JSON service-account keys anywhere)
 - Secret Manager entries (placeholder values): `DATABASE_URL`, `JWT_SECRET`,
   `AI_ENCRYPTION_KEY`, `FRONTEND_ORIGIN`, `GOOGLE_CLIENT_ID`,
-  `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`
+  `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `MICROSOFT_CLIENT_ID`,
+  `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_CALLBACK_URL`
+
+  All of them are created even if you only intend to use one SSO provider:
+  `deploy.yml` mounts the full list, and Cloud Run fails a deploy that
+  references a secret which does not exist. A provider left at `CHANGE_ME` is
+  simply switched off (see §3).
 
 After the script, fill the real secret values and set the printed GitHub
 Actions variables (`GCP_PROJECT_ID`, `GCP_REGION`,
@@ -56,24 +62,33 @@ Actions variables (`GCP_PROJECT_ID`, `GCP_REGION`,
 Generate strong secrets with `openssl rand -hex 32` for `JWT_SECRET` and
 `AI_ENCRYPTION_KEY`.
 
-## 3. Google SSO
+## 3. SSO (Google and Microsoft)
 
-Backend routes (NestJS, `passport-google-oauth20`):
+Backend routes (NestJS, `passport-google-oauth20` / `passport-microsoft`):
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/auth/google` | Redirects to Google consent |
-| GET | `/api/auth/google/callback` | Issues app JWT, redirects to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>` |
+| GET | `/api/auth/google/callback` | Redirects to `<FRONTEND_ORIGIN>/auth/callback?code=<one-time code>` |
+| GET | `/api/auth/microsoft` | Redirects to Microsoft consent |
+| GET | `/api/auth/microsoft/callback` | Same one-time-code redirect as Google |
+| POST | `/api/auth/exchange` | Trades the one-time code for the session JWT |
 
-Tenant mapping is **invite-only match-by-email**: the Google email must match
+The redirect carries a single-use code, never the JWT — a token in the URL
+lands in browser history, `Referer` headers and every access log in between.
+Both providers share one callback handler so this cannot drift between them.
+
+Tenant mapping is **invite-only match-by-email**: the SSO email must match
 exactly one existing active user (created beforehand by a tenant admin via the
-user module). No user is auto-provisioned. If the email matches no account or
-accounts in multiple tenants, the user is redirected back to the login page
-with an explanatory error.
+user module), unless the handshake was started in signup mode. If the email
+matches no account or accounts in multiple tenants, the user is redirected back
+to the login page with an explanatory error.
 
-The strategy is only registered when `GOOGLE_CLIENT_ID` is set, so local dev
-and password-only deployments boot without Google config (the SSO routes then
-return 503).
+Each provider is independent: its strategy is only registered when its client
+id is set to a real value, so local dev and password-only deployments boot
+without any SSO config, and enabling Google does not require Microsoft. A
+provider whose client id is missing or still `CHANGE_ME` answers its routes
+with 503 and leaves the others untouched.
 
 Google Cloud Console setup (manual):
 
@@ -82,9 +97,31 @@ Google Cloud Console setup (manual):
 3. Store client ID/secret as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, and
    set `GOOGLE_CALLBACK_URL` to the same redirect URI.
 
-Frontend: the login page has a "Sign in with Google" button linking to
-`<NEXT_PUBLIC_API_URL>/api/auth/google`; `/auth/callback` stores the token and
-hydrates the profile from `/api/auth/me`.
+Azure Portal setup (manual):
+
+1. Entra ID > App registrations > New registration. Supported account types:
+   **Accounts in any organizational directory** (work/school accounts) —
+   matches the `organizations` default of `MICROSOFT_TENANT`.
+2. Redirect URI (Web): `https://api.<domain>/api/auth/microsoft/callback`.
+3. Certificates & secrets > New client secret. Copy the **Value**, not the
+   Secret ID — the value is shown once. Note its expiry: Azure caps client
+   secrets at 24 months, and sign-in breaks the day it lapses.
+4. API permissions: Microsoft Graph delegated `User.Read` (present by default).
+5. Store the values as `MICROSOFT_CLIENT_ID` (Application/client ID),
+   `MICROSOFT_CLIENT_SECRET`, and `MICROSOFT_CALLBACK_URL` (the same redirect
+   URI). Optionally set `MICROSOFT_TENANT` to a directory GUID to restrict
+   sign-in to one organisation, or to `common` to also admit personal Microsoft
+   accounts — a weaker identity signal, since anyone can create one.
+
+Microsoft sign-in requires the account to have an organisational mailbox: the
+strategy reads Graph `mail` only and refuses a profile without one, rather than
+falling back to `userPrincipalName`. See docs/security/AUTH-AND-RBAC.md for why
+that fallback would be an account-takeover path.
+
+Frontend: the login page has "Sign in with Google" and "Sign in with Microsoft"
+buttons linking to `<NEXT_PUBLIC_API_URL>/api/auth/google` and
+`/api/auth/microsoft`; both return to `/auth/callback`, which trades the
+one-time code for a session and hydrates the profile from `/api/auth/me`.
 
 ## 4. CI/CD (`.github/workflows/deploy.yml`)
 
