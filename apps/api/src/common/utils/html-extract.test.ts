@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { extractFormHtml } from './html-extract';
+import { extractFormHtml, hasAddAffordance } from './html-extract';
 
 describe('extractFormHtml — security stripping', () => {
   it('removes script tags and their contents entirely', () => {
@@ -347,5 +347,26 @@ describe('extractFormHtml — complexity measurement', () => {
       expect(transposedMatrices[0].instanceHeaders).toEqual(['Cannula 1', 'Cannula 2']);
       expect(transposedMatrices[0].addInstanceLabel).toBe('+ Add Cannula');
     });
+  });
+});
+
+
+describe('hasAddAffordance', () => {
+  // Cheap gate in front of an expensive browser render, so both directions of
+  // a wrong answer cost something: a false negative silently loses geometry
+  // detection, a false positive renders every save-button form on the platform.
+  it.each([
+    ['<button>+ Add Cannula</button>', true],
+    ['<button>Add treatment day</button>', true],
+    ['<a href="#">New entry</a>', true],
+    ['<input type="button" value="Add row">', true],
+    ['<button>Save</button><button>Print</button>', false],
+    ['<button>Submit</button>', false],
+    // "Address" starts with "add" but is not an add control — the \b in the
+    // pattern is what keeps this out.
+    ['<button>Address details</button>', false],
+    ['', false],
+  ])('%s -> %s', (html, expected) => {
+    expect(hasAddAffordance(`<form>${html}</form>`)).toBe(expected);
   });
 });

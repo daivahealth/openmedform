@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { chromium, type Browser } from 'playwright-core';
+import type { LayoutNode, LayoutSnapshot } from './layout-detect';
 
 /**
  * Execute an uploaded HTML mock-up in a locked-down headless browser and return
@@ -74,7 +75,17 @@ export function isHtmlRenderEnabled(): boolean {
  * first is an operator's problem, the second is the author's.
  */
 export type HtmlRenderOutcome =
-  | { status: 'rendered'; html: string }
+  | {
+      status: 'rendered';
+      html: string;
+      /**
+       * Where every label, control and button ended up on screen. Lets
+       * layout-detect.ts recover repeating structure from layouts that use no
+       * `<table>` at all. Absent if the capture itself failed — the HTML is
+       * still usable, so a capture failure must never fail the render.
+       */
+      layout?: LayoutSnapshot;
+    }
   /** HTML_RENDER_DISABLED=1. */
   | { status: 'disabled' }
   /** No usable browser — not installed, or CHROMIUM_PATH points nowhere. */
@@ -86,6 +97,100 @@ const logger = new Logger('HtmlRender');
 
 /** Launch failures are an operator concern, so say it once rather than never. */
 let warnedUnavailable = false;
+
+/**
+ * Read back where everything landed on the rendered page.
+ *
+ * Deliberately dumb: it reports positions and nothing else. All interpretation
+ * — clustering into rows and columns, deciding whether a shape is a log or a
+ * matrix — happens in layout-detect.ts, outside the browser, where it can be
+ * unit-tested without Chromium.
+ *
+ * Never throws: a snapshot is a bonus on top of the HTML, so a failure here
+ * degrades to markup-only detection rather than losing the render.
+ */
+async function captureLayout(page: {
+  evaluate: {
+    <T>(fn: () => T): Promise<T>;
+    (source: string): Promise<unknown>;
+  };
+}): Promise<LayoutSnapshot | undefined> {
+  try {
+    // Playwright ships the callback below to the page as source text. Bundlers
+    // that keep function names (esbuild, and therefore tsx/vitest) rewrite named
+    // inner functions as `__name(fn, 'fn')`, and that helper does not exist in
+    // the page — the callback dies with "__name is not defined". `tsc` emits no
+    // such helper, so this only bites under esbuild-based tooling, which is
+    // exactly where the tests run. A no-op shim costs nothing and keeps the
+    // capture code below type-checked instead of stringly-typed.
+    await page.evaluate('globalThis.__name = globalThis.__name || function (f) { return f; }');
+
+    const nodes = await page.evaluate((): LayoutNode[] => {
+      const MAX_LABEL_LEN = 160;
+      const out: LayoutNode[] = [];
+
+      /** Text belonging to this element itself, not to its descendants. */
+      const ownText = (el: Element): string =>
+        Array.from(el.childNodes)
+          .filter((n) => n.nodeType === 3)
+          .map((n) => n.textContent ?? '')
+          .join('')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const push = (el: Element, kind: LayoutNode['kind'], text: string) => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return;
+        out.push({
+          kind,
+          text,
+          x: Math.round(r.left + window.scrollX),
+          y: Math.round(r.top + window.scrollY),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
+        });
+      };
+
+      for (const el of Array.from(document.querySelectorAll('*'))) {
+        const tag = el.tagName.toLowerCase();
+
+        if (tag === 'input' || tag === 'select' || tag === 'textarea') {
+          const type = (el as HTMLInputElement).type?.toLowerCase();
+          // Checkboxes and radios are controls, but so are their labels; both
+          // are useful, so no special casing beyond hidden inputs.
+          if (type !== 'hidden') push(el, 'control', '');
+          continue;
+        }
+
+        if (tag === 'button' || el.getAttribute('role') === 'button') {
+          const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+          if (text) push(el, 'button', text);
+          continue;
+        }
+
+        // Static text. Using OWN text (not textContent) means an ancestor does
+        // not duplicate its descendants' labels, while a heading cell that
+        // contains both text and a button — "Cannula 1 [+ Day]" — still
+        // registers its own "Cannula 1".
+        const text = ownText(el);
+        if (text && text.length <= MAX_LABEL_LEN) push(el, 'label', text);
+      }
+
+      return out;
+    });
+
+    return nodes.length ? { nodes } : undefined;
+  } catch (err) {
+    // Say why, or a silently missing snapshot looks like "this layout has no
+    // structure" rather than "the capture broke".
+    logger.debug(
+      `Layout capture failed, falling back to markup-only detection: ${
+        err instanceof Error ? err.message.split('\n')[0] : String(err)
+      }`,
+    );
+    return undefined;
+  }
+}
 
 /**
  * Render `html` and return `document.documentElement.outerHTML`.
@@ -138,11 +243,12 @@ export async function renderHtmlToDomWithOutcome(html: string): Promise<HtmlRend
     await page.waitForTimeout(SETTLE_MS);
 
     const rendered = await page.evaluate(() => document.documentElement.outerHTML);
+    const layout = await captureLayout(page);
     await context.close();
     if (typeof rendered !== 'string' || rendered.length === 0) {
       return { status: 'failed', detail: 'the page produced no DOM' };
     }
-    return { status: 'rendered', html: rendered };
+    return { status: 'rendered', html: rendered, layout };
   } catch (err) {
     const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
     if (!launched) {

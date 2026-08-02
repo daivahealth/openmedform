@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Patient details — plain grid</title>
+<style>
+  /* A one-off details panel drawn with CSS grid. It looks exactly like the
+     repeating fixture to a naive row/column clusterer, and differs in the one
+     way that matters: there is nothing to press to add another record. */
+  .grid { display: grid; grid-template-columns: 240px 1fr; gap: 0; }
+  .hdr, .lbl, .cell { border: 1px solid #c6d6e4; padding: 6px 8px; }
+  .hdr { background: #dbe9f7; font-weight: 700; }
+  .lbl { font-weight: 700; }
+  input, select { width: 100%; }
+</style></head>
+<body>
+  <h1>Patient Details</h1>
+  <div class="grid">
+      <div class="hdr">Field</div><div class="hdr">Value</div>
+      <div class="lbl">Patient Name</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Hospital Number</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Date of Birth</div><div class="cell"><input type="date"></div>
+      <div class="lbl">Sex</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Ward</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Consultant</div><div class="cell"><input type="text"></div>
+  </div>
+  <button type="button">Save</button>
+  <button type="button">Print</button>
+</body></html>

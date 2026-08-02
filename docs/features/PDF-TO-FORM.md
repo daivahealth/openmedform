@@ -469,10 +469,16 @@ its entire markup is:
 `addCannula()` builds 22 rows and 23 fields at load. Statically there is nothing
 to convert.
 
-**Conversion renders these itself.** When a mock-up ships scripts *and* either
-has no fields at all or contains named-but-empty containers, the page is
-executed in a sandboxed headless browser and the resulting DOM is read instead
-— see [`html-render.ts`](../../apps/api/src/common/utils/html-render.ts).
+**Conversion renders these itself.** A mock-up is executed in a sandboxed
+headless browser, and the resulting DOM read instead, in two cases:
+
+1. it ships scripts *and* either has no fields at all or contains
+   named-but-empty containers — the case below; or
+2. its markup yields no repeating structure but it names an "Add …" control, in
+   which case the render exists to measure the layout — see
+   [Grids built without tables](#grids-built-without-tables).
+
+See [`html-render.ts`](../../apps/api/src/common/utils/html-render.ts).
 
 Rendering is **not** trusting:
 
@@ -484,7 +490,8 @@ Rendering is **not** trusting:
   navigated to — so there is no origin to fetch from. Verified against a hostile
   page attempting `169.254.169.254` metadata, `file:///etc/passwd` and an
   external exfil URL: all three blocked, nothing leaked into the DOM.
-- **Bounded.** 10s wall-clock cap, downloads refused, pop-ups closed unread,
+- **Bounded.** 30s wall-clock cap (it must cover a cold browser launch, not
+  just the page), downloads refused, pop-ups closed unread,
   context always torn down. A `while(true)` script costs one timeout and the
   renderer returns null.
 - **The output is re-sanitised.** The rendered DOM goes back through the same
@@ -543,6 +550,48 @@ Two things still worth checking after a render:
   in the designer afterwards.
 - **Row count.** A repeating table renders however many rows the script created
   on load, which is normally the one representative row you want.
+
+### Grids built without tables
+
+Everything above depends on `<table>` markup. A mock-up that draws the same
+chart with `<div>`s and CSS grid is, to a markup parser, an undifferentiated pile
+of boxes — and AI-generated mock-ups increasingly draw them that way.
+
+So detection does not rely on markup shape. The sandbox that already renders a
+page also reports **where every label, control and button landed** — kind, own
+text, and a scroll-adjusted bounding box — and
+[`layout-detect.ts`](../../apps/api/src/common/utils/layout-detect.ts) clusters
+those boxes by y-coordinate into rows and by x-coordinate into columns. Where a
+pixel sits does not care how the pixel got there, so the same shapes surface
+whether the grid was a `<table>`, CSS grid, flexbox or absolute positioning.
+
+The discriminator between the two shapes is **what sits in the leftmost column
+below the header**: static labels mean the fields run down the side and records
+run across (a [matrix](#matrix-transposed-tables)); controls mean each row is
+itself a record (a [repeating log](#repeating-logs-recordtable)).
+
+The output is the *same* `RepeatingTableHint` / `TransposedMatrixHint` the markup
+detectors produce, so the prompt, the assembler and the renderers are unchanged.
+
+Guard rails:
+
+- **Markup wins.** Geometry runs only where markup detection found nothing. A
+  real `<table>` states the author's intent more precisely than a pixel cluster.
+- **A render is only spent when it could change the outcome.** The "Add …"
+  pre-check is the same precondition the detector applies, so a details panel
+  with Save/Print buttons is never rendered.
+- **No add affordance, no hint.** A print-only grid stays a plain set of fields.
+- **Chromium is required.** Without it this path is skipped silently and
+  detection is markup-only, exactly as before.
+
+Verified on a CSS-grid rebuild of the VIP chart with no table markup at all: it
+produces a matrix hint byte-identical to the one the markup detector returns for
+the real `<table>` version — same `labelHeader`, same 22 `rowLabels`, same
+`instanceHeaders`, same `+ Add Cannula` / `+ Day` controls.
+
+The structure must be **visible at load**: a matrix behind a collapsed panel is
+still missed, and group boundaries inside one long parameter column are still
+inferred rather than measured.
 
 ### Size and complexity limits
 

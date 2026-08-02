@@ -13,7 +13,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 
 | # | Limitation | Severity | Workaround today | Fix tracked in |
 |---|---|---|---|---|
-| 1 | Structure detection is `<table>`-only — div/CSS-grid layouts are invisible | High | Rebuild the mock-up's grid as a `<table>`, or accept model-only conversion and repair in review | [#72](https://github.com/daivahealth/openmedform/issues/72) |
+| 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
 | 2 | PDFs and images get no deterministic hints at all | High | Prefer an HTML mock-up of the same form when one exists | [#73](https://github.com/daivahealth/openmedform/issues/73) |
 | 3 | Hidden conditional fields ("Other → Please specify…") are stripped and lost | Medium | Reveal them (`display:block`) before uploading; re-add in the designer otherwise | [#74](https://github.com/daivahealth/openmedform/issues/74) |
 | 4 | Scripted behaviour is not converted — option cascades, thresholds, computed fields, enable/disable | Medium | Add the options/rules in the designer after conversion | [#75](https://github.com/daivahealth/openmedform/issues/75) |
@@ -21,22 +21,41 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload | By design | Split into one file per section | — |
 | 7 | Fidelity is structural, not pixel-exact | By design | Print engine reconstructs A4 from the Print Schema | — |
 
-## 1. Structure detection is `<table>`-only
+## 1. Structure detection is `<table>`-only — resolved
 
-The detectors that make conversion reliable — `findRepeatingTables` (records as
-rows) and `findTransposedMatrices` (records as columns) — walk
+**Was:** the detectors that make conversion reliable — `findRepeatingTables`
+(records as rows) and `findTransposedMatrices` (records as columns) — walk
 `<table>/<thead>/<tbody>` markup. A mock-up that draws the same grid with
-`<div>`s and CSS grid/flexbox is invisible to them, and AI-generated mock-ups
-increasingly do exactly that. The conversion still runs, but on the model's
-unguided judgement — the mode that produced dropped fields and invented columns
-before the hints existed.
+`<div>`s and CSS grid/flexbox was invisible to them, and AI-generated mock-ups
+increasingly do exactly that.
 
-**Overcoming it** ([#72](https://github.com/daivahealth/openmedform/issues/72)):
-we already execute mock-ups in a sandboxed Chromium. The plan is to stop
-depending on markup shape and use **rendered geometry** instead — collect
-bounding boxes for labels and inputs in the sandbox, cluster them into
-rows/columns, and emit the same hints. Geometry doesn't care whether the grid
-was a `<table>`, CSS grid, or absolutely positioned divs.
+**Now** ([#72](https://github.com/daivahealth/openmedform/issues/72)): detection
+no longer depends on markup shape. The sandboxed Chromium that already executes
+mock-ups also reports **where every label, control and button landed**, and
+`layout-detect.ts` clusters those boxes into rows and columns. Where a pixel
+sits does not care how the pixel got there, so the same two shapes are found
+whether the grid was a `<table>`, CSS grid, flexbox or absolute positioning —
+and the output is the *same* `RepeatingTableHint` / `TransposedMatrixHint`, so
+nothing downstream changed.
+
+How it behaves:
+
+- **Markup wins.** Geometry runs only when the markup detectors found nothing.
+  A real `<table>` is the more precise statement of intent; clustering pixels
+  could only blur it.
+- **A render is only spent when it could change the outcome.** A script-free
+  document is rendered for geometry only if it shows fields, yields no repeating
+  structure, and names an "Add …" control — the same precondition the detector
+  itself applies. A details panel with Save/Print buttons costs nothing.
+- **No add affordance, no hint.** A print-only grid the clinician fills by hand
+  stays a plain set of fields rather than becoming a record table.
+- **Chromium is required for this path.** Without a browser, detection falls
+  back to markup-only exactly as before — no error, just the old behaviour. See
+  [ADR-003](../ADR/003-json-forms-platform.md) for the isolation model.
+
+**Residual limits:** the structure must be *visible when the page loads* — a
+matrix behind a collapsed panel is still missed (row 5), and group boundaries
+within one long parameter column are still inferred rather than measured.
 
 ## 2. PDFs and images get no deterministic hints
 
