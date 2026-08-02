@@ -114,8 +114,12 @@ export class DesignerService {
     progress('Parsing and validating the refined definition...');
     const assembled = this.assembler.assemble(raw);
 
+    // NOTE: no `engine` field. It was dropped from FormVersion with the Form.io
+    // removal (ADR-004) — JSON Forms is the only engine — and passing it here
+    // made Prisma reject EVERY refine with "Unknown argument `engine`". The
+    // identically-named literal in FormService.versionPayload is a different
+    // thing: it is frozen into the content hash and must stay.
     const versionData = {
-      engine: 'JSONFORMS' as const,
       dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
       uiSchema: assembled.uiSchema as unknown as Prisma.InputJsonValue,
       printSchema: assembled.printSchema as unknown as Prisma.InputJsonValue,
