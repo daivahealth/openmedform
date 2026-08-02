@@ -63,6 +63,7 @@ export class JsonFormsAssemblerService {
     // the dangling refs (the field then validates permissively) and surface a
     // warning so the reviewer can tighten it.
     const repairedRefs = this.repairDanglingRefs(dataSchema);
+    const repairedRequired = this.repairMisplacedRequired(dataSchema);
 
     const compileError = this.validation.checkCompiles(dataSchema);
     if (compileError) {
@@ -78,6 +79,15 @@ export class JsonFormsAssemblerService {
     const conversionMetadata = this.asObject(parsed.conversionMetadata) ?? {};
 
     const warnings = this.extractWarnings(conversionMetadata);
+    for (const path of repairedRequired) {
+      warnings.push({
+        type: 'UNCERTAIN_FIELD_BINDING',
+        message:
+          `Moved a "required" list out of "properties" at ${path} (the AI nested it one level ` +
+          'too deep, which would have made the whole schema invalid). Check that the right ' +
+          'fields are marked mandatory.',
+      });
+    }
     for (const ref of repairedRefs) {
       warnings.push({
         type: 'UNCERTAIN_FIELD_BINDING',
@@ -94,6 +104,66 @@ export class JsonFormsAssemblerService {
       scoringRules: this.deriveScoringRules(uiSchema),
       warnings,
     };
+  }
+
+  /**
+   * Move a `required` list that the model nested INSIDE `properties` back out to
+   * where it belongs, as a sibling of it.
+   *
+   * Observed on a real conversion:
+   *
+   *   { type: 'object',
+   *     properties: { site: {...}, side: {...}, required: ['site'] } }   // wrong
+   *
+   * Every value inside `properties` must be a schema, so an array there makes
+   * Ajv refuse to compile the WHOLE document — one misplaced keyword loses an
+   * otherwise good multi-section form. The author's intent is unambiguous, so
+   * the fix is to relocate it rather than to reject.
+   *
+   * A field genuinely NAMED "required" is left alone: that would be a schema
+   * (an object or boolean), not an array of strings. The array test is what
+   * separates the two, so this cannot silently delete a real field.
+   *
+   * Returns the JSON-pointer-ish paths repaired, for the reviewer's warnings.
+   */
+  private repairMisplacedRequired(root: Record<string, unknown>): string[] {
+    const repaired: string[] = [];
+
+    const walk = (node: unknown, path: string): void => {
+      if (Array.isArray(node)) {
+        node.forEach((entry, i) => walk(entry, `${path}/${i}`));
+        return;
+      }
+      if (!node || typeof node !== 'object') return;
+      const obj = node as Record<string, unknown>;
+
+      const properties = obj.properties;
+      if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
+        const props = properties as Record<string, unknown>;
+        const misplaced = props.required;
+        const isNameList =
+          Array.isArray(misplaced) && misplaced.every((entry) => typeof entry === 'string');
+
+        if (isNameList) {
+          delete props.required;
+          const names = misplaced as string[];
+          // Merge rather than overwrite: a correct sibling `required` may also
+          // exist, and dropping either list would silently relax validation.
+          const existing = Array.isArray(obj.required) ? (obj.required as unknown[]) : [];
+          const merged = [...new Set([...existing.filter((e) => typeof e === 'string'), ...names])];
+          // Only keep names that are actually declared, so the relocation cannot
+          // introduce a required property that does not exist.
+          obj.required = merged.filter((name) => name in props);
+          if ((obj.required as string[]).length === 0) delete obj.required;
+          repaired.push(path || '#');
+        }
+      }
+
+      for (const [key, value] of Object.entries(obj)) walk(value, `${path}/${key}`);
+    };
+
+    walk(root, '');
+    return repaired;
   }
 
   /**
