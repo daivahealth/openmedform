@@ -130,11 +130,15 @@ cat <<EOF
    connection string. Migrations run automatically on API boot
    (prisma migrate deploy in apps/api/Dockerfile CMD).
 
-4. Create the Google OAuth client (see docs/deployment/GCP-CLOUD-RUN.md §3)
-   and set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_CALLBACK_URL.
+4. Set up whichever SSO providers you want (see docs/deployment/GCP-CLOUD-RUN.md
+   §3). Google: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_CALLBACK_URL.
+   Microsoft: MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET /
+   MICROSOFT_CALLBACK_URL. Leaving a provider's secrets at CHANGE_ME disables
+   just that provider (its routes return 503); the others keep working.
 
 5. Push to main — .github/workflows/deploy.yml builds and deploys both services.
 
 6. Map custom domains (Cloud Run domain mappings or a load balancer) and then
-   update FRONTEND_ORIGIN + GOOGLE_CALLBACK_URL to the final URLs.
+   update FRONTEND_ORIGIN + the callback URLs of every SSO provider you
+   enabled to the final URLs.
 EOF
