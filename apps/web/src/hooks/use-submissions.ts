@@ -104,3 +104,40 @@ export function useCompleteSubmission(id: string) {
     },
   });
 }
+
+/**
+ * Void a record — how "delete" behaves for clinical data. The record is kept
+ * and drops out of the list; nothing is destroyed.
+ */
+export function useVoidSubmission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/api/submissions/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      // The per-form list, the all-records page and the dashboard count all
+      // change; the records page keys its own query separately.
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-submissions'] });
+    },
+  });
+}
+
+/** Destroy a record for good. Admins only — the API returns 403 otherwise. */
+export function useDeleteSubmissionPermanently() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/api/submissions/${id}/permanent`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-submissions'] });
+    },
+  });
+}

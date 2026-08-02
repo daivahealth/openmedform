@@ -42,7 +42,7 @@ clinical operation, and is recorded after the primary write commits.
 **Currently wired:**
 - Auth: `auth.register`, `auth.login`, `auth.login.failed` (email + IP)
 - Forms: `form.create`, `form.publish`, `form.delete`
-- Submissions: `submission.complete`, `submission.sign`
+- Submissions: `submission.complete`, `submission.sign`, `submission.void`, `submission.delete`
 - Designer: `form.designer.refine`
 - Conversion: `ai.convert`, `ai.convert.failed`, `ai.convert.accept`
 
