@@ -6,6 +6,7 @@ import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 import { AiUsageService } from '../ai-builder/ai-usage.service';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
 import { JsonFormsAssemblerService } from '../form-conversion/jsonforms-assembler.service';
+import { assertConversionOutputComplete } from '../../common/utils/llm-output';
 import {
   getJsonFormsRefineSystemPrompt,
   buildJsonFormsRefineUserPrompt,
@@ -26,6 +27,13 @@ interface RefinementImage {
  * refining a published version forks a new draft (immutability — see
  * docs/architecture/DATA-MODEL.md).
  */
+/**
+ * The same budget conversion gets. Refinement is the more demanding of the two:
+ * conversion emits a definition from a document, whereas refine must re-emit
+ * the ENTIRE existing definition to change one label in it.
+ */
+const REFINE_MAX_TOKENS = 32768;
+
 @Injectable()
 export class DesignerService {
   constructor(
@@ -91,7 +99,17 @@ export class DesignerService {
       (image
         ? '\n\nThe user attached an image as a visual reference. Compare it with the current definition and apply only the requested correction.'
         : '');
-    const generationOptions = { temperature: 0.2, maxTokens: 16384, jsonMode: true };
+    // The SAME budget conversion gets, not half of it. Refinement is the more
+    // demanding of the two: conversion emits a definition from a document,
+    // whereas refine must re-emit the ENTIRE existing definition — dataSchema,
+    // uiSchema, printSchema, translations and metadata — to change one label in
+    // it. On a large chart 16k ran out mid-object, and the truncated result
+    // surfaced as a vague "AI output was not valid JSON".
+    const generationOptions = {
+      temperature: 0.2,
+      maxTokens: REFINE_MAX_TOKENS,
+      jsonMode: true,
+    };
     const raw = image
       ? await provider.generateWithImages!(
           userPrompt,
@@ -112,6 +130,11 @@ export class DesignerService {
         );
 
     progress('Parsing and validating the refined definition...');
+    // Conversion has always run this; refine never did, so a model that ran out
+    // of room mid-object reached the parser as mangled JSON and produced "AI
+    // output was not valid JSON" — true, but it names neither the cause nor
+    // anything the author can act on.
+    assertConversionOutputComplete(raw);
     const assembled = this.assembler.assemble(raw);
 
     const versionData = {
