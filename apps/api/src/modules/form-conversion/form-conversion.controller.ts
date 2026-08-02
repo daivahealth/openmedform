@@ -61,6 +61,7 @@ export class FormConversionController {
     @Ip() ip: string,
     @Body('provider') provider?: string,
     @Body('instructions') instructions?: string,
+    @Body('extractScriptConfig') extractScriptConfig?: string,
   ) {
     if (!file) {
       throw new BadRequestException('A source file is required');
@@ -82,6 +83,9 @@ export class FormConversionController {
         mimeType: file.mimetype,
         providerName: provider,
         instructions,
+        // Multipart carries no JSON types, so the opt-in arrives as text.
+        // Anything that is not an explicit yes leaves scripts untouched.
+        extractScriptConfig: extractScriptConfig === 'true' || extractScriptConfig === '1',
       },
       ip,
     );

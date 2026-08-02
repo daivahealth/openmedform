@@ -489,3 +489,69 @@ describe('extractFormHtml — conditional "Other → specify" fields', () => {
     expect(stats.fields).toBe(0);
   });
 });
+
+
+describe('extractFormHtml — script config (opt-in only)', () => {
+  const bloodSugar = readFileSync(
+    join(__dirname, '__fixtures__', 'blood-sugar-scripted.html'),
+    'utf8',
+  );
+
+  it('reads nothing from scripts by default', () => {
+    expect(extractFormHtml(bloodSugar).scriptConfig).toEqual([]);
+  });
+
+  it('is byte-identical without the opt-in', () => {
+    // The whole security argument rests on the default path being untouched.
+    const before = extractFormHtml(bloodSugar);
+    const withFlagOff = extractFormHtml(bloodSugar, { extractScriptConfig: false });
+
+    expect(withFlagOff).toEqual(before);
+    expect(withFlagOff.cleanedHtml).toBe(before.cleanedHtml);
+    expect(withFlagOff.warnings).toEqual(before.warnings);
+  });
+
+  it('reads the option lists, cascade and bands when asked', () => {
+    const { scriptConfig } = extractFormHtml(bloodSugar, { extractScriptConfig: true });
+
+    expect(scriptConfig.map((c) => c.name)).toEqual([
+      'glycaemiaCategories',
+      'interventionsByCategory',
+      'insulinTypes',
+    ]);
+    expect(scriptConfig.find((c) => c.name === 'insulinTypes')?.value).toHaveLength(6);
+    expect(
+      Object.keys(
+        scriptConfig.find((c) => c.name === 'interventionsByCategory')?.value as object,
+      ),
+    ).toEqual(['SEVERE_HYPO', 'HYPO', 'LOW_NORMAL', 'NORMAL', 'HYPER']);
+  });
+
+  it('skips the presentation map and the runtime-built value in the same file', () => {
+    // cssClasses is literal but not config; rowTemplate is a call.
+    const names = extractFormHtml(bloodSugar, { extractScriptConfig: true }).scriptConfig.map(
+      (c) => c.name,
+    );
+
+    expect(names).not.toContain('cssClasses');
+    expect(names).not.toContain('rowTemplate');
+  });
+
+  it('still strips the script itself, opt-in or not', () => {
+    // Reading config must not put executable text in front of the model.
+    for (const opts of [undefined, { extractScriptConfig: true }]) {
+      const { cleanedHtml, stats } = extractFormHtml(bloodSugar, opts);
+      expect(cleanedHtml).not.toMatch(/<script/i);
+      expect(cleanedHtml).not.toContain('addReading');
+      expect(cleanedHtml).not.toContain('glycaemiaCategories');
+      expect(stats.scripts).toBe(1);
+    }
+  });
+
+  it('names what it read in a warning so the reviewer can check it', () => {
+    const { warnings } = extractFormHtml(bloodSugar, { extractScriptConfig: true });
+
+    expect(warnings.join(' ')).toMatch(/parsed, never run/);
+    expect(warnings.join(' ')).toContain('glycaemiaCategories');
+  });
+});

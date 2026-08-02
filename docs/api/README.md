@@ -89,7 +89,7 @@ chosen engine, and for jsonforms per-field confidence + warnings are persisted.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/conversions | multipart: `file`, optional `provider`, `instructions`. Returns the created job. Accepts PDF, PNG/JPEG/WebP/GIF, and **HTML** (`text/html`, max 2MB — 400 otherwise). Oversized/empty HTML mock-ups are rejected with guidance rather than half-converted |
+| POST | /api/conversions | multipart: `file`, optional `provider`, `instructions`, `extractScriptConfig`. Returns the created job. Accepts PDF, PNG/JPEG/WebP/GIF, and **HTML** (`text/html`, max 2MB — 400 otherwise). Oversized/empty HTML mock-ups are rejected with guidance rather than half-converted. `extractScriptConfig` (`"true"`/`"1"`; anything else, including absent, is off) opts an HTML upload in to having its scripts **parsed, never executed** for literal option lists / thresholds / reference tables — see [PDF-TO-FORM](../features/PDF-TO-FORM.md#reading-config-from-scripts-opt-in). The choice is recorded in the `ai.convert` audit entry |
 | POST | /api/conversions/:id/accept | Accept a reviewed job: promote the draft form REVIEW→DRAFT, mark job COMPLETED (audited) |
 | GET | /api/conversions | List conversion jobs for the tenant |
 | GET | /api/conversions/:id | Job status + persisted warnings |

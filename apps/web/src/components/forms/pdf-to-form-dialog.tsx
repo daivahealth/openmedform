@@ -35,6 +35,12 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [instructions, setInstructions] = useState('');
   const [provider, setProvider] = useState('');
+  /**
+   * Opt in to reading declarative config out of an HTML mock-up's scripts.
+   * Off by default and never remembered between uploads: it narrows the
+   * strip-scripts posture, so it is a per-file decision.
+   */
+  const [readScriptConfig, setReadScriptConfig] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
 
@@ -43,6 +49,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     setFile(null);
     setInstructions('');
     setProvider('');
+    setReadScriptConfig(false);
     setErrorMsg('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -63,6 +70,9 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     }
     setErrorMsg('');
     setFile(selected);
+    // The option only means anything for HTML; drop a stale opt-in rather than
+    // carrying it silently onto a different file.
+    if (!isHtmlFile(selected)) setReadScriptConfig(false);
   }
 
   async function handleSubmit() {
@@ -76,6 +86,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
         file,
         provider: provider || undefined,
         instructions: instructions.trim() || undefined,
+        extractScriptConfig: isHtml && readScriptConfig,
       });
       handleClose(false);
       router.push(`/forms/${formId}/preview`);
@@ -86,6 +97,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   }
 
   const providers = providerData?.providers ?? [];
+  const isHtml = isHtmlFile(file);
   const canSubmit = !!file;
 
   return (
@@ -147,6 +159,36 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
                 rows={3}
               />
             </div>
+
+            {isHtml && (
+              <div className="rounded-md border border-input p-3">
+                <label
+                  htmlFor="pdf-script-config"
+                  className="flex cursor-pointer items-start gap-2"
+                >
+                  <input
+                    id="pdf-script-config"
+                    type="checkbox"
+                    checked={readScriptConfig}
+                    onChange={(e) => setReadScriptConfig(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-input"
+                  />
+                  <span className="grid gap-1">
+                    <span className="text-sm font-medium leading-none">
+                      Read option lists from this mock-up&rsquo;s scripts
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Mock-ups often keep their dropdown options, thresholds and reference
+                      tables in JavaScript rather than in the markup. The scripts are{' '}
+                      <strong>parsed, never run</strong>, and only plain values are read.
+                      Leave this off unless you trust the file &mdash; anything it contains
+                      is shown to the AI as data. Everything read is listed for you to check
+                      after conversion.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
 
             {providers.length > 1 && (
               <div className="grid gap-2">
@@ -229,7 +271,8 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Failed to process source file';
 }
 
-function isHtmlFile(file: File): boolean {
+function isHtmlFile(file: File | null): boolean {
+  if (!file) return false;
   // Some browsers report an empty type for .html; fall back to the extension.
   return file.type === 'text/html' || /\.html?$/i.test(file.name);
 }

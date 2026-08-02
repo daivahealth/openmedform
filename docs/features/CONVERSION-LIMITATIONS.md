@@ -16,7 +16,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
 | 2 | PDFs and images get no deterministic hints at all | High | Prefer an HTML mock-up of the same form when one exists | [#73](https://github.com/daivahealth/openmedform/issues/73) |
 | 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
-| 4 | Scripted behaviour is not converted — option cascades, thresholds, computed fields, enable/disable | Medium | Add the options/rules in the designer after conversion | [#75](https://github.com/daivahealth/openmedform/issues/75) |
+| 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
 | 5 | Content that only exists after a click is missed; matrix group-boundaries are inferred, not measured | Medium | Click the relevant buttons, then export `outerHTML` and upload that | [#76](https://github.com/daivahealth/openmedform/issues/76) |
 | 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload | By design | Split into one file per section | — |
 | 7 | Fidelity is structural, not pixel-exact | By design | Print engine reconstructs A4 from the Print Schema | — |
@@ -102,25 +102,35 @@ tiny:
 
 Anything else with `display:none` is removed and reported exactly as before.
 
-## 4. Scripted behaviour is not converted
+## 4. Scripted behaviour — declarative config now converts, on request
 
-Conversion captures fields; it does not capture what the mock-up's JavaScript
-*does* with them:
+Conversion captures fields. What the mock-up's JavaScript *does* with them
+splits into two halves, and only one of them is recoverable without running the
+page.
 
+**Declarative config — now converts** ([#75](https://github.com/daivahealth/openmedform/issues/75)),
+when the uploader ticks **"Read option lists from this mock-up's scripts"**:
+
+- option lists that never appear in the markup (the insulin-type dropdown)
 - option cascades (interventions scoped to the GRBS glycaemia category)
 - thresholds (the <40 / 40–53 / 54–70 / 71–180 / >180 reference bands)
-- computed fields ("Intervention (auto)", day numbers from an insertion date)
-- cross-field enable/disable (drug type locked during hypoglycaemia)
+- score → stage → description reference tables (VIP's `vipRefFull`)
 
-Scripts are stripped before the model sees anything — the correct default for
-untrusted uploads, and one this document does not propose weakening by default.
+The scripts are **parsed, never executed**, and only whole literal values are
+taken — see [Reading config from
+scripts](PDF-TO-FORM.md#reading-config-from-scripts-opt-in) for the parser's
+rules, its caps, and why this is not a reversal of the strip-scripts default.
+Default is off; everything read is named in a conversion warning, and the opt-in
+itself is audit-logged.
 
-**Overcoming it** ([#75](https://github.com/daivahealth/openmedform/issues/75)):
-an **explicit opt-in** that AST-parses the script for literal config arrays —
-parse only, never execute — and passes them as data under the same
-untrusted-source framing, mapped to things the platform already has: enum
-options, reference tables, scoring bands, ENABLE/DISABLE rules. Off by default;
-every extracted piece flagged in the conversion warnings.
+**Imperative behaviour — still not converted:**
+
+- computed fields ("Intervention (auto)", day numbers derived from an insertion
+  date) — these are functions, and a function body is never a literal
+- cross-field enable/disable driven by code paths rather than a config table
+
+Add those in the designer after conversion. Conditional *visibility* is a
+separate case and already converts — see limitation 3.
 
 ## 5. Click-built content and unmeasured group boundaries
 

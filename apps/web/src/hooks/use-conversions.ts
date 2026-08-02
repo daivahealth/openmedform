@@ -28,6 +28,8 @@ export interface CreateJsonFormsInput {
   file: File;
   provider?: string;
   instructions?: string;
+  /** Opt in to parsing an HTML mock-up's scripts for declarative config. */
+  extractScriptConfig?: boolean;
 }
 
 export function useCreateJsonFormsForm() {
@@ -40,6 +42,9 @@ export function useCreateJsonFormsForm() {
       formData.append('engine', 'jsonforms');
       if (input.provider) formData.append('provider', input.provider);
       if (input.instructions) formData.append('instructions', input.instructions);
+      // Only sent when true: the API treats anything else as off anyway, and
+      // not sending it keeps the default path byte-identical.
+      if (input.extractScriptConfig) formData.append('extractScriptConfig', 'true');
 
       const { data: job } = await api.post<ConversionJob>('/api/conversions', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
