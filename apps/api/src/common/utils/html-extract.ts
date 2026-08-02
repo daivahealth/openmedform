@@ -455,11 +455,34 @@ export interface RepeatingTableHint {
   countLabel?: string;
 }
 
-/** Buttons that add a row, as opposed to print/save/submit actions. */
-const ADD_BUTTON = /^\s*[+➕]?\s*(add|new)\b/i;
+/**
+ * Buttons that add a row, as opposed to print/save/submit actions.
+ *
+ * Exported so the geometry detector in layout-detect.ts recognises the same
+ * affordances this module does. One shape must not be a repeating structure on
+ * the markup path and a plain grid on the geometry path.
+ */
+export const ADD_BUTTON = /^\s*[+➕]?\s*(add|new)\b/i;
 
 /** A "+ …" control inside a column heading, e.g. '+ Day'. */
-const NESTED_ADD_BUTTON = /^\s*[+➕]\s*\S/;
+export const NESTED_ADD_BUTTON = /^\s*[+➕]\s*\S/;
+
+/**
+ * Does this markup offer a control that adds a record?
+ *
+ * Used as a cheap pre-check before paying for a browser render: geometry
+ * detection bails without an add affordance, so a document that has none can
+ * never gain a hint from being rendered.
+ */
+export function hasAddAffordance(html: string): boolean {
+  const root = parse(html);
+  return root
+    .querySelectorAll('button, a, input[type="button"], input[type="submit"]')
+    .some((el) => {
+      const text = (el.getAttribute('value') ?? el.text ?? '').replace(/\s+/g, ' ').trim();
+      return ADD_BUTTON.test(text);
+    });
+}
 
 /**
  * A table laid out as a MATRIX: field labels run down the first column and each

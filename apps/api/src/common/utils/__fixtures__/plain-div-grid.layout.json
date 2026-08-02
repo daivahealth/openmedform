@@ -1,0 +1,140 @@
+{
+ "nodes": [
+  {
+   "kind": "label",
+   "text": "Patient Details",
+   "x": 8,
+   "y": 21,
+   "width": 1264,
+   "height": 37
+  },
+  {
+   "kind": "label",
+   "text": "Field",
+   "x": 8,
+   "y": 80,
+   "width": 240,
+   "height": 32
+  },
+  {
+   "kind": "label",
+   "text": "Value",
+   "x": 248,
+   "y": 80,
+   "width": 1024,
+   "height": 32
+  },
+  {
+   "kind": "label",
+   "text": "Patient Name",
+   "x": 8,
+   "y": 112,
+   "width": 240,
+   "height": 35
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 119,
+   "width": 1014,
+   "height": 21
+  },
+  {
+   "kind": "label",
+   "text": "Hospital Number",
+   "x": 8,
+   "y": 147,
+   "width": 240,
+   "height": 35
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 154,
+   "width": 1014,
+   "height": 21
+  },
+  {
+   "kind": "label",
+   "text": "Date of Birth",
+   "x": 8,
+   "y": 182,
+   "width": 240,
+   "height": 35
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 189,
+   "width": 1011,
+   "height": 21
+  },
+  {
+   "kind": "label",
+   "text": "Sex",
+   "x": 8,
+   "y": 217,
+   "width": 240,
+   "height": 33
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 224,
+   "width": 1006,
+   "height": 19
+  },
+  {
+   "kind": "label",
+   "text": "Ward",
+   "x": 8,
+   "y": 250,
+   "width": 240,
+   "height": 35
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 257,
+   "width": 1014,
+   "height": 21
+  },
+  {
+   "kind": "label",
+   "text": "Consultant",
+   "x": 8,
+   "y": 285,
+   "width": 240,
+   "height": 35
+  },
+  {
+   "kind": "control",
+   "text": "",
+   "x": 257,
+   "y": 292,
+   "width": 1014,
+   "height": 21
+  },
+  {
+   "kind": "button",
+   "text": "Save",
+   "x": 8,
+   "y": 320,
+   "width": 46,
+   "height": 21
+  },
+  {
+   "kind": "button",
+   "text": "Print",
+   "x": 58,
+   "y": 320,
+   "width": 43,
+   "height": 21
+  }
+ ]
+}

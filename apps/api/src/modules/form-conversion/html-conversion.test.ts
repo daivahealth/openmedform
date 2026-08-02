@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, it, expect, vi } from 'vitest';
 import { FormConversionController } from './form-conversion.controller';
 import {
@@ -6,6 +8,8 @@ import {
   assertHtmlWithinBudget,
 } from './form-conversion.service';
 import { extractFormHtml } from '../../common/utils/html-extract';
+import { renderHtmlToDomWithOutcome } from '../../common/utils/html-render';
+import type { LayoutSnapshot } from '../../common/utils/layout-detect';
 import type { RequestUser } from '../../common/types/jwt-payload.interface';
 
 const user: RequestUser = {
@@ -147,5 +151,99 @@ describe('assertConversionOutputComplete', () => {
         guardFor('<input type="text" name="a"><script>enhance()</script>'),
       ).not.toThrow();
     });
+  });
+});
+
+
+/**
+ * The geometry fallback, exercised through the service seam with the browser
+ * mocked out — the render itself is html-render.ts's business, and CI has no
+ * Chromium. The snapshots are real captures (see layout-detect.test.ts).
+ */
+vi.mock('../../common/utils/html-render', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../common/utils/html-render')>()),
+  renderHtmlToDomWithOutcome: vi.fn(),
+}));
+
+const FIXTURES = join(__dirname, '..', '..', 'common', 'utils', '__fixtures__');
+const fixture = (name: string) => readFileSync(join(FIXTURES, name), 'utf8');
+const layoutOf = (name: string) => JSON.parse(fixture(`${name}.layout.json`)) as LayoutSnapshot;
+
+function conversionService() {
+  return new FormConversionService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+}
+
+/** `extractHtmlSource` is private; the wiring under test is only reachable here. */
+const extractSource = (html: string, warnings: string[]) =>
+  (
+    conversionService() as unknown as {
+      extractHtmlSource(h: string, w: string[]): Promise<ReturnType<typeof extractFormHtml>>;
+    }
+  ).extractHtmlSource(html, warnings);
+
+describe('geometry fallback wiring', () => {
+  const render = vi.mocked(renderHtmlToDomWithOutcome);
+
+  it('renders a script-free div grid and adopts the hint geometry recovers', async () => {
+    const html = fixture('vip-div-grid.html');
+    render.mockResolvedValue({ status: 'rendered', html, layout: layoutOf('vip-div-grid') });
+
+    const warnings: string[] = [];
+    const result = await extractSource(html, warnings);
+
+    expect(render).toHaveBeenCalledOnce();
+    expect(result.transposedMatrices).toHaveLength(1);
+    expect(result.transposedMatrices[0].instanceHeaders).toEqual(['Cannula 1']);
+    expect(warnings.join(' ')).toContain('without table markup');
+  });
+
+  it('does not spend a render on a layout with no add affordance', async () => {
+    render.mockClear();
+
+    const result = await extractSource(fixture('plain-div-grid.html'), []);
+
+    expect(render).not.toHaveBeenCalled();
+    expect(result.transposedMatrices).toEqual([]);
+    expect(result.repeatingTables).toEqual([]);
+  });
+
+  it('leaves a real table alone — markup wins over geometry', async () => {
+    render.mockClear();
+    const html = fixture('vip-rendered.html');
+
+    const result = await extractSource(html, []);
+
+    // Markup detection already found the matrix, so there is nothing to gain
+    // from measuring pixels and a render would be pure cost.
+    expect(render).not.toHaveBeenCalled();
+    expect(result.transposedMatrices).toEqual(extractFormHtml(html).transposedMatrices);
+  });
+
+  it('keeps the static result when the browser is unavailable', async () => {
+    render.mockClear();
+    render.mockResolvedValue({ status: 'unavailable', detail: 'no chromium' });
+    const html = fixture('vip-div-grid.html');
+
+    const result = await extractSource(html, []);
+
+    expect(render).toHaveBeenCalledOnce();
+    expect(result.transposedMatrices).toEqual([]);
+    expect(result.stats.fields).toBe(extractFormHtml(html).stats.fields);
+  });
+
+  it('survives a render that produced no snapshot', async () => {
+    render.mockClear();
+    const html = fixture('vip-div-grid.html');
+    render.mockResolvedValue({ status: 'rendered', html });
+
+    const result = await extractSource(html, []);
+
+    expect(result.transposedMatrices).toEqual([]);
   });
 });

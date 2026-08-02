@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>VIP — CSS grid variant</title>
+<style>
+  /* Deliberately no table markup anywhere: the same chart drawn with CSS grid,
+     which the markup detectors cannot see. Geometry detection must find it. */
+  .grid { display: grid; grid-template-columns: 240px 1fr; gap: 0; }
+  .hdr, .lbl, .cell { border: 1px solid #c6d6e4; padding: 6px 8px; }
+  .hdr { background: #dbe9f7; font-weight: 700; }
+  .lbl { font-weight: 700; }
+  input, select { width: 100%; }
+</style></head>
+<body>
+  <h1>Visual Infusion Phlebitis Score (VIP)</h1>
+  <div class="hint">Cannula-level details are recorded once per cannula.</div>
+  <div class="grid">
+      <div class="hdr">Parameter</div><div class="hdr">Cannula 1 <button type="button">+ Day</button></div>
+      <div class="lbl">Date of Insertion</div><div class="cell"><input type="date"></div>
+      <div class="lbl">Time of Insertion</div><div class="cell"><input type="time"></div>
+      <div class="lbl">Inserted At</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Inserted By — Name</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Inserted By — EC Code</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Site</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Side</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Size of Cannula (Gauge)</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Day & Date</div><div class="cell"><input type="date"></div>
+      <div class="lbl">Time (M/E/N)</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">VIP Score / Stage / Description</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Intervention (auto)</div><div class="cell"><span>—</span></div>
+      <div class="lbl">Intervention Done (Y/N)</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Date of Removal</div><div class="cell"><input type="date"></div>
+      <div class="lbl">Time of Removal</div><div class="cell"><input type="time"></div>
+      <div class="lbl">Reason for Removal</div><div class="cell"><select><option>Select…</option></select></div>
+      <div class="lbl">Removed By — Name & EC Code</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Inspected By — Name</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Inspected By — EC Code</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Inspected By — Signature</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Nurse Team Lead — Name</div><div class="cell"><input type="text"></div>
+      <div class="lbl">Nurse Team Lead — EC Code</div><div class="cell"><input type="text"></div>
+  </div>
+  <button type="button">+ Add Cannula</button>
+</body></html>

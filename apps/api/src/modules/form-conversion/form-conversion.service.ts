@@ -7,11 +7,16 @@ import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
 import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-prompt';
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
-import { extractFormHtml, type HtmlExtractStats } from '../../common/utils/html-extract';
+import {
+  extractFormHtml,
+  hasAddAffordance,
+  type HtmlExtractStats,
+} from '../../common/utils/html-extract';
 import {
   renderHtmlToDomWithOutcome,
   type HtmlRenderOutcome,
 } from '../../common/utils/html-render';
+import { detectLayoutStructures, type LayoutSnapshot } from '../../common/utils/layout-detect';
 import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
 
 // Keep typical multi-page clinical forms visually grounded without sending an
@@ -504,10 +509,24 @@ export class FormConversionService {
   ): Promise<ReturnType<typeof extractFormHtml>> {
     const staticResult = extractFormHtml(html);
 
-    const needsRender =
+    const scriptBuilt =
       staticResult.stats.scripts > 0 &&
       (staticResult.stats.fields === 0 || staticResult.scriptFilledPlaceholders.length > 0);
-    if (!needsRender) return staticResult;
+
+    // A chart drawn with <div>s and CSS grid is invisible to the markup
+    // detectors however well-formed it is, so a file that shows fields and
+    // names an "Add …" control but yields no repeating structure is worth
+    // rendering purely to measure where things landed. The add-affordance check
+    // is the same precondition detectLayoutStructures applies, so this only
+    // spends a render where one could actually change the outcome.
+    const maybeGeometric =
+      !scriptBuilt &&
+      staticResult.stats.fields > 0 &&
+      staticResult.repeatingTables.length === 0 &&
+      staticResult.transposedMatrices.length === 0 &&
+      hasAddAffordance(html);
+
+    if (!scriptBuilt && !maybeGeometric) return staticResult;
 
     const outcome = await renderHtmlToDomWithOutcome(html);
     if (outcome.status !== 'rendered') {
@@ -523,16 +542,51 @@ export class FormConversionService {
     // Only prefer the render if it actually recovered something. A mock-up whose
     // script does nothing useful should not lose its static content to a render
     // that happened to trip over an error partway through.
-    if (renderedResult.stats.fields <= staticResult.stats.fields) return staticResult;
+    const best =
+      renderedResult.stats.fields > staticResult.stats.fields ? renderedResult : staticResult;
 
-    const gained = renderedResult.stats.fields - staticResult.stats.fields;
+    if (best === renderedResult) {
+      const gained = renderedResult.stats.fields - staticResult.stats.fields;
+      warnings.push(
+        `This mock-up builds part of its form with JavaScript. It was rendered in a sandboxed browser to recover ${gained} additional field(s); the rendered markup was then sanitised exactly like a static upload.`,
+      );
+      this.logger.log(
+        `Rendered a script-built mock-up: fields ${staticResult.stats.fields} -> ${renderedResult.stats.fields}`,
+      );
+    }
+
+    return this.withGeometryHints(best, outcome.layout, warnings);
+  }
+
+  /**
+   * Fill in repeating-structure hints the markup detectors could not see.
+   *
+   * Geometry is a FALLBACK, never an override: where the markup carries a real
+   * `<table>` the markup path is the more precise reading of the author's
+   * intent, and clustering pixels could only blur it. This runs solely when
+   * markup detection came back empty.
+   */
+  private withGeometryHints(
+    result: ReturnType<typeof extractFormHtml>,
+    layout: LayoutSnapshot | undefined,
+    warnings: string[],
+  ): ReturnType<typeof extractFormHtml> {
+    if (!layout) return result;
+    if (result.repeatingTables.length > 0 || result.transposedMatrices.length > 0) return result;
+
+    const found = detectLayoutStructures(layout);
+    const count = found.repeatingTables.length + found.transposedMatrices.length;
+    if (count === 0) return result;
+
     warnings.push(
-      `This mock-up builds part of its form with JavaScript. It was rendered in a sandboxed browser to recover ${gained} additional field(s); the rendered markup was then sanitised exactly like a static upload.`,
+      `This mock-up lays out ${count} repeating section${count === 1 ? '' : 's'} without table markup. ` +
+        'The rendered layout was measured to recover the row and column structure, so it converts to ' +
+        'a record table rather than a flat list of fields.',
     );
     this.logger.log(
-      `Rendered a script-built mock-up: fields ${staticResult.stats.fields} -> ${renderedResult.stats.fields}`,
+      `Recovered ${count} repeating structure(s) from layout geometry (no table markup present)`,
     );
-    return renderedResult;
+    return { ...result, ...found };
   }
 
   private async createDraftForm(
