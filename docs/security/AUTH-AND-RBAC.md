@@ -44,6 +44,7 @@ clinical operation, and is recorded after the primary write commits.
 - Forms: `form.create`, `form.publish`, `form.delete`
 - Submissions: `submission.complete`, `submission.sign`
 - Designer: `form.designer.refine`
+- Conversion: `ai.convert`, `ai.convert.failed`, `ai.convert.accept`
 
 Each entry captures tenant, user, action, resource type/id, IP address, and a
 JSON `details` payload (e.g. version, engine, content hash, risk level, login
@@ -52,6 +53,29 @@ tenant (no tenant to scope to).
 
 **Planned (not yet wired):** logout, form schema edit/archive/clone, AI Builder
 generate/refine/PDF upload actions (token usage for these IS metered — see below).
+
+## Uploaded Mock-ups Are Untrusted Input
+
+An uploaded HTML mock-up is attacker-controlled. Three deliberate rules bound
+what it can do, and each has one narrow, documented exception:
+
+| Rule | Exception |
+|---|---|
+| **Scripts are stripped** and never shown to the model. | With a per-upload opt-in, they are **parsed** (acorn, AST only — no `eval`, no `Function`, no VM) for named *literal* config: option lists, thresholds, reference tables. Any value containing an identifier, call, template hole, spread or function is discarded whole. Hard caps on bytes parsed, entries, depth, string length and total size. The `<script>` element is still removed from the cleaned HTML either way. |
+| **Hidden content is stripped** — it is the natural place to smuggle instructions past the person uploading the file. | A conditional "Please specify…" `<input>` (or empty `<textarea>`) beside a select's "Other" option is kept and given a SHOW rule. Never a container; label capped at 60 characters. |
+| **The page is never executed in our process.** | A sandboxed headless browser may run it — Chromium's own OS-level sandbox is the isolation boundary, with no network and a hard timeout. Uploaded script is never evaluated in the API process. |
+
+Everything recovered is DATA. It is framed to the model as UNTRUSTED SOURCE
+MATERIAL, it only ever becomes JSON schema values, and both renderers plus the
+print engine escape by default — so it never re-enters an HTML context.
+
+The script opt-in is the only one of the three that a user can widen, so it is
+off by default, is per-upload rather than a saved setting, and is recorded in
+the `ai.convert` audit entry (`details.extractScriptConfig`) whether or not it
+was used. Everything it read is listed in the conversion warnings for the
+reviewer.
+
+Full detail: [PDF-TO-FORM — security model](../features/PDF-TO-FORM.md#security-model).
 
 ## AI Token Metering
 - Every LLM call is metered by `AiUsageService`, which wraps each provider so the

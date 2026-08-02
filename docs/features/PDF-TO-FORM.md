@@ -613,6 +613,67 @@ throughout; the Angular renderer's controls read `hidden`, and its layouts, Labe
 and score summary get the same treatment from `RuleAwareRenderer`, which
 evaluates the rule with the **same** `form-core` code the server uses.
 
+### Reading config from scripts (opt-in)
+
+Scripts are stripped before anything reaches the model. That is the right
+default for an untrusted upload — and it means conversion has been capturing the
+fields and none of the behaviour, because AI-generated mock-ups keep their most
+valuable clinical structure *inside* the script:
+
+```js
+const glycaemiaCategories   = [{ code: 'HYPO', max: 53, label: 'Hypoglycaemia' }, …];
+const interventionsByCategory = { HYPO: ['15 g oral glucose', 'Recheck in 15 min'], … };
+const insulinTypes = ['Regular (Actrapid)', 'NPH (Insulatard)', …];
+```
+
+None of that is in the markup. The `<select>` elements are built at runtime and
+arrive empty, so the converted form gets the right *fields* with no *options*.
+
+**Opt in per upload** — tick "Read option lists from this mock-up's scripts" in
+the From File dialog, or send `extractScriptConfig=true` to
+`POST /api/conversions`. Default is off. The choice is recorded in the
+`ai.convert` audit entry.
+
+[`script-config.ts`](../../apps/api/src/common/utils/script-config.ts) then
+**parses** the scripts with acorn and reads named literal bindings out of the
+AST. What comes back is mapped to things the platform already has: enum options,
+`clinicalReferenceTable` rows, scoring bands.
+
+**Parse is not execute.** There is no `eval`, no `Function`, no VM and no
+browser involved; nothing in the file runs. Beyond that:
+
+| Rule | Effect |
+|---|---|
+| Literals only | A value is kept only if the **whole** subtree is string / number / boolean / null / array / object-of-literals. An identifier, call, member access, template hole, spread, getter or function anywhere in it discards the value **whole** — never half-salvaged, because half an option list is a list the form does not offer. |
+| Named top-level bindings | `const x = <literal>` at the top level, or inside a top-level IIFE (how these mock-ups usually wrap themselves). Not arbitrary expressions, not nested scopes. |
+| Config-shaped names | A name has to look like config (`…Options`, `…Categories`, `…Types`, `…Table`, …) and not like presentation (`cssClasses`, `colors`, `apiUrl`). A mock-up is full of literals that are not clinical config, and each one is prompt budget spent on noise. |
+| Hard caps | 256 KB of script parsed, 40 entries, depth 6, 200 members per level, 300 characters per string, 12 000 characters total. |
+| Still untrusted | The result is passed to the model as DATA under the same UNTRUSTED SOURCE MATERIAL framing as the markup. |
+
+The `<script>` element itself is still removed from the cleaned HTML, opt-in or
+not — reading config never puts executable text in front of the model.
+
+Everything read is named in a conversion warning, so the reviewer can check any
+option list or threshold that came from a script rather than from the page.
+
+**A cascade becomes a documented dependency, not a guess.** When an object's
+keys are the values of another field, the model emits the union of the options
+and a `NEEDS_REVIEW` / `UNCERTAIN_FIELD_BINDING` warning naming the dependency,
+rather than inventing a rule the markup does not support.
+
+Measured on the Blood Sugar (GRBS) fixture, same file both ways:
+
+| | Without opt-in | With opt-in |
+|---|---|---|
+| Insulin type | no options | 6-value enum |
+| Category | no options | 5-value enum (bands from `glycaemiaCategories`) |
+| Intervention | no options | 10-value enum + a warning naming the Category dependency |
+
+**What this does not recover.** Only *declarative* config. Computed fields
+("Intervention (auto)") and code-path-driven enable/disable live in function
+bodies, and a function body is never a literal — those still belong in the
+designer.
+
 ### Grids built without tables
 
 Everything above depends on `<table>` markup. A mock-up that draws the same
@@ -698,4 +759,4 @@ Multi-document files are flagged with a warning.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
 - Hidden HTML is not converted, by design — with one narrow exception for a conditional "Please specify…" field beside an "Other" option, which is kept and given a SHOW rule. If a mock-up hides anything else (e.g. a whole conditional section), make it visible before uploading; the conversion warning will say what was removed.
-- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).
+- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered from the markup alone (a sandboxed render recovers the fields, and an opt-in parse recovers option lists — see [Reading config from scripts](#reading-config-from-scripts-opt-in)). They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Blood Sugar (GRBS) Monitoring Chart</title></head>
+<body>
+  <h1>Blood Sugar (GRBS) Monitoring Chart</h1>
+
+  <table>
+    <thead><tr><th>Time</th><th>GRBS (mg/dL)</th><th>Category</th><th>Insulin Type</th><th>Dose (units)</th><th>Intervention</th></tr></thead>
+    <tbody id="grbs-body"></tbody>
+  </table>
+  <button type="button">+ Add Reading</button>
+
+  <script>
+    // Threshold bands. The markup shows a "Category" column heading and nothing
+    // else — every band lives here.
+    const glycaemiaCategories = [
+      { code: 'SEVERE_HYPO', max: 40,   label: 'Severe hypoglycaemia' },
+      { code: 'HYPO',        max: 53,   label: 'Hypoglycaemia' },
+      { code: 'LOW_NORMAL',  max: 70,   label: 'Low normal' },
+      { code: 'NORMAL',      max: 180,  label: 'Normal' },
+      { code: 'HYPER',       max: 9999, label: 'Hyperglycaemia' }
+    ];
+
+    // Intervention options cascade from the category above.
+    const interventionsByCategory = {
+      SEVERE_HYPO: ['IV 25% dextrose 100 mL', 'Recheck GRBS in 15 min', 'Inform physician immediately'],
+      HYPO:        ['15 g oral glucose', 'Recheck GRBS in 15 min'],
+      LOW_NORMAL:  ['Observe', 'Recheck before next meal'],
+      NORMAL:      ['Continue current regimen'],
+      HYPER:       ['Correction dose per sliding scale', 'Recheck GRBS in 2 h', 'Check urine ketones']
+    };
+
+    const insulinTypes = [
+      'Regular (Actrapid)',
+      'NPH (Insulatard)',
+      'Glargine (Lantus)',
+      'Aspart (NovoRapid)',
+      'Lispro (Humalog)',
+      'Premix 30/70'
+    ];
+
+    // Not config: presentation, and excluded by name.
+    const cssClasses = { row: 'grbs-row', warn: 'grbs-warn' };
+
+    function buildRowTemplate(types) {
+      return types.map(function (t) { return '<option>' + t + '</option>'; }).join('');
+    }
+
+    // Not a literal: computed at runtime, so it is refused whole.
+    const rowTemplate = buildRowTemplate(insulinTypes);
+
+    function categoryFor(value) {
+      return glycaemiaCategories.find(function (c) { return value <= c.max; });
+    }
+
+    function addReading() {
+      const tbody = document.getElementById('grbs-body');
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><input type="time"></td><td><input type="number"></td>' +
+        '<td><span class="cat"></span></td>' +
+        '<td><select></select></td><td><input type="number"></td>' +
+        '<td><select></select></td>';
+      tbody.appendChild(tr);
+    }
+
+    addReading();
+  </script>
+</body></html>

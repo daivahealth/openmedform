@@ -1,4 +1,5 @@
 import { parse, HTMLElement, NodeType } from 'node-html-parser';
+import { extractScriptConfig, type ScriptConfigEntry } from './script-config';
 
 /**
  * Turn an uploaded HTML mock-up into inert, semantic source text for the AI
@@ -144,11 +145,23 @@ export interface HtmlExtractResult {
    * `ConditionalFieldHint`.
    */
   conditionalFields: ConditionalFieldHint[];
+  /**
+   * Named literal config parsed out of the mock-up's scripts — option lists,
+   * threshold bands, reference tables. Always empty unless the upload opted in
+   * via `extractScriptConfig`.
+   */
+  scriptConfig: ScriptConfigEntry[];
 }
 
 export interface HtmlExtractOptions {
   /** Cap on the cleaned HTML handed to the model (mirrors the PDF text cap). */
   maxChars?: number;
+  /**
+   * Opt in to reading declarative config out of the mock-up's scripts. OFF by
+   * default: it narrows the strip-scripts posture and so requires the
+   * uploader's explicit consent on each upload. Scripts are parsed, never run.
+   */
+  extractScriptConfig?: boolean;
 }
 
 const DEFAULT_MAX_CHARS = 24_000;
@@ -193,12 +206,34 @@ export function extractFormHtml(
   // `comment: true` keeps comments in the tree so we can count what we remove.
   const root = parse(html, {
     comment: true,
-    blockTextElements: { script: false, noscript: false, style: false, pre: true },
+    blockTextElements: {
+      // Script text is normally discarded at parse time — it is never wanted,
+      // and not having it in the tree is one less way for it to leak into the
+      // cleaned output. It is retained ONLY when the uploader opted in to
+      // config extraction, and even then the <script> element itself is still
+      // removed wholesale by the tag strip below.
+      script: options.extractScriptConfig === true,
+      noscript: false,
+      style: false,
+      pre: true,
+    },
   });
 
   const looksMultiDocument = (html.match(/<html[\s>]/gi) ?? []).length > 1;
   // Counted before the stripping pass below removes them.
-  const scriptCount = root.querySelectorAll('script').length;
+  const scriptElements = root.querySelectorAll('script');
+  const scriptCount = scriptElements.length;
+
+  // Read the scripts' declarative config BEFORE they are stripped, and only
+  // when the uploader asked for it. Parsing is never execution — see
+  // script-config.ts for the whole security argument.
+  const scriptConfig = options.extractScriptConfig
+    ? extractScriptConfig(
+        // Inline scripts only: a <script src> has no text here, and we never
+        // fetch anything.
+        scriptElements.map((el) => el.text ?? '').filter((text) => text.trim().length > 0),
+      )
+    : { entries: [], warnings: [] };
 
   // Must run BEFORE scripts are stripped: an empty container only implies
   // "filled at runtime" if the document actually shipped scripts.
@@ -261,6 +296,16 @@ export function extractFormHtml(
       `Removed ${hiddenRemoved} hidden element(s) (display:none / hidden / aria-hidden). Hidden content is not converted.`,
     );
   }
+  if (scriptConfig.entries.length > 0) {
+    warnings.push(
+      `Read ${scriptConfig.entries.length} configuration definition(s) from this mock-up's scripts ` +
+        `(${scriptConfig.entries.map((e) => e.name).join(', ')}). The scripts were parsed, never run, ` +
+        'and only plain literal values were taken. Check any option list or threshold that came from them.',
+    );
+  }
+  for (const note of scriptConfig.warnings) {
+    warnings.push(`Script config: ${note}.`);
+  }
   if (conditionalFields.length > 0) {
     warnings.push(
       `${conditionalFields.length} field(s) are hidden until a choice is set to "Other" (` +
@@ -295,6 +340,7 @@ export function extractFormHtml(
     repeatingTables,
     transposedMatrices,
     conditionalFields,
+    scriptConfig: scriptConfig.entries,
   };
 }
 

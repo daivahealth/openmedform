@@ -247,3 +247,30 @@ describe('geometry fallback wiring', () => {
     expect(result.transposedMatrices).toEqual([]);
   });
 });
+
+
+describe('script-config opt-in (POST /conversions)', () => {
+  // The default must be OFF for anything that is not an explicit yes: this
+  // flag narrows the strip-scripts posture, so an ambiguous value is a no.
+  it.each([
+    ['true', true],
+    ['1', true],
+    ['false', false],
+    ['0', false],
+    ['yes', false],
+    ['TRUE', false],
+    [undefined, false],
+    ['', false],
+  ])('%s -> %s', async (sent, expected) => {
+    const { controller, service } = setup();
+
+    await controller.start(user, htmlFile(1000), '127.0.0.1', undefined, undefined, sent);
+
+    expect(service.startConversion).toHaveBeenCalledWith(
+      user.tenantId,
+      user.userId,
+      expect.objectContaining({ extractScriptConfig: expected }),
+      '127.0.0.1',
+    );
+  });
+});
