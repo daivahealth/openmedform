@@ -153,6 +153,9 @@ importers:
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
+      passport-microsoft:
+        specifier: ^2.1.0
+        version: 2.1.0
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -187,12 +190,18 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
+      '@types/passport':
+        specifier: ^1.0.17
+        version: 1.0.17
       '@types/passport-google-oauth20':
         specifier: ^2.0.17
         version: 2.0.17
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1
+      '@types/passport-microsoft':
+        specifier: ^2.1.1
+        version: 2.1.1
       '@types/pdf-parse':
         specifier: ^1.1.5
         version: 1.1.5
@@ -3049,6 +3058,9 @@ packages:
   '@types/passport-jwt@4.0.1':
     resolution: {integrity: sha512-Y0Ykz6nWP4jpxgEUYq8NoVZeCQPo1ZndJLfapI249g1jHChvRfZRO/LS3tqu26YgAS/laI1qx98sYGz0IalRXQ==}
 
+  '@types/passport-microsoft@2.1.1':
+    resolution: {integrity: sha512-mtxO0nUt8PSAQd1MPD4JZXacYRx9MXYCTFjKyBEarmCJYyJlKHMwBRYltBEi/zpvC6xYX0LgK1AFXp+hQI+DEw==}
+
   '@types/passport-oauth2@1.8.0':
     resolution: {integrity: sha512-6//z+4orIOy/g3zx17HyQ71GSRK4bs7Sb+zFasRoc2xzlv7ZCJ+vkDBYFci8U6HY+or6Zy7ajf4mz4rK7nsWJQ==}
 
@@ -5620,6 +5632,10 @@ packages:
 
   passport-jwt@4.0.1:
     resolution: {integrity: sha512-UCKMDYhNuGOBE9/9Ycuoyh7vP6jpeTp/+sfMJl7nLff/t6dps+iaeE0hhNkKN8/HZHcJ7lCdOyDxHdDoxoSvdQ==}
+
+  passport-microsoft@2.1.0:
+    resolution: {integrity: sha512-7bOcjEmZCHg5qD55iHaMD/mgBxPtXLbqAwmKox5IsqOSEU50WJk5nQKK4lxKdBHLZ0hf+gzrFgDsTybJP18/JA==}
+    engines: {node: '>= 0.4.0'}
 
   passport-oauth2@1.8.0:
     resolution: {integrity: sha512-cjsQbOrXIDE4P8nNb3FQRCCmJJ/utnFKEz2NX209f7KOHPoX18gF7gBzBbLLsj2/je4KrgiwLLGjf0lm9rtTBA==}
@@ -9246,6 +9262,10 @@ snapshots:
       '@types/jsonwebtoken': 9.0.10
       '@types/passport-strategy': 0.2.38
 
+  '@types/passport-microsoft@2.1.1':
+    dependencies:
+      '@types/passport-oauth2': 1.8.0
+
   '@types/passport-oauth2@1.8.0':
     dependencies:
       '@types/express': 5.0.6
@@ -12267,6 +12287,10 @@ snapshots:
     dependencies:
       jsonwebtoken: 9.0.3
       passport-strategy: 1.0.0
+
+  passport-microsoft@2.1.0:
+    dependencies:
+      passport-oauth2: 1.8.0
 
   passport-oauth2@1.8.0:
     dependencies:

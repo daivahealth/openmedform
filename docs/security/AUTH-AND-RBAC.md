@@ -15,18 +15,74 @@
 - The org name is slugified into a unique tenant slug (a short random suffix is appended on collision).
 - Audit-logged as `auth.register` (`method: google`, includes organizationName + country).
 
-## Google SSO
-- OAuth2 via `passport-google-oauth20`: `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` → app JWT → redirect to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>`.
-- **Login vs signup intent** (and, for signup, the organization name + country) is carried through the OAuth `state` param — a base64url JSON payload set by `GoogleAuthGuard` and read back in `GoogleStrategy.validate` (legacy plain `login`/`signup` strings still accepted):
-  - **login** (default): invite-only match-by-email — the Google email must match exactly one existing active user; unknown emails are rejected.
-  - **signup**: if no account exists, a **new tenant + first `TENANT_ADMIN`** is provisioned (Google display name → `fullName`; organization + country from the state payload — the guard rejects the handshake without them). Password login is disabled for these accounts (random hash).
-- Either intent rejects an ambiguous multi-tenant email; a signup whose email already exists (even inactive) is rejected with "please sign in instead". Email stays globally unique.
-- The strategy registers only when `GOOGLE_CLIENT_ID` is configured; without it the SSO routes return 503 and password login is unaffected.
-- SSO failures redirect to `<FRONTEND_ORIGIN>/login?error=google_sso&message=...` — never raw JSON, since the browser is mid-redirect.
+## SSO (Google and Microsoft)
+
+Both providers are **optional and independent** — a deployment can enable
+either, both or neither, and boots the same way. A strategy is constructed only
+when its client id is present, and pressing an unconfigured provider's button
+returns a clear 503 rather than sending the user off with bad credentials.
+
+Everything after the provider vouches for the user is shared: the same OAuth
+`state` payload carries login-vs-signup intent, the same `resolveSsoUser`
+resolves or provisions, the same filter turns a failure into a redirect, and one
+`completeSsoLogin` issues the session. What lands in that redirect is a security
+decision, so it is made once rather than per provider. `auth.login` and
+`auth.register` record which provider was used in `details.method`.
+
+### Microsoft requires an organisational email
+
+Google returns a verified address. Azure has two email-shaped values and they
+are **not** equivalent:
+
+- `mail` — the mailbox the tenant assigned. Trustworthy.
+- `userPrincipalName` — a sign-in name that looks like an email and often is
+  not one. In a tenant you control, you can set it to anything.
+
+Login matches an existing user **by email** and signup provisions a tenant keyed
+on it, so accepting a UPN would let someone with their own Azure tenant set a
+UPN matching one of your users and sign in as them. `passport-microsoft`'s
+`addUPNAsEmail` therefore stays at its default of **false** — `profile.emails`
+carries `mail` alone — and a profile without one is **refused**, with a message
+telling the user to ask IT for a mailbox. A test asserts `addUPNAsEmail: true`
+never appears in the strategy, because a "missing email" report is exactly the
+kind of thing someone would try to fix by turning it on.
+
+`MICROSOFT_TENANT` controls which directories may sign in: `organizations`
+(default, work/school accounts from any Azure tenant), a specific tenant GUID to
+restrict to one organisation, or `common` to also admit personal Microsoft
+accounts — a weaker identity signal, since anyone can create one.
+
+## How an SSO sign-in resolves
+
+Identical for both providers — only the consent screen differs.
+
+`GET /api/auth/<provider>` → the provider's consent → `GET
+/api/auth/<provider>/callback` → `completeSsoLogin` → redirect to
+`<FRONTEND_ORIGIN>/auth/callback?code=<one-time code>` (never the token — see
+below).
+
+- **Login vs signup intent** (and, for signup, the organization name + country)
+  travels through the OAuth `state` param — a base64url JSON payload written by
+  the handshake guard and read back by `decodeOauthState` in `oauth-state.ts`
+  (legacy plain `login`/`signup` strings still accepted):
+  - **login** (default): invite-only match-by-email — the address must match
+    exactly one existing active user; unknown emails are rejected.
+  - **signup**: if no account exists, a **new tenant + first `TENANT_ADMIN`** is
+    provisioned (SSO display name → `fullName`; organization + country from the
+    state payload — the guard rejects the handshake without them). Password
+    login is disabled for these accounts (random hash).
+- Either intent rejects an ambiguous multi-tenant email; a signup whose email
+  already exists (even inactive) is rejected with "please sign in instead".
+  Email stays globally unique.
+- A provider's strategy registers only when its client id is configured;
+  without it that provider's routes return 503, and password login and the
+  other provider are unaffected.
+- Failures redirect to `<FRONTEND_ORIGIN>/login?error=sso&message=...` — never
+  raw JSON, since the browser is mid-redirect.
 
 ## SSO Redirect Does Not Carry the Token
 
-The Google callback used to redirect to `/auth/callback?token=<jwt>`. That put a
+The SSO callback used to redirect to `/auth/callback?token=<jwt>`. That put a
 24-hour credential into browser history, `Referer` headers, and every access log
 between the load balancer and the browser — and with no token revocation, a
 leaked one stays valid for the full day. Server-side logs are the part that

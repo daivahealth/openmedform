@@ -9,7 +9,7 @@ import { Tenant, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { LoginDto } from './dto/login.dto';
-import { GoogleSignupDetails } from './google.strategy';
+import type { SsoSignupDetails } from './oauth-state';
 import { JwtPayload } from '../../common/types/jwt-payload.interface';
 
 /**
@@ -109,7 +109,7 @@ export class AuthService {
   }
 
   /**
-   * Resolve a Google identity to an app user.
+   * Resolve an SSO identity to an app user.
    *
    * - An existing single active account signs in (either intent).
    * - With `mode='signup'` and no existing account, a new tenant + first
@@ -118,11 +118,12 @@ export class AuthService {
    * - With `mode='login'` and no account, or an ambiguous multi-tenant email,
    *   it is rejected — SSO stays invite-only for plain login.
    */
-  async resolveGoogleUser(
+  async resolveSsoUser(
+    provider: 'google' | 'microsoft',
     email: string,
     displayName: string | undefined,
     mode: 'login' | 'signup',
-    signup?: GoogleSignupDetails,
+    signup?: SsoSignupDetails,
     ipAddress?: string | null,
   ): Promise<User & { tenant: Tenant }> {
     const users = await this.prisma.user.findMany({
@@ -143,7 +144,7 @@ export class AuthService {
 
     if (mode !== 'signup') {
       throw new UnauthorizedException(
-        'No account exists for this Google email. Sign up first, or ask your administrator for an invite.',
+        'No account exists for this email. Sign up first, or ask your administrator for an invite.',
       );
     }
 
@@ -162,14 +163,15 @@ export class AuthService {
     const organizationName = signup?.organizationName?.trim();
     const country = signup?.country?.trim();
     if (!organizationName || !country) {
-      // Should not happen — GoogleAuthGuard validates before the handshake —
+      // Should not happen — the OAuth guard validates before the handshake —
       // but state can be hand-crafted, so enforce it here too.
       throw new UnauthorizedException(
         'Organization and country are required to sign up.',
       );
     }
 
-    return this.provisionGoogleTenant(
+    return this.provisionSsoTenant(
+      provider,
       email,
       displayName,
       organizationName,
@@ -178,8 +180,9 @@ export class AuthService {
     );
   }
 
-  /** Create a new tenant + first TENANT_ADMIN for a Google signup. */
-  private async provisionGoogleTenant(
+  /** Create a new tenant + first TENANT_ADMIN for an SSO signup. */
+  private async provisionSsoTenant(
+    provider: 'google' | 'microsoft',
     email: string,
     displayName: string | undefined,
     organizationName: string,
@@ -188,7 +191,8 @@ export class AuthService {
   ): Promise<User & { tenant: Tenant }> {
     const fullName = displayName?.trim() || email.split('@')[0];
     const slug = await this.uniqueTenantSlug(organizationName);
-    // Random hash: the account authenticates via Google, not a password.
+    // Random hash: the account authenticates via the identity provider,
+    // not a password.
     const passwordHash = await bcrypt.hash(randomBytes(24).toString('hex'), BCRYPT_COST);
 
     const user = await this.prisma.$transaction(async (tx) => {
@@ -214,13 +218,17 @@ export class AuthService {
       action: 'auth.register',
       resourceType: 'tenant',
       resourceId: user.tenantId,
-      details: { email, organizationName, country, method: 'google' },
+      details: { email, organizationName, country, method: provider },
     });
 
     return user;
   }
 
-  async googleLogin(user: User & { tenant: Tenant }, ipAddress?: string | null) {
+  async ssoLogin(
+    provider: 'google' | 'microsoft',
+    user: User & { tenant: Tenant },
+    ipAddress?: string | null,
+  ) {
     await this.audit.record({
       tenantId: user.tenantId,
       userId: user.id,
@@ -228,7 +236,7 @@ export class AuthService {
       action: 'auth.login',
       resourceType: 'user',
       resourceId: user.id,
-      details: { email: user.email, method: 'google' },
+      details: { email: user.email, method: provider },
     });
     return this.issueSession(user);
   }

@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
+import { decodeOauthState } from './oauth-state';
 
 /**
  * Google OAuth2 strategy.
@@ -48,7 +49,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         );
       }
       const state = decodeOauthState(req.query?.state);
-      const user = await this.authService.resolveGoogleUser(
+      const user = await this.authService.resolveSsoUser(
+        'google',
         email,
         profile.displayName,
         state.mode,
@@ -60,47 +62,4 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       done(err as Error, false);
     }
   }
-}
-
-export interface GoogleSignupDetails {
-  organizationName: string;
-  country: string;
-}
-
-/**
- * Decode the OAuth `state` payload produced by GoogleAuthGuard (base64url
- * JSON). Tolerates the legacy plain 'signup'/'login' strings from older
- * links; anything unparseable degrades safely to login intent.
- */
-export function decodeOauthState(raw: unknown): {
-  mode: 'login' | 'signup';
-  signup?: GoogleSignupDetails;
-} {
-  if (raw === 'signup' || raw === 'login') {
-    return { mode: raw };
-  }
-  if (typeof raw === 'string' && raw) {
-    try {
-      const payload = JSON.parse(
-        Buffer.from(raw, 'base64url').toString('utf8'),
-      );
-      if (payload?.m === 'l') {
-        return { mode: 'login' };
-      }
-      const organizationName = String(payload?.o ?? '').trim();
-      const country = String(payload?.c ?? '').trim();
-      if (payload?.m === 's' && organizationName && country) {
-        return {
-          mode: 'signup',
-          signup: {
-            organizationName: organizationName.slice(0, 255),
-            country: country.slice(0, 100),
-          },
-        };
-      }
-    } catch {
-      // fall through to safe default
-    }
-  }
-  return { mode: 'login' };
 }

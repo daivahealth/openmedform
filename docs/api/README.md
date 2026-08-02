@@ -19,8 +19,10 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 ### Auth
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/auth/exchange | Trade the one-time `code` from the Google SSO redirect for `{ accessToken, user }`. Single-use, 60s TTL; expired/spent/unknown all return the same 401. The redirect never carries the token itself |
+| POST | /api/auth/exchange | Trade the one-time `code` from an SSO redirect (either provider) for `{ accessToken, user }`. Single-use, 60s TTL; expired/spent/unknown all return the same 401. The redirect never carries the token itself |
 | POST | /api/auth/login | Login, returns JWT (audit-logged as `auth.login`) |
+| GET | /api/auth/microsoft | Start the Microsoft (Entra ID) handshake. Same `?mode=signup&org=&country=` contract as Google. 503 when unconfigured |
+| GET | /api/auth/microsoft/callback | Microsoft callback; same one-time-code redirect as Google |
 | GET | /api/auth/google | Start Google OAuth2 handshake (redirect). `?mode=signup&org=...&country=...` provisions a new tenant on first sign-in (org + country mandatory); default `login` is invite-only |
 | GET | /api/auth/google/callback | Google OAuth2 callback, redirects to web with JWT |
 | GET | /api/auth/me | Current user profile |

@@ -8,12 +8,16 @@ import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 
 /**
- * Google SSO failures (denied consent, unknown email, ambiguous account) must
- * never surface as raw API error JSON — the user arrived via a browser
- * redirect, so send them back to the web login page with an error query param.
+ * SSO failures (denied consent, unknown email, ambiguous account, no verified
+ * address) must never surface as raw API error JSON — the user arrived via a
+ * browser redirect, so send them back to the web login page with an error
+ * query param.
+ *
+ * Shared by every provider: the login page renders one error banner, and it
+ * should not care which button the user pressed.
  */
 @Catch()
-export class GoogleAuthExceptionFilter implements ExceptionFilter {
+export class SsoAuthExceptionFilter implements ExceptionFilter {
   constructor(private readonly config: ConfigService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
@@ -24,10 +28,10 @@ export class GoogleAuthExceptionFilter implements ExceptionFilter {
     const message =
       exception instanceof HttpException
         ? exception.message
-        : 'Google sign-in failed';
+        : 'Sign-in failed';
 
     const target = new URL('/login', frontendOrigin);
-    target.searchParams.set('error', 'google_sso');
+    target.searchParams.set('error', 'sso');
     target.searchParams.set('message', message);
     res.redirect(target.toString());
   }

@@ -10,6 +10,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
+import { MicrosoftStrategy } from './microsoft.strategy';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
@@ -32,9 +33,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
   providers: [
     AuthService,
     JwtStrategy,
-    // Google SSO is optional: the strategy is only constructed (and registered
-    // with passport) when GOOGLE_CLIENT_ID is present, so local dev and
-    // password-only deployments boot without Google config.
+    // Each SSO provider is optional and independent: a strategy is only
+    // constructed (and registered with passport) when its client id is
+    // present, so a deployment can enable Google, Microsoft, both or neither
+    // and still boot.
     {
       provide: GoogleStrategy,
       inject: [ConfigService, AuthService],
@@ -44,6 +46,17 @@ import { RolesGuard } from '../../common/guards/roles.guard';
           return null;
         }
         return new GoogleStrategy(config, authService);
+      },
+    },
+    {
+      provide: MicrosoftStrategy,
+      inject: [ConfigService, AuthService],
+      useFactory: (config: ConfigService, authService: AuthService) => {
+        const clientId = config.get<string>('MICROSOFT_CLIENT_ID');
+        if (!clientId || clientId === 'CHANGE_ME') {
+          return null;
+        }
+        return new MicrosoftStrategy(config, authService);
       },
     },
     { provide: APP_GUARD, useClass: JwtAuthGuard },

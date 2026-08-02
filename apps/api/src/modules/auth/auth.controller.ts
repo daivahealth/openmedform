@@ -17,10 +17,11 @@ import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ExchangeCodeDto } from './dto/exchange-code.dto';
-import { GoogleAuthExceptionFilter } from './google-auth.filter';
+import { SsoAuthExceptionFilter } from './sso-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GoogleAuthGuard } from '../../common/guards/google-auth.guard';
+import { MicrosoftAuthGuard } from '../../common/guards/microsoft-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -46,24 +47,65 @@ export class AuthController {
   }
 
   /**
-   * Google OAuth2 callback. On success, issues an app JWT and redirects to the
-   * web callback page with the token. On any failure, the filter redirects to
-   * the web login page with an error message instead.
+   * Google OAuth2 callback. On success it hands off to completeSsoLogin, which
+   * redirects to the web callback page with a one-time exchange code — never
+   * the token. On any failure, the filter redirects to the web login page with
+   * an error message instead.
    */
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @UseFilters(GoogleAuthExceptionFilter)
+  @UseFilters(SsoAuthExceptionFilter)
   async googleCallback(
     @Req() req: Request & { user: User & { tenant: Tenant } },
     @Res() res: Response,
     @Ip() ip: string,
   ) {
-    await this.authService.googleLogin(req.user, ip);
+    await this.completeSsoLogin('google', req.user, res, ip);
+  }
+
+  /** Starts the Microsoft (Entra ID) handshake. */
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @Get('microsoft')
+  @UseGuards(MicrosoftAuthGuard)
+  microsoftLogin() {
+    // Guard performs the redirect; nothing to do here.
+  }
+
+  @Public()
+  @Get('microsoft/callback')
+  @UseGuards(MicrosoftAuthGuard)
+  @UseFilters(SsoAuthExceptionFilter)
+  async microsoftCallback(
+    @Req() req: Request & { user: User & { tenant: Tenant } },
+    @Res() res: Response,
+    @Ip() ip: string,
+  ) {
+    await this.completeSsoLogin('microsoft', req.user, res, ip);
+  }
+
+  /**
+   * Everything after a provider has vouched for the user: issue the session and
+   * hand it back to the web app.
+   *
+   * Shared so the two providers cannot drift. What lands in this redirect is a
+   * security decision, and it should be made once.
+   */
+  private async completeSsoLogin(
+    provider: 'google' | 'microsoft',
+    user: User & { tenant: Tenant },
+    res: Response,
+    ip: string,
+  ) {
+    await this.authService.ssoLogin(provider, user, ip);
     // A one-time code, never the access token. The URL this builds ends up in
     // browser history, Referer headers and every access log on the way — a
     // 24-hour credential must not be in it. See createExchangeCode.
-    const code = await this.authService.createExchangeCode(req.user.id);
+    //
+    // Living in the shared handler is the point: Microsoft inherits it rather
+    // than needing the same reasoning applied a second time.
+    const code = await this.authService.createExchangeCode(user.id);
     const frontendOrigin =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3000';
     const target = new URL('/auth/callback', frontendOrigin);

@@ -32,12 +32,20 @@ export default function LoginPage() {
         <Suspense>
           <SsoErrorNotice />
         </Suspense>
-        <Button variant="outline" className="w-full" asChild>
-          <a href={`${apiBase}/api/auth/google`}>
-            <GoogleIcon className="mr-2 h-4 w-4" />
-            Sign in with Google
-          </a>
-        </Button>
+        <div className="space-y-2">
+          <Button variant="outline" className="w-full" asChild>
+            <a href={`${apiBase}/api/auth/google`}>
+              <GoogleIcon className="mr-2 h-4 w-4" />
+              Sign in with Google
+            </a>
+          </Button>
+          <Button variant="outline" className="w-full" asChild>
+            <a href={`${apiBase}/api/auth/microsoft`}>
+              <MicrosoftIcon className="mr-2 h-4 w-4" />
+              Sign in with Microsoft
+            </a>
+          </Button>
+        </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           New to OpenMedForm?{' '}
           <a href="/signup" className="font-medium text-primary hover:underline">
@@ -51,15 +59,31 @@ export default function LoginPage() {
 
 function SsoErrorNotice() {
   const searchParams = useSearchParams();
-  if (searchParams.get('error') !== 'google_sso') {
+  const error = searchParams.get('error');
+  // 'google_sso' is what the API emitted before the filter became
+  // provider-neutral; still accepted so an in-flight redirect from an older
+  // revision does not land on a silently empty page.
+  if (error !== 'sso' && error !== 'google_sso') {
     return null;
   }
   const message =
-    searchParams.get('message') || 'Google sign-in failed. Please try again.';
+    searchParams.get('message') || 'Sign-in failed. Please try again.';
   return (
     <div className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
       {message}
     </div>
+  );
+}
+
+/** Microsoft's four-square logo (lucide has no brand icons). */
+function MicrosoftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 23 23" aria-hidden="true">
+      <path fill="#f35325" d="M1 1h10v10H1z" />
+      <path fill="#81bc06" d="M12 1h10v10H12z" />
+      <path fill="#05a6f0" d="M1 12h10v10H1z" />
+      <path fill="#ffba08" d="M12 12h10v10H12z" />
+    </svg>
   );
 }
 
