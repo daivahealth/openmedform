@@ -25,6 +25,13 @@ import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { Throttle } from '@nestjs/throttler';
 import { AI_THROTTLE, UPLOAD_THROTTLE } from '../../common/throttle.config';
 
+/**
+ * Uploaded types a browser will execute if it renders them as a top-level
+ * document. Served as a download rather than inline, so a direct navigation
+ * cannot turn a stored file into script on the API origin.
+ */
+const ACTIVE_ASSET_TYPES = new Set(['image/svg+xml']);
+
 const ASSET_FILE_TYPES = [
   'image/png',
   'image/jpeg',
@@ -212,10 +219,25 @@ export class FormController {
     @Res() res: Response,
   ) {
     const asset = await this.formService.getAsset(user.tenantId, id, assetId);
+
+    // These bytes came from a user. Three headers keep them inert:
+    //
+    // - nosniff, so a file whose declared type is wrong cannot be re-guessed
+    //   as HTML by the browser.
+    // - a CSP of "nothing is allowed", which applies when a browser is pointed
+    //   straight at the file and renders it as a document.
+    // - attachment for the types that are documents-in-disguise. An SVG is an
+    //   active document: navigate to one and its <script> runs on our origin.
+    //   Loaded through <img src>, which is how the renderer and print engine
+    //   use it, script never runs — so forcing a download on direct navigation
+    //   closes the hole without costing the feature anything.
     res.setHeader('Content-Type', asset.mimeType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    const disposition = ACTIVE_ASSET_TYPES.has(asset.mimeType) ? 'attachment' : 'inline';
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${encodeURIComponent(asset.filename)}"`,
+      `${disposition}; filename="${encodeURIComponent(asset.filename)}"`,
     );
     res.send(asset.data);
   }

@@ -93,6 +93,36 @@ There is also **no per-email lockout**: ten login attempts a minute per IP
 bounds online guessing from one source, but not a distributed attempt against
 one account. That needs persistent state rather than an in-process counter.
 
+## Security Headers
+
+`helmet` is installed in `apps/api/src/main.ts`. The API serves JSON and
+uploaded binaries, never HTML pages of its own, so the policy can be strict:
+`default-src 'none'`, `frame-ancestors 'none'`, `sandbox`, HSTS, nosniff,
+`Referrer-Policy: strict-origin-when-cross-origin`, and
+`Cross-Origin-Resource-Policy: same-site`. `X-Powered-By` is removed.
+
+The web app sets its own in `next.config.mjs` — nosniff, `X-Frame-Options`,
+HSTS, `Referrer-Policy`, `Permissions-Policy`. **No CSP there yet**: Next's
+inline bootstrap and styled-jsx need either nonces or `'unsafe-inline'`, and
+shipping the latter would be a CSP in name only. Tracked rather than faked.
+
+### Uploaded assets
+
+`GET /forms/:id/assets/:assetId` returns attacker-supplied bytes, so every
+response carries `X-Content-Type-Options: nosniff` and
+`Content-Security-Policy: default-src 'none'; sandbox`.
+
+**SVG is served as `attachment`, not `inline`.** An SVG is an active document:
+navigate straight to one and its `<script>` runs on the API origin. Verified in
+a real browser against the pre-fix headers — the script executed and rewrote
+`document.title`. With `attachment` the navigation produces no document at all,
+and the script never runs.
+
+Embedding still works. An SVG loaded through `<img src>` — which is how the
+renderer and the print engine use it — cannot execute script by design, and was
+confirmed to render normally with the new headers. So the hole closes without
+costing the feature anything, and no SVG sanitiser is needed.
+
 ## Uploaded Mock-ups Are Untrusted Input
 
 An uploaded HTML mock-up is attacker-controlled. Three deliberate rules bound
