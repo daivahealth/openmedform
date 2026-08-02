@@ -7,6 +7,7 @@ import {
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { FormQuotaService } from './form-quota.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AiProviderConfigService } from '../settings/ai-provider-config.service';
 import { contentHash, verifyContentHash } from '../../common/utils/content-hash';
@@ -20,32 +21,6 @@ export interface ActorContext {
   ipAddress?: string | null;
 }
 
-/**
- * Per-user form creation quota. Users start with DEFAULT_FORM_LIMIT; a
- * SUPER_ADMIN can raise an individual limit via /api/admin (stored on
- * user.formLimit; null = default). SUPER_ADMIN is exempt.
- */
-export const DEFAULT_FORM_LIMIT = 5;
-export const FORM_LIMIT_CONTACT_EMAIL = 'sajithchandran@gmail.com';
-
-/**
- * A tenant that has configured at least one of its OWN active AI providers
- * (Settings -> AI Providers) pays for its own AI usage, so the free-tier form
- * cap no longer applies — the limit exists to bound platform-funded AI spend,
- * not form count itself. This must be checked against the tenant's OWN
- * AiProviderConfig rows only, never the resolved provider set (which also
- * falls back to the platform-wide global config and env vars) — otherwise a
- * configured global fallback would silently make every tenant unlimited.
- */
-export interface FormQuota {
-  used: number;
-  /** null when unlimited. */
-  limit: number | null;
-  /** null when unlimited. */
-  remaining: number | null;
-  unlimited: boolean;
-  reason: 'super-admin' | 'own-ai-provider' | 'default' | 'admin-raised';
-}
 
 /** The immutable content of a version, used for the published content hash. */
 type VersionLike = {
@@ -61,6 +36,7 @@ export class FormService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly aiProviderConfigService: AiProviderConfigService,
+    private readonly formQuota: FormQuotaService,
   ) {}
 
   /**
@@ -89,7 +65,7 @@ export class FormService {
     dto: CreateFormDto,
     ipAddress?: string | null,
   ) {
-    await this.assertFormLimit(userId);
+    await this.formQuota.assertFormLimit(userId);
     const slug = this.toSlug(dto.name);
 
     const form = await this.prisma.$transaction(async (tx) => {
@@ -352,7 +328,7 @@ export class FormService {
   }
 
   async clone(tenantId: string, userId: string, formId: string) {
-    await this.assertFormLimit(userId);
+    await this.formQuota.assertFormLimit(userId);
     const source = await this.findOne(tenantId, formId);
 
     const timestamp = Date.now();
@@ -611,6 +587,10 @@ export class FormService {
   }
 
   async importTemplate(tenantId: string, userId: string, template: Record<string, unknown>) {
+    // Import creates a form like any other route, so it counts against the
+    // same quota — otherwise the limit is one export away from meaningless.
+    await this.formQuota.assertFormLimit(userId);
+
     if (!template.openmedform) {
       throw new BadRequestException('Invalid template: missing openmedform version');
     }
@@ -678,48 +658,6 @@ export class FormService {
 
       return form;
     });
-  }
-
-  async getFormQuota(userId: string): Promise<FormQuota> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { role: true, formLimit: true, tenantId: true },
-    });
-
-    if (user.role === 'SUPER_ADMIN') {
-      return { used: 0, limit: null, remaining: null, unlimited: true, reason: 'super-admin' };
-    }
-
-    const used = await this.prisma.form.count({ where: { createdById: userId } });
-
-    // Checked against the tenant's OWN AiProviderConfig rows only — see the
-    // FormQuota doc comment for why the resolved (tenant->global->env)
-    // provider set must never be used for this check.
-    const hasOwnProvider = await this.aiProviderConfigService.hasOwnActiveProvider(
-      user.tenantId,
-    );
-    if (hasOwnProvider) {
-      return { used, limit: null, remaining: null, unlimited: true, reason: 'own-ai-provider' };
-    }
-
-    const limit = user.formLimit ?? DEFAULT_FORM_LIMIT;
-    return {
-      used,
-      limit,
-      remaining: Math.max(0, limit - used),
-      unlimited: false,
-      reason: user.formLimit != null ? 'admin-raised' : 'default',
-    };
-  }
-
-  /** Enforce the per-user form creation quota (see getFormQuota). */
-  private async assertFormLimit(userId: string): Promise<void> {
-    const quota = await this.getFormQuota(userId);
-    if (!quota.unlimited && quota.used >= (quota.limit as number)) {
-      throw new ForbiddenException(
-        `You have reached the maximum of ${quota.limit} forms. Please contact the admin at ${FORM_LIMIT_CONTACT_EMAIL} to increase your limit.`,
-      );
-    }
   }
 
   private toSlug(name: string): string {

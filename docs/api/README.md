@@ -43,7 +43,7 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 |--------|------|-------------|
 | GET | /api/forms | List forms (paginated) |
 | GET | /api/forms/count | Total form count for the tenant |
-| POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded) — waived once the tenant has configured its own active AI provider (Settings → AI Providers), since it then pays for its own AI usage. SUPER_ADMIN is exempt. Also applies to from-pdf/from-file/import and clone |
+| POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded) — waived once the tenant has configured its own active AI provider (Settings → AI Providers), since it then pays for its own AI usage. SUPER_ADMIN is exempt. **The same quota applies to every route that creates a form**: `/api/forms/from-prompt`, `/api/forms/:id/clone`, `/api/forms/import` and `POST /api/conversions`. It is checked before any LLM call, so a user at their limit is refused without spending tokens |
 | GET | /api/forms/:id | Get form with current version |
 | PUT | /api/forms/:id | Update form metadata |
 | DELETE | /api/forms/:id | Archive form (soft delete — sets status ARCHIVED) |
