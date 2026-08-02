@@ -21,8 +21,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // An expired or rejected token ends the session, so clear the SAME keys
+      // an explicit sign-out clears — leaving auth_user behind would keep the
+      // signed-out user's name, email and tenant in localStorage — and land on
+      // the same page.
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      localStorage.removeItem('auth_user');
+      window.location.href = '/';
     }
     return Promise.reject(error);
   },

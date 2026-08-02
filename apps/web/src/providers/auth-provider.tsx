@@ -68,7 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth_user');
     setToken(null);
     setUser(null);
-    window.location.href = '/login';
+    // Home, not /login: signing out should land on the public page rather than
+    // immediately re-presenting a sign-in form.
+    window.location.href = '/';
   }, []);
 
   return (
