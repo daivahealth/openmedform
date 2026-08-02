@@ -147,6 +147,50 @@ jsonforms submissions are re-validated server-side with Ajv (Draft 2020-12)
 against the published data schema on `complete` — client validity is advisory and
 never trusted (Form Engine Rules). Scores are likewise recalculated server-side.
 
+## Encryption of Stored Provider Keys
+
+Tenant LLM API keys are encrypted at rest with AES-256-GCM (a fresh IV per
+record, auth tag verified on decrypt) in `apps/api/src/common/utils/crypto.ts`.
+
+**The key is derived, not sliced.** It used to be
+`Buffer.from(AI_ENCRYPTION_KEY.slice(0, 32), 'utf8')` — the first 32
+*characters* of the env var, which for a printable passphrase is well under 256
+bits. Now:
+
+- a 64-char **hex** or 32-byte **base64** secret is used directly, as real key
+  material, with no derivation loss;
+- anything else is treated as a passphrase and stretched with `scrypt` against a
+  fixed application salt (fixed so the cost is paid once and cached — the salt
+  separates deployments, it is not standing in for many low-entropy passwords);
+- known placeholders, including the one this repository used to default to, are
+  **rejected at startup**. A deployment running on a published key has no
+  encryption at all, and failing to start is the only honest response.
+
+`AI_ENCRYPTION_KEY` is now required by `docker-compose.yml` (`:?`), matching
+`JWT_SECRET`. It previously fell back to a default committed here.
+
+### Upgrading without losing credentials
+
+Ciphertext is versioned. New records carry a `v2.` prefix; unprefixed records
+are read with the legacy key, so an upgrade does not wipe every tenant's stored
+provider credentials. Nothing has to be migrated for the system to work.
+
+To retire the legacy key deliberately rather than by attrition:
+
+```bash
+AI_ENCRYPTION_KEY=<same secret> DATABASE_URL=... \
+  npx tsx scripts/reencrypt-provider-keys.ts --dry-run   # report only
+```
+
+Run with the **same** secret the legacy records were written under — this
+migrates the derivation, not the secret. It is idempotent, verifies each
+re-encrypted record reads back before writing it, and reports rather than
+overwrites anything it cannot decrypt.
+
+**Rotating the secret itself is a different operation** and the script cannot do
+it: old ciphertext becomes unreadable and the affected tenants must re-enter
+their keys in Settings → AI Providers.
+
 ## LLM API Key Security
 - Keys are configured in **AI Settings** by authenticated tenant users for their own tenant, or globally by `SUPER_ADMIN`. They are stored in Postgres encrypted at rest (AES-256-GCM via `AI_ENCRYPTION_KEY`) and can fall back to environment variables (see `docs/features/AI-BUILDER.md` §Security for the resolution order). Provider mutations are audit-logged without keys.
 - Never logged, never returned in API responses (masked form only)
