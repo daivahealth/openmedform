@@ -21,11 +21,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard, type IAuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
+import { isSsoCredentialConfigured } from '../utils/sso-config';
 
 export interface OAuthGuardOptions {
   /** Passport strategy name, e.g. 'google'. */
   strategy: string;
-  /** Env var whose presence means this provider is configured. */
+  /** Env var whose real (non-placeholder) value means this provider is on. */
   clientIdEnv: string;
   /** Shown to the user when it is not, e.g. 'Google'. */
   displayName: string;
@@ -44,9 +45,9 @@ export function createOAuthHandshakeGuard({
 
     canActivate(context: ExecutionContext) {
       const clientId = this.config.get<string>(clientIdEnv);
-      // 'CHANGE_ME' is the placeholder scripts/gcp-setup.sh seeds; treat it as
-      // unconfigured so the button never sends users off with bad credentials.
-      if (!clientId || clientId === 'CHANGE_ME') {
+      // Placeholders count as unconfigured, so the button never sends users
+      // off with a credential that only looks real. See isSsoCredentialConfigured.
+      if (!isSsoCredentialConfigured(clientId)) {
         throw new ServiceUnavailableException(
           `${displayName} sign-in is not configured on this server`,
         );

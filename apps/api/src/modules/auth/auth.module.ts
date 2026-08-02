@@ -13,6 +13,7 @@ import { GoogleStrategy } from './google.strategy';
 import { MicrosoftStrategy } from './microsoft.strategy';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { isSsoCredentialConfigured } from '../../common/utils/sso-config';
 
 @Module({
   imports: [
@@ -34,15 +35,16 @@ import { RolesGuard } from '../../common/guards/roles.guard';
     AuthService,
     JwtStrategy,
     // Each SSO provider is optional and independent: a strategy is only
-    // constructed (and registered with passport) when its client id is
-    // present, so a deployment can enable Google, Microsoft, both or neither
-    // and still boot.
+    // constructed (and registered with passport) when its client id is set to
+    // a real value, so a deployment can enable Google, Microsoft, both or
+    // neither and still boot. Keeping the same test as the handshake guard
+    // matters: otherwise a provider could refuse the handshake while still
+    // registering a strategy built on a placeholder.
     {
       provide: GoogleStrategy,
       inject: [ConfigService, AuthService],
       useFactory: (config: ConfigService, authService: AuthService) => {
-        const clientId = config.get<string>('GOOGLE_CLIENT_ID');
-        if (!clientId || clientId === 'CHANGE_ME') {
+        if (!isSsoCredentialConfigured(config.get<string>('GOOGLE_CLIENT_ID'))) {
           return null;
         }
         return new GoogleStrategy(config, authService);
@@ -52,8 +54,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
       provide: MicrosoftStrategy,
       inject: [ConfigService, AuthService],
       useFactory: (config: ConfigService, authService: AuthService) => {
-        const clientId = config.get<string>('MICROSOFT_CLIENT_ID');
-        if (!clientId || clientId === 'CHANGE_ME') {
+        if (!isSsoCredentialConfigured(config.get<string>('MICROSOFT_CLIENT_ID'))) {
           return null;
         }
         return new MicrosoftStrategy(config, authService);
