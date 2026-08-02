@@ -87,8 +87,17 @@ to the login page with an explanatory error.
 Each provider is independent: its strategy is only registered when its client
 id is set to a real value, so local dev and password-only deployments boot
 without any SSO config, and enabling Google does not require Microsoft. A
-provider whose client id is missing or still `CHANGE_ME` answers its routes
-with 503 and leaves the others untouched.
+provider whose client id is missing, still `CHANGE_ME`, or otherwise not a
+real credential answers its routes with 503 and leaves the others untouched.
+
+"Not a real credential" means the value contains whitespace or angle brackets —
+an unsubstituted `<Application (client) ID>` from these instructions, or a
+command pasted into a prompt that was waiting for input. Both have happened.
+The reason to reject them here rather than pass them on is the error the user
+would otherwise see: the identity provider answers a malformed client id with
+something like `AADSTS90013: Invalid input received from the user`, which
+blames the person signing in and says nothing about the deployment. A 503
+naming the provider is both true and actionable.
 
 Google Cloud Console setup (manual):
 
