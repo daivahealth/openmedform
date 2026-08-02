@@ -25,6 +25,7 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  loginWithCode: (code: string) => Promise<void>;
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
 }
@@ -50,8 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  // Google SSO entry point: the API has already issued a JWT; persist it and
-  // hydrate the user profile from /auth/me.
+  /**
+   * Google SSO entry point: trade the redirect's one-time code for a session.
+   *
+   * The redirect used to carry the access token itself, which put a 24-hour
+   * credential into browser history, Referer headers and server access logs.
+   * The code is single-use, valid for a minute, and useless against any other
+   * endpoint.
+   */
+  const loginWithCode = useCallback(async (code: string) => {
+    const { data } = await api.post('/api/auth/exchange', { code });
+    localStorage.setItem('auth_token', data.accessToken);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    setToken(data.accessToken);
+    setUser(data.user);
+  }, []);
+
   const loginWithToken = useCallback(async (accessToken: string) => {
     localStorage.setItem('auth_token', accessToken);
     const response = await api.get('/api/auth/me', {
@@ -73,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, loginWithToken, logout }}
+      value={{ user, token, isLoading, loginWithCode, loginWithToken, logout }}
     >
       {children}
     </AuthContext.Provider>

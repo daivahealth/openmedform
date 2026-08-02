@@ -3,7 +3,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { Tenant, User, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -11,6 +11,21 @@ import { AuditService } from '../../common/audit/audit.service';
 import { LoginDto } from './dto/login.dto';
 import { GoogleSignupDetails } from './google.strategy';
 import { JwtPayload } from '../../common/types/jwt-payload.interface';
+
+/**
+ * How long the redirect's one-time code stays valid. It only has to survive a
+ * browser redirect and one immediate POST, so seconds is plenty — and the
+ * shorter it is, the less a leaked redirect URL is worth.
+ */
+const EXCHANGE_CODE_TTL_MS = 60_000;
+
+/** How long spent/expired codes are kept before the opportunistic sweep. */
+const EXCHANGE_CODE_RETENTION_MS = 10 * 60_000;
+
+/** Codes are stored hashed; the plaintext lives only in the redirect URL. */
+function hashCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
 
 const BCRYPT_COST = 10;
 
@@ -215,6 +230,75 @@ export class AuthService {
       resourceId: user.id,
       details: { email: user.email, method: 'google' },
     });
+    return this.issueSession(user);
+  }
+
+  /**
+   * Mint the one-time code that travels in the SSO redirect URL.
+   *
+   * The redirect used to carry the access token itself, which put a 24-hour
+   * credential into browser history, Referer headers and every access log
+   * between the load balancer and the browser — and the platform has no token
+   * revocation, so a leaked one stays valid for the full day.
+   *
+   * This is what goes in the URL instead. It buys exactly one thing (an
+   * exchange, once, within seconds) and is useless against every other
+   * endpoint. Only its SHA-256 is stored, so the plaintext exists solely in the
+   * redirect.
+   */
+  async createExchangeCode(userId: string): Promise<string> {
+    const code = randomBytes(32).toString('base64url');
+    await this.prisma.authExchangeCode.create({
+      data: {
+        codeHash: hashCode(code),
+        userId,
+        expiresAt: new Date(Date.now() + EXCHANGE_CODE_TTL_MS),
+      },
+    });
+
+    // Opportunistic sweep: these are short-lived and there is no scheduler, so
+    // the table is tidied on the way past rather than growing forever.
+    await this.prisma.authExchangeCode
+      .deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - EXCHANGE_CODE_RETENTION_MS) } } })
+      .catch(() => undefined);
+
+    return code;
+  }
+
+  /**
+   * Trade a one-time code for a session.
+   *
+   * Marks the code used inside the same query that claims it, so two
+   * simultaneous requests cannot both win — `updateMany` with `usedAt: null` in
+   * the filter makes the claim atomic at the database rather than in a
+   * read-then-write that races.
+   */
+  async exchangeCode(code: string, ipAddress?: string | null) {
+    const claimed = await this.prisma.authExchangeCode.updateMany({
+      where: { codeHash: hashCode(code), usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      // Expired, already spent, or never existed. Deliberately one message for
+      // all three: distinguishing them tells an attacker which codes are real.
+      throw new UnauthorizedException('This sign-in link has expired. Please sign in again.');
+    }
+
+    const record = await this.prisma.authExchangeCode.findUnique({
+      where: { codeHash: hashCode(code) },
+      select: { userId: true },
+    });
+    const user = record
+      ? await this.prisma.user.findFirst({
+          where: { id: record.userId, isActive: true },
+          include: { tenant: true },
+        })
+      : null;
+    if (!user || !user.tenant.isActive) {
+      throw new UnauthorizedException('This sign-in link is no longer valid. Please sign in again.');
+    }
+
+    void ipAddress;
     return this.issueSession(user);
   }
 
