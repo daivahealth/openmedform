@@ -42,6 +42,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # deploy.yml only runs after merge, so a malformed secrets entry takes
+      # production's deploy down rather than failing a PR. Check it here.
+      - name: Validate deploy workflow
+        run: node scripts/check-deploy-workflow.mjs
+
       # A public deployment should not silently accumulate known-exploitable
       # dependencies. Blocking at high+ because that backlog is currently zero
       # — the moment it is not, someone has to make a decision rather than

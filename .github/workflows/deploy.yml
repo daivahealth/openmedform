@@ -99,6 +99,17 @@ jobs:
           flags: --memory=1Gi --no-cpu-throttling --max-instances=4
           env_vars: |
             TRUST_PROXY_HOPS=1
+          # Every secret listed below must exist in Secret Manager or the deploy
+          # fails outright — including the ones for a provider you have not set
+          # up yet. scripts/gcp-setup.sh creates them all with a CHANGE_ME
+          # placeholder, which the handshake guard reads as "unconfigured" and
+          # answers with a 503. So an unused provider costs a placeholder
+          # secret, not a broken deploy.
+          #
+          # This has to stay OUTSIDE the block below: `secrets:` is a literal
+          # string the action splits into KEY=SECRET:VERSION lines, so a `#`
+          # inside it is not a comment — it becomes a bogus secret name and the
+          # deploy dies on it.
           secrets: |
             DATABASE_URL=DATABASE_URL:latest
             JWT_SECRET=JWT_SECRET:latest
@@ -107,12 +118,6 @@ jobs:
             GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
             GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest
             GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest
-            # Every secret listed here must exist in Secret Manager or the
-            # deploy fails outright — including the ones for a provider you
-            # have not set up yet. scripts/gcp-setup.sh creates them all with a
-            # CHANGE_ME placeholder, which the handshake guard reads as
-            # "unconfigured" and answers with a 503. So an unused provider
-            # costs a placeholder secret, not a broken deploy.
             MICROSOFT_CLIENT_ID=MICROSOFT_CLIENT_ID:latest
             MICROSOFT_CLIENT_SECRET=MICROSOFT_CLIENT_SECRET:latest
             MICROSOFT_CALLBACK_URL=MICROSOFT_CALLBACK_URL:latest
