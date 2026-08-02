@@ -16,10 +16,11 @@ import { Request, Response } from 'express';
 import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { GoogleAuthExceptionFilter } from './google-auth.filter';
+import { SsoAuthExceptionFilter } from './sso-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GoogleAuthGuard } from '../../common/guards/google-auth.guard';
+import { MicrosoftAuthGuard } from '../../common/guards/microsoft-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -52,13 +53,50 @@ export class AuthController {
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @UseFilters(GoogleAuthExceptionFilter)
+  @UseFilters(SsoAuthExceptionFilter)
   async googleCallback(
     @Req() req: Request & { user: User & { tenant: Tenant } },
     @Res() res: Response,
     @Ip() ip: string,
   ) {
-    const session = await this.authService.googleLogin(req.user, ip);
+    await this.completeSsoLogin('google', req.user, res, ip);
+  }
+
+  /** Starts the Microsoft (Entra ID) handshake. */
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @Get('microsoft')
+  @UseGuards(MicrosoftAuthGuard)
+  microsoftLogin() {
+    // Guard performs the redirect; nothing to do here.
+  }
+
+  @Public()
+  @Get('microsoft/callback')
+  @UseGuards(MicrosoftAuthGuard)
+  @UseFilters(SsoAuthExceptionFilter)
+  async microsoftCallback(
+    @Req() req: Request & { user: User & { tenant: Tenant } },
+    @Res() res: Response,
+    @Ip() ip: string,
+  ) {
+    await this.completeSsoLogin('microsoft', req.user, res, ip);
+  }
+
+  /**
+   * Everything after a provider has vouched for the user: issue the session and
+   * hand it back to the web app.
+   *
+   * Shared so the two providers cannot drift. What lands in this redirect is a
+   * security decision, and it should be made once.
+   */
+  private async completeSsoLogin(
+    provider: 'google' | 'microsoft',
+    user: User & { tenant: Tenant },
+    res: Response,
+    ip: string,
+  ) {
+    const session = await this.authService.ssoLogin(provider, user, ip);
     const frontendOrigin =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3000';
     const target = new URL('/auth/callback', frontendOrigin);

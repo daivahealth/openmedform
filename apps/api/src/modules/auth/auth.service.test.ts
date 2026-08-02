@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
  * Focused coverage for the Google login/signup resolver — the branch that
  * cannot be exercised against a live server without Google credentials.
  */
-describe('AuthService.resolveGoogleUser', () => {
+describe('AuthService.resolveSsoUser', () => {
   let prisma: any;
   let audit: any;
   let service: AuthService;
@@ -54,20 +54,20 @@ describe('AuthService.resolveGoogleUser', () => {
 
   it('signs in an existing single active account (login intent)', async () => {
     prisma.user.findMany.mockResolvedValue([activeUser()]);
-    const result = await service.resolveGoogleUser('jane@acme.com', 'Jane', 'login');
+    const result = await service.resolveSsoUser('google', 'jane@acme.com', 'Jane', 'login');
     expect(result.id).toBe('u1');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown email on login intent (invite-only)', async () => {
     await expect(
-      service.resolveGoogleUser('nobody@acme.com', 'Nobody', 'login'),
+      service.resolveSsoUser('google', 'nobody@acme.com', 'Nobody', 'login'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('provisions a new tenant + admin on signup intent for an unknown email', async () => {
-    const result = await service.resolveGoogleUser('new@acme.com', 'New Person', 'signup', signup);
+    const result = await service.resolveSsoUser('google', 'new@acme.com', 'New Person', 'signup', signup);
     expect(result.id).toBe('u-new');
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(audit.record).toHaveBeenCalledWith(
@@ -84,7 +84,7 @@ describe('AuthService.resolveGoogleUser', () => {
 
   it('rejects signup without organization and country', async () => {
     await expect(
-      service.resolveGoogleUser('new@acme.com', 'New Person', 'signup'),
+      service.resolveSsoUser('google', 'new@acme.com', 'New Person', 'signup'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -108,7 +108,7 @@ describe('AuthService.resolveGoogleUser', () => {
         },
       }),
     );
-    await service.resolveGoogleUser('ceo@acme.com', 'The CEO', 'signup', signup);
+    await service.resolveSsoUser('google', 'ceo@acme.com', 'The CEO', 'signup', signup);
     expect(created.name).toBe('Acme Health');
     expect(created.country).toBe('India');
   });
@@ -116,7 +116,7 @@ describe('AuthService.resolveGoogleUser', () => {
   it('rejects signup when the email already exists (even inactive)', async () => {
     prisma.user.findFirst.mockResolvedValue({ id: 'existing' });
     await expect(
-      service.resolveGoogleUser('taken@acme.com', 'Taken', 'signup', signup),
+      service.resolveSsoUser('google', 'taken@acme.com', 'Taken', 'signup', signup),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -127,7 +127,7 @@ describe('AuthService.resolveGoogleUser', () => {
       activeUser({ id: 'u2', tenantId: 't2', tenant: { id: 't2', isActive: true } }),
     ]);
     await expect(
-      service.resolveGoogleUser('jane@acme.com', 'Jane', 'signup', signup),
+      service.resolveSsoUser('google', 'jane@acme.com', 'Jane', 'signup', signup),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

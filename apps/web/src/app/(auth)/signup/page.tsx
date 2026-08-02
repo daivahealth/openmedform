@@ -20,10 +20,10 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
-  // Signup is Google-only. Organization and country are mandatory and travel
+  // Signup is SSO-only. Organization and country are mandatory and travel
   // through the OAuth handshake (state param) so the API can provision the
-  // new tenant with them — they cannot be derived from a Google profile.
-  function handleGoogleSignup() {
+  // new tenant with them — they cannot be derived from an SSO profile.
+  function handleSsoSignup(provider: 'google' | 'microsoft') {
     const org = organizationName.trim();
     if (!org || !country) {
       setError('Organization and country are required.');
@@ -31,7 +31,7 @@ export default function SignupPage() {
     }
     setError('');
     const params = new URLSearchParams({ mode: 'signup', org, country });
-    window.location.href = `${apiBase}/api/auth/google?${params.toString()}`;
+    window.location.href = `${apiBase}/api/auth/${provider}?${params.toString()}`;
   }
 
   return (
@@ -42,7 +42,7 @@ export default function SignupPage() {
         </div>
         <CardTitle className="text-2xl">Create your organization</CardTitle>
         <CardDescription>
-          Sign up with Google to start building dynamic clinical forms
+          Sign up with Google or Microsoft to start building dynamic clinical forms
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,14 +88,25 @@ export default function SignupPage() {
               ))}
             </select>
           </div>
-          <Button
-            type="button"
-            className="w-full"
-            onClick={handleGoogleSignup}
-            disabled={!organizationName.trim() || !country}
-          >
-            Sign up with Google
-          </Button>
+          <div className="space-y-2">
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => handleSsoSignup('google')}
+              disabled={!organizationName.trim() || !country}
+            >
+              Sign up with Google
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleSsoSignup('microsoft')}
+              disabled={!organizationName.trim() || !country}
+            >
+              Sign up with Microsoft
+            </Button>
+          </div>
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
             <strong>Privacy notice:</strong> OpenMedForm is open-source software
             provided as-is. We do not review, secure, or take any
