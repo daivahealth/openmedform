@@ -49,11 +49,12 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 ### Forms
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/forms | List forms (paginated) |
+| GET | /api/forms | List forms (paginated). Archived forms are excluded unless `?includeArchived=true`; `/api/forms/count` counts the same set |
 | GET | /api/forms/count | Total form count for the tenant |
 | POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded) — waived once the tenant has configured its own active AI provider (Settings → AI Providers), since it then pays for its own AI usage. SUPER_ADMIN is exempt. **The same quota applies to every route that creates a form**: `/api/forms/from-prompt`, `/api/forms/:id/clone`, `/api/forms/import` and `POST /api/conversions`. It is checked before any LLM call, so a user at their limit is refused without spending tokens |
 | GET | /api/forms/:id | Get form with current version |
 | PUT | /api/forms/:id | Update form metadata |
+| POST | /api/forms/:id/unarchive | Restore an archived form to the status it had when archived (`statusBeforeArchive`, or DRAFT for forms archived before that was recorded). 400 if not archived. Audited as `form.unarchive` |
 | DELETE | /api/forms/:id | Archive form (soft delete — sets status ARCHIVED) |
 | GET | /api/forms/:id/deletion-summary | Counts of versions and submissions a permanent delete would destroy |
 | DELETE | /api/forms/:id/permanent | Permanently delete the form and ALL related data (versions, submissions, AI messages) — irreversible |

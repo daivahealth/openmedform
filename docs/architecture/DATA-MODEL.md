@@ -55,7 +55,9 @@ Multi-tenant isolation root.
 | category | VARCHAR(100) | e.g. "vte-assessment" |
 | tags | TEXT[] | |
 | form_type | ENUM | PATIENT, NON_PATIENT (default PATIENT) |
-| status | ENUM | DRAFT, PUBLISHED, ARCHIVED |
+| archived_at | TIMESTAMP? | When the form was archived. Hidden from the default list; the clock a retention policy would run off |
+| status_before_archive | form_status_enum? | Status to restore on unarchive. Recorded rather than derived — a form archived awaiting review must return to REVIEW |
+| status | ENUM | DRAFT, CONVERTING, REVIEW, PUBLISHED, ARCHIVED, RETIRED |
 | current_version_id | UUID FK | → form_version (nullable) |
 | created_by_id | UUID FK | → user |
 

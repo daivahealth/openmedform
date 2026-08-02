@@ -112,9 +112,14 @@ export class FormService {
     return form;
   }
 
-  async findAll(tenantId: string) {
+  /**
+   * Archived forms are hidden by default — archiving is how a form is retired
+   * from view, so leaving them in the list makes the action look like it did
+   * nothing. `includeArchived` brings them back so they can be restored.
+   */
+  async findAll(tenantId: string, includeArchived = false) {
     return this.prisma.form.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(includeArchived ? {} : { status: { not: 'ARCHIVED' } }) },
       include: {
         currentVersion: true,
         // Older rows may predate currentVersionId. Expose their latest version
@@ -127,7 +132,11 @@ export class FormService {
   }
 
   async count(tenantId: string) {
-    return this.prisma.form.count({ where: { tenantId } });
+    // Matches the default list, so the dashboard total and the visible rows
+    // cannot disagree.
+    return this.prisma.form.count({
+      where: { tenantId, status: { not: 'ARCHIVED' } },
+    });
   }
 
   async findOne(tenantId: string, id: string) {
@@ -258,12 +267,65 @@ export class FormService {
     return form;
   }
 
-  async archive(tenantId: string, id: string) {
+  async archive(tenantId: string, id: string, actor?: ActorContext) {
     const form = await this.findOne(tenantId, id);
-    return this.prisma.form.update({
+    if (form.status === 'ARCHIVED') return form; // idempotent
+
+    const archived = await this.prisma.form.update({
       where: { id: form.id },
-      data: { status: 'ARCHIVED' },
+      data: {
+        status: 'ARCHIVED',
+        archivedAt: new Date(),
+        // Recorded so unarchive restores what was actually there. A form
+        // archived while awaiting review must come back to REVIEW, and that is
+        // not derivable from the versions afterwards.
+        statusBeforeArchive: form.status,
+      },
     });
+
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.archive',
+      resourceType: 'form',
+      resourceId: form.id,
+      details: { name: form.name, previousStatus: form.status },
+    });
+
+    return archived;
+  }
+
+  /**
+   * Bring an archived form back to the status it had when it was archived.
+   *
+   * Falls back to DRAFT for forms archived before the status was recorded —
+   * always safe, because a DRAFT is editable and publishable, whereas guessing
+   * PUBLISHED could silently put a form back in front of clinicians.
+   */
+  async unarchive(tenantId: string, id: string, actor?: ActorContext) {
+    const form = await this.findOne(tenantId, id);
+    if (form.status !== 'ARCHIVED') {
+      throw new BadRequestException('This form is not archived.');
+    }
+
+    const restored = form.statusBeforeArchive ?? 'DRAFT';
+    const updated = await this.prisma.form.update({
+      where: { id: form.id },
+      data: { status: restored, archivedAt: null, statusBeforeArchive: null },
+    });
+
+    await this.audit.record({
+      tenantId,
+      userId: actor?.userId,
+      ipAddress: actor?.ipAddress,
+      action: 'form.unarchive',
+      resourceType: 'form',
+      resourceId: form.id,
+      details: { name: form.name, restoredTo: restored },
+    });
+
+    return updated;
   }
 
   /**

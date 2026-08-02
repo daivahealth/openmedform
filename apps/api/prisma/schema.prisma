@@ -112,6 +112,13 @@ model Form {
   tags             String[]   @default([])
   formType         FormType   @default(PATIENT) @map("form_type")
   status           FormStatus @default(DRAFT)
+  /// When the form was archived. Archived forms are hidden from the default
+  /// list, and this is the clock a retention policy would run off.
+  archivedAt       DateTime?  @map("archived_at") @db.Timestamp(6)
+  /// The status to put back on unarchive. Recorded rather than guessed: a
+  /// form archived while awaiting review should come back to REVIEW, not to
+  /// DRAFT, and that is not derivable after the fact.
+  statusBeforeArchive FormStatus? @map("status_before_archive")
   currentVersionId String?    @unique @map("current_version_id") @db.Uuid
   createdById      String     @map("created_by_id") @db.Uuid
   createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamp(6)

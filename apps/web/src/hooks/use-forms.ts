@@ -52,11 +52,13 @@ interface SaveSchemaInput {
   schema: Record<string, unknown>;
 }
 
-export function useForms() {
+export function useForms(includeArchived = false) {
   return useQuery<Form[]>({
-    queryKey: ['forms'],
+    queryKey: ['forms', { includeArchived }],
     queryFn: async () => {
-      const { data } = await api.get('/api/forms');
+      const { data } = await api.get('/api/forms', {
+        params: includeArchived ? { includeArchived: 'true' } : undefined,
+      });
       return data;
     },
   });
@@ -225,3 +227,17 @@ export function useArchiveForm() {
   });
 }
 
+/** Bring an archived form back to the status it had when it was archived. */
+export function useUnarchiveForm() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (formId: string) => {
+      const { data } = await api.post(`/api/forms/${formId}/unarchive`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['forms'] });
+    },
+  });
+}
