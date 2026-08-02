@@ -11,6 +11,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { AI_THROTTLE } from '../../common/throttle.config';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { decodeUploadFilename } from '../../common/utils/filename';
@@ -38,6 +40,7 @@ export class FormConversionController {
   constructor(private readonly conversion: FormConversionService) {}
 
   @Post()
+  @Throttle(AI_THROTTLE)
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: MAX_UPLOAD_BYTES },

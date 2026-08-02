@@ -27,6 +27,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.0",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.0.0",
     "acorn": "^8.17.0",
     "ajv": "^8.17.1",

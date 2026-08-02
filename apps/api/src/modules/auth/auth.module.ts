@@ -3,6 +3,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { UserAwareThrottlerGuard } from '../../common/guards/throttler.guard';
+import { DEFAULT_THROTTLE } from '../../common/throttle.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -23,6 +26,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
         },
       }),
     }),
+    ThrottlerModule.forRoot([DEFAULT_THROTTLE]),
   ],
   controllers: [AuthController],
   providers: [
@@ -44,6 +48,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
     },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Registered LAST on purpose: UserAwareThrottlerGuard keys by req.user,
+    // which JwtAuthGuard populates. Moving it earlier silently downgrades every
+    // per-user limit to per-IP.
+    { provide: APP_GUARD, useClass: UserAwareThrottlerGuard },
   ],
   exports: [AuthService],
 })

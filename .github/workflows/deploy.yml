@@ -89,7 +89,16 @@ jobs:
           # cannot finish inside its timeout and the upload is rejected.
           # 1Gi gives Node + Chromium headroom (512Mi is enough to render but
           # leaves nothing spare alongside a large LLM payload).
-          flags: --memory=1Gi --no-cpu-throttling
+          #
+          # --max-instances bounds the rate limiter. The throttler's storage is
+          # in-memory and therefore per-instance, so the effective limit is
+          # (configured limit x running instances). Unbounded autoscaling would
+          # make the limits meaningless; capping instances makes the multiple
+          # known. A strict global limit needs shared storage or Cloud Armor —
+          # see docs/security/AUTH-AND-RBAC.md.
+          flags: --memory=1Gi --no-cpu-throttling --max-instances=4
+          env_vars: |
+            TRUST_PROXY_HOPS=1
           secrets: |
             DATABASE_URL=DATABASE_URL:latest
             JWT_SECRET=JWT_SECRET:latest

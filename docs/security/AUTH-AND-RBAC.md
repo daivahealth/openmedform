@@ -54,6 +54,45 @@ tenant (no tenant to scope to).
 **Planned (not yet wired):** logout, form schema edit/archive/clone, AI Builder
 generate/refine/PDF upload actions (token usage for these IS metered — see below).
 
+## Rate Limiting
+
+`@nestjs/throttler` is registered globally (`AuthModule`), with tiers in
+`apps/api/src/common/throttle.config.ts`:
+
+| Tier | Limit | Keyed by | Applied to |
+|---|---|---|---|
+| default | 300/min | user, else IP | everything else |
+| auth | 10/min | IP | `POST /api/auth/login`, `GET /api/auth/google` |
+| ai | 10/min | **user** | `POST /api/conversions`, `/api/forms/from-prompt`, `/api/forms/:id/jsonforms/refine` |
+| upload | 30/min | user | `POST /api/forms/:id/assets`, `/api/forms/import` |
+
+`GET /api/health` is exempt — the platform's own liveness probes hit it on a
+timer, and a throttled health check reads as an outage.
+
+**Keying.** `UserAwareThrottlerGuard` keys authenticated traffic by user id, not
+by IP: a hospital sits behind one NAT, and the expensive routes all require a
+token anyway. Unauthenticated traffic falls back to IP, which is the right key
+for login — the attacker chooses the email, not the source address. The guard is
+registered **after** `JwtAuthGuard` so `req.user` exists; moving it earlier
+silently downgrades every per-user limit to per-IP.
+
+Behind Cloud Run, `TRUST_PROXY_HOPS=1` makes Express resolve the real client
+address instead of the load balancer's.
+
+### What this does and does not guarantee
+
+The throttler's storage is **in-memory, and therefore per-instance**. With N
+instances serving, the effective limit is N × the number above. Deployment pins
+`--max-instances=4`, so the multiple is bounded and known rather than
+unbounded — but these numbers are a floor on abuse cost, not a hard global
+limit. A strict guarantee needs shared storage (Redis) or an edge control
+(Cloud Armor). Sizing the limits well below what a user could plausibly need
+is what makes the 4× slack acceptable in the meantime.
+
+There is also **no per-email lockout**: ten login attempts a minute per IP
+bounds online guessing from one source, but not a distributed attempt against
+one account. That needs persistent state rather than an in-process counter.
+
 ## Uploaded Mock-ups Are Untrusted Input
 
 An uploaded HTML mock-up is attacker-controlled. Three deliberate rules bound
