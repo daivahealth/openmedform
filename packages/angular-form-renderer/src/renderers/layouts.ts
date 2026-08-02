@@ -30,11 +30,7 @@ import {
   type OnDestroy,
   type OnInit,
 } from '@angular/core';
-import {
-  JsonFormsAngularService,
-  JsonFormsBaseRenderer,
-  JsonFormsOutlet,
-} from '@jsonforms/angular';
+import { JsonFormsAngularService, JsonFormsOutlet } from '@jsonforms/angular';
 import {
   and,
   type Layout,
@@ -47,12 +43,16 @@ import {
 import { collectScoreItems, computeScore } from '@openmedform/form-core';
 import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
+import { RuleAwareRenderer } from '../rule-visibility';
 import { STANDARD_RANK } from '../testers';
 import { pointColor, readOmf } from '../point-value';
 
-/** Shared base: exposes the child elements and builds outlet render props. */
+/**
+ * Shared base: exposes the child elements, builds outlet render props, and
+ * honours a SHOW/HIDE rule on the layout itself (see RuleAwareRenderer).
+ */
 @Directive()
-export abstract class OmfLayoutBase extends JsonFormsBaseRenderer<Layout> {
+export abstract class OmfLayoutBase extends RuleAwareRenderer<Layout> {
   // Cache the render-props object per child element so the same reference is
   // returned across change-detection passes. The <jsonforms-outlet> [renderProps]
   // @Input setter only fires when the bound value's reference changes, so a
@@ -87,11 +87,13 @@ export abstract class OmfLayoutBase extends JsonFormsBaseRenderer<Layout> {
   imports: [JsonFormsOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="omf-vertical">
-      @for (element of elements; track $index) {
-        <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
-      }
-    </div>
+    @if (visible) {
+      <div class="omf-vertical">
+        @for (element of elements; track $index) {
+          <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+        }
+      </div>
+    }
   `,
   styles: [FIELD_STYLES],
 })
@@ -104,13 +106,15 @@ export const verticalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('VerticalLa
   imports: [JsonFormsOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="omf-row">
-      @for (element of elements; track $index) {
-        <div class="omf-col">
-          <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
-        </div>
-      }
-    </div>
+    @if (visible) {
+      <div class="omf-row">
+        @for (element of elements; track $index) {
+          <div class="omf-col">
+            <jsonforms-outlet [renderProps]="childProps(element)"></jsonforms-outlet>
+          </div>
+        }
+      </div>
+    }
   `,
   styles: [FIELD_STYLES],
 })
@@ -123,6 +127,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
   imports: [JsonFormsOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (visible) {
     @if (isSubsection) {
       <div class="omf-subsection">
         @if (groupLabel) { <div class="omf-subsection-title">{{ groupLabel }}</div> }
@@ -156,6 +161,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
           }
         </div>
       </div>
+    }
     }
   `,
   styles: [
@@ -205,6 +211,7 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
   }
 
   ngOnInit(): void {
+    super.ngOnInit(); // rule subscription
     const items = this.uischema ? collectScoreItems(this.uischema as never) : [];
     if (items.length === 0) return; // non-scored boxes never subscribe.
     // Recompute the subtotal only when the response data changes — not on every
@@ -222,6 +229,7 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
   }
 
   ngOnDestroy(): void {
+    super.ngOnDestroy();
     this.sub?.unsubscribe();
   }
 }
@@ -234,10 +242,10 @@ export const groupTester = rankWith(STANDARD_RANK, uiTypeIs('Group'));
   // white-space: pre-line preserves the source line breaks so a multi-line /
   // dash-bulleted instruction block stays one item per line (matching the paper)
   // instead of collapsing into a single run-on line. See the React OmfLabel.
-  template: `<p class="omf-group-title" style="white-space: pre-line">{{ text }}</p>`,
+  template: `@if (visible) { <p class="omf-group-title" style="white-space: pre-line">{{ text }}</p> }`,
   styles: [FIELD_STYLES],
 })
-export class LabelComponent extends JsonFormsBaseRenderer<LabelElement> {
+export class LabelComponent extends RuleAwareRenderer<LabelElement> {
   get text(): string {
     return this.uischema?.text ?? '';
   }
@@ -274,6 +282,7 @@ interface OmfTableRowShape {
   standalone: true,
   imports: [JsonFormsOutlet],
   template: `
+    @if (visible) {
     <div class="omf-scroll-x">
       <table class="omf-grid" [class.omf-grid-auto]="hasColumns">
         @if (hasColumns) {
@@ -315,6 +324,7 @@ interface OmfTableRowShape {
         </tbody>
       </table>
     </div>
+    }
   `,
   styles: [
     FIELD_STYLES,

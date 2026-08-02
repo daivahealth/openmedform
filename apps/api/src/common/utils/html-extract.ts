@@ -138,6 +138,12 @@ export interface HtmlExtractResult {
    * — the transpose of `repeatingTables`. Also converts to a `recordTable`.
    */
   transposedMatrices: TransposedMatrixHint[];
+  /**
+   * Fields the mock-up hides until a nearby choice is set to "Other". Kept
+   * rather than stripped, and converted with a SHOW rule — see
+   * `ConditionalFieldHint`.
+   */
+  conditionalFields: ConditionalFieldHint[];
 }
 
 export interface HtmlExtractOptions {
@@ -199,6 +205,9 @@ export function extractFormHtml(
   const scriptFilledPlaceholders = findScriptFilledPlaceholders(root);
   const repeatingTables = findRepeatingTables(root);
   const transposedMatrices = findTransposedMatrices(root);
+  // Must also run BEFORE the hidden strip below, which is what would otherwise
+  // delete these fields.
+  const { hints: conditionalFields, reveal } = findConditionalFields(root);
 
   let strippedTags = 0;
   for (const el of root.querySelectorAll('*')) {
@@ -213,6 +222,11 @@ export function extractFormHtml(
   // so guard against operating on a detached node.
   for (const el of root.querySelectorAll('*')) {
     if (!el.parentNode) continue;
+    // Spared: a conditional "specify" field, kept so it can be emitted with a
+    // SHOW rule instead of vanishing. Only the field itself is spared — if a
+    // hidden ANCESTOR is removed this still goes with it, which is correct: a
+    // whole hidden section is not a conditional field.
+    if (reveal.has(el)) continue;
     if (isHidden(el)) {
       el.remove();
       hiddenRemoved++;
@@ -247,6 +261,13 @@ export function extractFormHtml(
       `Removed ${hiddenRemoved} hidden element(s) (display:none / hidden / aria-hidden). Hidden content is not converted.`,
     );
   }
+  if (conditionalFields.length > 0) {
+    warnings.push(
+      `${conditionalFields.length} field(s) are hidden until a choice is set to "Other" (` +
+        conditionalFields.map((c) => `${c.fieldLabel} <- ${c.controlledBy}`).join(', ') +
+        '). They were kept and converted with a SHOW rule rather than dropped.',
+    );
+  }
   if (commentsRemoved > 0) {
     warnings.push(`Removed ${commentsRemoved} HTML comment(s).`);
   }
@@ -273,6 +294,7 @@ export function extractFormHtml(
     scriptFilledPlaceholders,
     repeatingTables,
     transposedMatrices,
+    conditionalFields,
   };
 }
 
@@ -383,6 +405,158 @@ function findTransposedMatrices(root: HTMLElement): TransposedMatrixHint[] {
   }
 
   return hints;
+}
+
+/**
+ * A field that the mock-up shows only when a nearby choice is set to a specific
+ * option — the "Please specify…" box next to a Site/Reason select's "Other".
+ *
+ * Hidden markup is stripped by default because it is the natural place to
+ * smuggle instructions to the model. But mock-ups also use `display:none` for
+ * genuinely conditional fields, and dropping those loses real data capture: the
+ * VIP chart lost 2 of its 23 fields this way. The platform already renders
+ * conditional visibility — `form-core` evaluates JSON Forms SHOW/HIDE rules —
+ * so the fix is to emit the rule rather than to keep or drop the field blindly.
+ */
+export interface ConditionalFieldHint {
+  /** The conditional field's own label — placeholder, aria-label or name. */
+  fieldLabel: string;
+  /** Label of the choice that reveals it, e.g. 'Site'. */
+  controlledBy: string;
+  /** The option that reveals it, e.g. 'Other'. */
+  whenValue: string;
+}
+
+/** Options that mean "none of the above, type it in". */
+const OTHER_OPTION = /^\s*(other|others|other\s*\(.*\)|please\s+specify)\s*[:.…]*\s*$/i;
+
+/** Text-entry fields; a hidden checkbox/radio is not a "specify" companion. */
+const SPECIFY_INPUT_TYPES = new Set(['text', 'search', 'tel', 'url', 'email', '']);
+
+/**
+ * Cap on a revealed field's label. This is the one string a HIDDEN element can
+ * now put in front of the model, so keep the space too small to hide an
+ * instruction in. Real "Please specify…" placeholders are a few words.
+ */
+const MAX_CONDITIONAL_LABEL = 60;
+
+/**
+ * Best available name for a field that carries no visible label of its own.
+ * A conditional "specify" box is labelled by its placeholder in practice.
+ */
+function conditionalFieldLabel(el: HTMLElement): string {
+  const candidates = [
+    el.getAttribute('placeholder'),
+    el.getAttribute('aria-label'),
+    el.getAttribute('title'),
+    el.getAttribute('name'),
+  ];
+  for (const c of candidates) {
+    const text = (c ?? '').replace(/\s+/g, ' ').trim();
+    if (text) return text.length <= MAX_CONDITIONAL_LABEL ? text : '';
+  }
+  return '';
+}
+
+/**
+ * Name of the choice this field hangs off: an associated `<label>`, the row
+ * label in a matrix (`<tr>`'s first cell), or the group's preceding text.
+ */
+function controllingLabel(select: HTMLElement): string {
+  const id = select.getAttribute('id');
+  if (id) {
+    const root = select.parentNode ? rootOf(select) : undefined;
+    const label = root?.querySelector(`label[for="${id}"]`);
+    const text = label?.text.replace(/\s+/g, ' ').trim();
+    if (text) return text;
+  }
+
+  // Walk out to the nearest labelling context. In a matrix the row's first cell
+  // is the field name; in a stacked layout a <label> wraps or precedes it.
+  let node: HTMLElement | null = select.parentNode as HTMLElement | null;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentNode as HTMLElement | null) {
+    const tag = node.rawTagName?.toLowerCase();
+    if (tag === 'tr') {
+      const first = node.querySelectorAll('td, th')[0];
+      const text = first?.text.replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    }
+    if (tag === 'label') {
+      // The <label>'s own text, not the option list inside the select.
+      const text = node.text
+        .replace(select.text, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+/** Climb to the document root so an id lookup can see the whole tree. */
+function rootOf(el: HTMLElement): HTMLElement {
+  let node = el;
+  while (node.parentNode) node = node.parentNode as HTMLElement;
+  return node;
+}
+
+/**
+ * Find hidden "specify" fields that belong to a select's "Other" option, and
+ * report both the pair and the elements to spare from the hidden-content strip.
+ *
+ * The pattern is deliberately narrow, because the whole point of stripping
+ * hidden content is that it is a prompt-injection channel. What survives here:
+ *
+ * - only `<input>`/`<textarea>` — never a container, so no hidden prose can ride
+ *   along inside one. An `<input>` is void; a `<textarea>` is not, so an
+ *   already-populated one is rejected rather than revealed.
+ * - the only string a hidden element can newly put in front of the model is its
+ *   own short label, capped at MAX_CONDITIONAL_LABEL characters.
+ * - only next to a `<select>` that actually offers an "Other"-style option, so a
+ *   hidden field with no conditional partner stays stripped.
+ * - only within the select's own parent, so this cannot reach across a document.
+ */
+function findConditionalFields(root: HTMLElement): {
+  hints: ConditionalFieldHint[];
+  reveal: Set<HTMLElement>;
+} {
+  const hints: ConditionalFieldHint[] = [];
+  const reveal = new Set<HTMLElement>();
+
+  for (const select of root.querySelectorAll('select')) {
+    const other = select
+      .querySelectorAll('option')
+      .map((o) => o.text.replace(/\s+/g, ' ').trim())
+      .find((t) => OTHER_OPTION.test(t));
+    if (!other) continue;
+
+    const parent = select.parentNode as HTMLElement | null;
+    if (!parent) continue;
+
+    for (const field of parent.querySelectorAll('input, textarea')) {
+      if (!isHidden(field)) continue;
+      const tag = field.rawTagName?.toLowerCase();
+      if (tag === 'input') {
+        const type = (field.getAttribute('type') ?? '').toLowerCase();
+        if (!SPECIFY_INPUT_TYPES.has(type)) continue;
+      } else if (tag === 'textarea') {
+        // Unlike <input>, a textarea is NOT void — it can carry hidden prose.
+        // A blank specify box is empty by definition, so anything with content
+        // is not one and stays stripped.
+        if (field.text.trim()) continue;
+      }
+
+      const fieldLabel = conditionalFieldLabel(field);
+      if (!fieldLabel) continue;
+      const controlledBy = controllingLabel(select);
+      if (!controlledBy) continue;
+
+      reveal.add(field);
+      hints.push({ fieldLabel, controlledBy, whenValue: other });
+    }
+  }
+
+  return { hints, reveal };
 }
 
 /** Containers a browser would populate at runtime; we never execute the page. */

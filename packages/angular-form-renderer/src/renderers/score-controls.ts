@@ -16,10 +16,11 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import { JsonFormsAngularService, JsonFormsBaseRenderer } from '@jsonforms/angular';
+import { JsonFormsAngularService } from '@jsonforms/angular';
 import { rankWith, type ControlElement, type UISchemaElement } from '@jsonforms/core';
 import { collectScoreItems, computeScore, type RiskBand, type ScoreItem } from '@openmedform/form-core';
 import { distinctUntilChanged, map, type Subscription } from 'rxjs';
+import { RuleAwareRenderer } from '../rule-visibility';
 import { FIELD_STYLES } from '../styles';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
@@ -28,6 +29,7 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (visible) {
     <div class="omf-score">
       <div class="omf-score-head">
         <span class="omf-score-title">{{ title }}</span>
@@ -53,6 +55,7 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
       }
       <div class="omf-score-note">Live total — the server recalculates the authoritative score on submission.</div>
     </div>
+    }
   `,
   styles: [
     FIELD_STYLES,
@@ -68,7 +71,7 @@ import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
   ],
 })
 export class ScoreSummaryComponent
-  extends JsonFormsBaseRenderer<ControlElement>
+  extends RuleAwareRenderer<ControlElement>
   implements OnInit, OnDestroy
 {
   private readonly jsonForms = inject(JsonFormsAngularService);
@@ -93,6 +96,7 @@ export class ScoreSummaryComponent
   }
 
   ngOnInit(): void {
+    super.ngOnInit(); // rule subscription
     // Recompute only when the response data (or the UI schema) actually changes —
     // JsonForms' $state also emits on validation/config/focus, and re-walking the
     // whole UI tree + re-summing on every one of those was the perf hot-spot.
@@ -118,6 +122,7 @@ export class ScoreSummaryComponent
   }
 
   ngOnDestroy(): void {
+    super.ngOnDestroy();
     this.sub?.unsubscribe();
   }
 }

@@ -46,6 +46,7 @@ import { OmfLayoutBase } from './layouts';
   imports: [JsonFormsOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (!hidden) {
     <div class="omf-record-table">
       <div class="omf-record-toolbar">
         <span class="omf-record-count">{{ countText }}</span>
@@ -192,6 +193,7 @@ import { OmfLayoutBase } from './layouts';
         }
       </div>
     </div>
+    }
   `,
   styles: [FIELD_STYLES],
 })
