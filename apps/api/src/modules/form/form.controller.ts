@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Put,
   Res,
   UploadedFile,
@@ -58,8 +59,11 @@ export class FormController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.formService.findAll(user.tenantId);
+  findAll(
+    @CurrentUser() user: RequestUser,
+    @Query('includeArchived') includeArchived?: string,
+  ) {
+    return this.formService.findAll(user.tenantId, includeArchived === 'true');
   }
 
   @Get('count')
@@ -276,12 +280,29 @@ export class FormController {
     return this.formService.deletionSummary(user.tenantId, id);
   }
 
+  /** Bring an archived form back to the status it had when it was archived. */
+  @Post(':id/unarchive')
+  unarchive(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.formService.unarchive(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
+  }
+
   @Delete(':id')
   archive(
     @CurrentUser() user: RequestUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
   ) {
-    return this.formService.archive(user.tenantId, id);
+    return this.formService.archive(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+    });
   }
 
   @Delete(':id/permanent')
