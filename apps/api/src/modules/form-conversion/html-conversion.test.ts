@@ -2,11 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect, vi } from 'vitest';
 import { FormConversionController } from './form-conversion.controller';
-import {
-  FormConversionService,
-  assertConversionOutputComplete,
-  assertHtmlWithinBudget,
-} from './form-conversion.service';
+import { FormConversionService, assertHtmlWithinBudget } from './form-conversion.service';
+import { assertConversionOutputComplete } from '../../common/utils/llm-output';
 import { extractFormHtml } from '../../common/utils/html-extract';
 import { renderHtmlToDomWithOutcome } from '../../common/utils/html-render';
 import type { LayoutSnapshot } from '../../common/utils/layout-detect';
