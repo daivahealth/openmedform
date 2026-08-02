@@ -75,11 +75,13 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 |--------|------|-------------|
 | GET | /api/forms/:formId/submissions | List submissions |
 | POST | /api/forms/:formId/submissions | Start submission |
-| GET | /api/submissions | List all submissions for the tenant |
-| GET | /api/submissions/count | Total submission count for the tenant |
+| GET | /api/submissions | List records. Voided ones are excluded unless `?includeVoided=true`. `/api/submissions/count` counts the same set |
+| GET | /api/submissions/count | Total record count, matching the default list (voided excluded) |
 | GET | /api/submissions/:id | Get submission |
 | PUT | /api/submissions/:id | Update submission (auto-save) |
 | POST | /api/submissions/:id/complete | Finalize and score (jsonforms: Ajv-validated server-side; 400 on invalid; audit-logged) |
+| DELETE | /api/submissions/:id | **Void** a record — how "delete" behaves for clinical data. Status becomes `VOIDED`; the row and its data are kept and drop out of the default list. Own records for any user; anyone's for `TENANT_ADMIN`/`SUPER_ADMIN` (403 otherwise). Idempotent. Audited as `submission.void` with the previous status |
+| DELETE | /api/submissions/:id/permanent | **Destroy** a record. `TENANT_ADMIN`/`SUPER_ADMIN` only (403 otherwise), unrecoverable. Audited as `submission.delete` **before** the row is removed, with form, status, MRN, encounter and submitter — once it is gone that entry is the only trace |
 | POST | /api/submissions/:id/sign | Sign a COMPLETED submission → status SIGNED + signed_at/signed_by (audit-logged) |
 
 ### AI Builder
