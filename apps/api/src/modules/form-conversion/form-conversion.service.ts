@@ -319,6 +319,24 @@ export class FormConversionService {
           'options.detail as an OmfTabsLayout.\n\n';
       }
 
+      // Fields the mock-up hides until a select is set to "Other". They are
+      // real capture, so they are kept rather than stripped — but emitted
+      // always-visible they would put an unexplained "Please specify…" box on
+      // every form. The platform already evaluates SHOW rules, so name the
+      // trigger and let the rule do the work.
+      for (const c of extracted.conditionalFields) {
+        userPrompt +=
+          `CONDITIONAL FIELD: "${c.fieldLabel}" is hidden in the source and shown only when ` +
+          `"${c.controlledBy}" is set to "${c.whenValue}". Emit it as a REAL field — it is an ` +
+          'ADDITIONAL field beyond any row list given above, not a replacement for one — and ' +
+          'give its Control a rule so it appears only on that choice:\n' +
+          '  "rule": { "effect": "SHOW", "condition": { "scope": "#/properties/<the ' +
+          `${c.controlledBy} property>", "schema": { "const": "${c.whenValue}" } } }\n` +
+          `The condition scope must point at the "${c.controlledBy}" property itself, and its ` +
+          `"const" must be exactly the enum value emitted for "${c.whenValue}". Do NOT emit the ` +
+          'field always-visible, and do NOT drop it.\n\n';
+      }
+
       userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 

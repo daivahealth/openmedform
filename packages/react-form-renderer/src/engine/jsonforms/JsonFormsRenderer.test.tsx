@@ -374,3 +374,83 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     expect(screen.getByText('Notes')).toBeTruthy();
   });
 });
+
+
+/**
+ * Conditional visibility — the shape HTML conversion now emits for a
+ * "Please specify…" box beside a select's "Other" option (issue #74).
+ */
+describe('JsonFormsRenderer — SHOW rules', () => {
+  const conditional = (data?: Record<string, unknown>): JsonFormsFormDefinition => ({
+    ...rrtSbarReference,
+    dataSchema: {
+      type: 'object',
+      properties: {
+        site: { type: 'string', title: 'Site', enum: ['FOREARM', 'OTHER'] },
+        siteOther: { type: 'string', title: 'Please specify…' },
+      },
+    },
+    uiSchema: {
+      schemaVersion: '1.0',
+      layout: {
+        type: 'VerticalLayout',
+        elements: [
+          { type: 'Control', scope: '#/properties/site' },
+          {
+            type: 'Control',
+            scope: '#/properties/siteOther',
+            rule: {
+              effect: 'SHOW',
+              condition: { scope: '#/properties/site', schema: { const: 'OTHER' } },
+            },
+          },
+        ],
+      },
+    },
+    ...(data ? { data } : {}),
+  });
+
+  it('hides the conditional field until its trigger matches', () => {
+    render(<JsonFormsRenderer definition={conditional()} data={{ site: 'FOREARM' }} />);
+
+    expect(screen.queryByText('Please specify…')).toBeNull();
+  });
+
+  it('shows it once the controlling field holds the trigger value', () => {
+    render(<JsonFormsRenderer definition={conditional()} data={{ site: 'OTHER' }} />);
+
+    expect(screen.getByText('Please specify…')).toBeTruthy();
+  });
+
+  it('hides a whole Group when its rule says so', () => {
+    // React honoured layout rules already; the Angular renderer did not until
+    // now, so this is the parity anchor for both.
+    const def: JsonFormsFormDefinition = {
+      ...conditional(),
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Group',
+              label: 'Other details',
+              rule: {
+                effect: 'SHOW',
+                condition: { scope: '#/properties/site', schema: { const: 'OTHER' } },
+              },
+              elements: [{ type: 'Control', scope: '#/properties/siteOther' }],
+            },
+          ],
+        },
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} data={{ site: 'FOREARM' }} />);
+    expect(screen.queryByText('Other details')).toBeNull();
+
+    cleanup();
+    render(<JsonFormsRenderer definition={def} data={{ site: 'OTHER' }} />);
+    expect(screen.getByText('Other details')).toBeTruthy();
+  });
+});

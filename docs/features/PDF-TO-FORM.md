@@ -259,7 +259,10 @@ The upload is untrusted and is handled as **inert text only** — see
   natural place to smuggle instructions past the person uploading the file and
   into the LLM, so it is stripped — and the removal is reported as a conversion
   warning rather than happening silently. (`sr-only` is kept: it is real
-  accessible text, not smuggled content.)
+  accessible text, not smuggled content.) One narrow exception is carved out for
+  genuinely conditional fields — see
+  [Conditional fields](#conditional-other--please-specify-fields) for the exact
+  shape and why it carries no smuggling surface.
 - The prompt additionally frames the markup as untrusted source material to be
   read for layout only.
 
@@ -544,12 +547,71 @@ table and lose the add/remove semantics that `recordTable` reconstructs from the
 
 Two things still worth checking after a render:
 
-- **Conditional fields stay hidden.** Anything `display:none` at render time (a
-  "Please specify…" input that only appears when "Other" is chosen) is stripped
-  as hidden content — that is why VIP yields 21 rather than 23. Add those fields
-  in the designer afterwards.
+- **Conditional fields.** A "Please specify…" input that only appears when a
+  select is set to "Other" is kept and converted with a SHOW rule — VIP yields
+  all 23 fields. Any *other* `display:none` content is still stripped, so a
+  conditional block that does not match that pattern must be revealed before
+  upload. See [Conditional fields](#conditional-other--please-specify-fields).
 - **Row count.** A repeating table renders however many rows the script created
   on load, which is normally the one representative row you want.
+
+### Conditional "Other → Please specify…" fields
+
+Hidden content is stripped because it is the natural prompt-injection channel.
+But mock-ups also use `display:none` for real fields:
+
+```html
+<select>
+  <option>Forearm</option>
+  <option>Other</option>
+</select>
+<input type="text" placeholder="Please specify…" style="display:none">
+```
+
+That input is genuine data capture — the VIP chart has two of them, and stripping
+them cost it 2 of its 23 fields. The platform already renders conditional
+visibility (`form-core` evaluates JSON Forms rules), so the fix is to emit the
+rule rather than to keep or drop the field blindly.
+
+`findConditionalFields()` runs **before** the hidden-content strip, spares the
+field, and passes the model the pair. The converted Control carries:
+
+```jsonc
+{
+  "type": "Control",
+  "scope": "#/properties/siteOther",
+  "rule": {
+    "effect": "SHOW",
+    "condition": { "scope": "#/properties/site", "schema": { "const": "OTHER" } }
+  }
+}
+```
+
+The `const` is the enum **code** the controlling property stores, not its display
+label. A conditionally-shown field is never put in `required` — it is absent
+whenever the condition is false.
+
+**Why this does not reopen the injection channel.** What gets spared is
+deliberately tiny:
+
+| Spared | Still stripped |
+|---|---|
+| `<input>` of a text-entry type | checkbox, radio, `type="hidden"` |
+| an **empty** `<textarea>` | a `<textarea>` with content (it is not void — content is prose in disguise) |
+| the field alone | any container, and the field too if a hidden **ancestor** is removed |
+| beside a `<select>` offering "Other"/"Others"/"Other (…)" | a hidden field with no such partner |
+| within that select's own parent | anything further away |
+
+The only string a hidden element can newly put in front of the model is its own
+label (placeholder / aria-label / title / name), capped at 60 characters — far
+too small to hide an instruction, and the same class of string every visible
+field already contributes. Every adversarial case above is covered by a test in
+`html-extract.test.ts`.
+
+Both renderers honour the rule. React reads JSON Forms' `visible` prop
+throughout; the Angular renderer's controls read `hidden`, and its layouts, Label
+and score summary get the same treatment from `RuleAwareRenderer`, which
+evaluates the rule with the **same** `form-core` code the server uses.
 
 ### Grids built without tables
 
@@ -635,5 +697,5 @@ Multi-document files are flagged with a warning.
 - Generated schemas should always be reviewed before publishing — AI output is a starting point, not a final form.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
-- Hidden HTML is never converted, by design. If a mock-up legitimately hides a section (e.g. a conditional block), make it visible before uploading — the conversion warning will say what was removed.
+- Hidden HTML is not converted, by design — with one narrow exception for a conditional "Please specify…" field beside an "Other" option, which is kept and given a SHOW rule. If a mock-up hides anything else (e.g. a whole conditional section), make it visible before uploading; the conversion warning will say what was removed.
 - Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered. They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).

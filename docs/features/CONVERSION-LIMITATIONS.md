@@ -15,7 +15,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 |---|---|---|---|---|
 | 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
 | 2 | PDFs and images get no deterministic hints at all | High | Prefer an HTML mock-up of the same form when one exists | [#73](https://github.com/daivahealth/openmedform/issues/73) |
-| 3 | Hidden conditional fields ("Other → Please specify…") are stripped and lost | Medium | Reveal them (`display:block`) before uploading; re-add in the designer otherwise | [#74](https://github.com/daivahealth/openmedform/issues/74) |
+| 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
 | 4 | Scripted behaviour is not converted — option cascades, thresholds, computed fields, enable/disable | Medium | Add the options/rules in the designer after conversion | [#75](https://github.com/daivahealth/openmedform/issues/75) |
 | 5 | Content that only exists after a click is missed; matrix group-boundaries are inferred, not measured | Medium | Click the relevant buttons, then export `outerHTML` and upload that | [#76](https://github.com/daivahealth/openmedform/issues/76) |
 | 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload | By design | Split into one file per section | — |
@@ -73,22 +73,34 @@ downstream already exists; only the source changes.
 
 **Until then:** if a form exists as both PDF and HTML mock-up, upload the HTML.
 
-## 3. Hidden conditional fields are stripped
+## 3. Hidden conditional fields are stripped — resolved
 
-The extractor removes `display:none` content deliberately — hidden markup is the
-classic place to smuggle instructions to the model. The collateral damage is
-*legitimately* hidden fields: the "Please specify…" input that appears only when
-a select is set to "Other". The VIP form loses 2 of its 23 fields this way.
+**Was:** the extractor removes `display:none` content deliberately, because
+hidden markup is the classic place to smuggle instructions to the model. The
+collateral damage was *legitimately* hidden fields — the "Please specify…" input
+that appears only when a select is set to "Other". The VIP form lost 2 of its 23
+fields that way.
 
-The frustrating part: the platform already supports conditional visibility —
-`form-core` evaluates JSON Forms SHOW/HIDE/ENABLE/DISABLE rules. Conversion just
-never emits them.
+**Now** ([#74](https://github.com/daivahealth/openmedform/issues/74)): the
+extractor recognises that one narrow pattern *before* the strip, keeps the
+field, and tells the model to emit it with a SHOW rule bound to its select. The
+VIP form converts to all 23 fields. See
+[Conditional fields](PDF-TO-FORM.md#conditional-other--please-specify-fields).
 
-**Overcoming it** ([#74](https://github.com/daivahealth/openmedform/issues/74)):
-detect the narrow, safe pattern (hidden input adjacent to a select carrying an
-"Other" option) *before* the strip, reveal it, and have the prompt emit the
-field with a SHOW rule bound to that select. General hidden-content stripping —
-the security behaviour — stays exactly as is.
+General hidden-content stripping is unchanged. What is spared is deliberately
+tiny:
+
+- only an `<input>` or an **empty** `<textarea>` — never a container, so no
+  hidden prose rides along. (`<textarea>` is not void, so a populated one is
+  treated as prose and stays stripped.)
+- only beside a `<select>` that actually offers an "Other"-style option, and
+  only within that select's own parent.
+- only text-entry inputs — a hidden checkbox, radio or `type="hidden"` is not a
+  "specify" companion.
+- the one string a hidden element can newly put in front of the model is its own
+  label, capped at 60 characters.
+
+Anything else with `display:none` is removed and reported exactly as before.
 
 ## 4. Scripted behaviour is not converted
 
