@@ -56,6 +56,16 @@ and the Responses API.
 - Observation charts map to the `vitalSignsChart` control rather than a generic
   static table.
 
+### Structure pre-pass (PDF and image sources)
+
+Before converting a PDF or image, a separate narrow call
+([prompts/structure-probe-prompt.ts](../../apps/api/src/modules/ai-builder/prompts/structure-probe-prompt.ts))
+asks the page images which repeating table structures they contain. The reply is
+validated against a strict shape and becomes the same structural hints the HTML
+extractor produces — see
+[PDF-TO-FORM](PDF-TO-FORM.md#structure-hints-for-pdfs-and-images). It is
+additive: a failed or low-confidence probe converts as before.
+
 ### Layout fidelity
 
 The conversion prompt

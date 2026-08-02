@@ -14,7 +14,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | # | Limitation | Severity | Workaround today | Fix tracked in |
 |---|---|---|---|---|
 | 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
-| 2 | PDFs and images get no deterministic hints at all | High | Prefer an HTML mock-up of the same form when one exists | [#73](https://github.com/daivahealth/openmedform/issues/73) |
+| 2 | ~~PDFs and images get no structural hints~~ — **fixed**: a vision pre-pass reads the page's table structures and emits the same hints | Resolved | — (hints are read off the page, so they are a careful reading rather than a proof; HTML remains the most reliable source) | [#73](https://github.com/daivahealth/openmedform/issues/73) ✅ |
 | 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
 | 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
 | 5 | ~~Click-built content missed; matrix group-boundaries inferred~~ — **fixed**: a bounded sandbox probe presses add-controls and measures the split | Resolved | — (requires Chromium; `HTML_PROBE_DISABLED=1` reverts to a single read) | [#76](https://github.com/daivahealth/openmedform/issues/76) ✅ |
@@ -57,21 +57,38 @@ How it behaves:
 matrix behind a collapsed panel is still missed (row 5), and group boundaries
 within one long parameter column are still inferred rather than measured.
 
-## 2. PDFs and images get no deterministic hints
+## 2. PDFs and images get no structural hints — resolved
 
-Every structural hint is extracted from HTML markup. A PDF or image goes to the
-model as page pictures plus text — no repeating-log hint, no matrix hint, no
-placeholder warnings. A scanned cannula-style matrix in a PDF therefore relies
-entirely on prompt rules, and converts strictly less reliably than the same form
-as HTML.
+**Was:** every structural hint came from HTML markup. A PDF or image went to the
+model as page pictures plus text, with no repeating-log hint and no matrix hint,
+so a scanned cannula-style matrix converted on prompt rules alone.
 
-**Overcoming it** ([#73](https://github.com/daivahealth/openmedform/issues/73)):
-a narrow vision pre-pass ("describe the table structures on this page" →
-schema-validated JSON → the same hint text), possibly combined with classical
-line-detection on the `pdftoppm` images for ruled tables. The hint mechanism
-downstream already exists; only the source changes.
+**Now** ([#73](https://github.com/daivahealth/openmedform/issues/73)): a narrow
+vision pre-pass runs *before* the conversion and asks the pages one question —
+what repeating table structures are on them? The reply is validated against a
+strict shape and turned into the **same** `REPEATING LOG:` / `MATRIX TABLE:`
+paragraphs the HTML detectors emit. See [Structure hints for PDFs and
+images](PDF-TO-FORM.md#structure-hints-for-pdfs-and-images).
 
-**Until then:** if a form exists as both PDF and HTML mock-up, upload the HTML.
+Measured on a PDF of the VIP cannula chart: the pre-pass read all 22 row labels
+and the instance heading off the page image, matching what the HTML detector
+produces for the same form, and the PDF converted to a single record table.
+
+**Not the same guarantee as HTML.** A markup hint is something the extractor
+*proved*; a page hint is a vision model's reading of a picture. It is validated
+before use and it is introduced to the conversion as an observation to reconcile
+against the pages, not as law. If a form exists as both PDF and HTML mock-up,
+the HTML is still the more reliable upload.
+
+**Why every hint is discardable.** A malformed or hallucinated hint is worse
+than none — it steers the conversion wrong with confidence. So a reported table
+is dropped whole if any label is unusable, if the model flagged low confidence,
+if a matrix has fewer than 3 rows or a log fewer than 2 columns, or if the reply
+does not parse. Partial row lists are never salvaged.
+
+**Classical line detection** on the `pdftoppm` images was the other candidate in
+the issue. It is not implemented: the vision pre-pass covers ruled and unruled
+tables alike, and adds no image-processing dependency.
 
 ## 3. Hidden conditional fields are stripped — resolved
 
