@@ -15,8 +15,13 @@ import {
 import {
   renderHtmlToDomWithOutcome,
   type HtmlRenderOutcome,
+  type ProbeOutcome,
 } from '../../common/utils/html-render';
-import { detectLayoutStructures, type LayoutSnapshot } from '../../common/utils/layout-detect';
+import {
+  detectLayoutStructures,
+  rowsGainedBetween,
+  type LayoutSnapshot,
+} from '../../common/utils/layout-detect';
 import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
 
 // Keep typical multi-page clinical forms visually grounded without sending an
@@ -327,7 +332,19 @@ export class FormConversionService {
             ? `The "${m.addNestedLabel}" control inside a column heading means each record ALSO contains its own ` +
               'repeating group: put the fields that repeat per sub-record into a NESTED array property, and give ' +
               `that nested array its own options.omf.control "recordTable" with addLabel "${m.addNestedLabel}". ` +
-              'A nested array left without recordTable config renders as an unusable generic list widget. '
+              'A nested array left without recordTable config renders as an unusable generic list widget. ' +
+              `"${m.addNestedLabel}" is the BUTTON'S OWN TEXT — like the instance name, it is never a field ` +
+              'and never a property. Emit it only as the addLabel. '
+            : '') +
+          // Measured, not inferred: pressing the nested-add control in the
+          // sandbox showed exactly which rows belong to the sub-record. Say so
+          // emphatically — left to judgement the model splits these wrong.
+          (m.nestedRowLabels && m.nestedRowLabels.length > 0
+            ? 'THE SPLIT IS MEASURED, NOT A SUGGESTION — the control was actually pressed and these ' +
+              `${m.nestedRowLabels.length} rows are the ones that gained a cell, so they belong to the NESTED ` +
+              'array and NOT to the outer record: ' +
+              m.nestedRowLabels.map((l) => `"${l}"`).join(', ') +
+              '. Every other row above belongs to the OUTER record. Do not move a row between the two levels. '
             : '') +
           'Summary columns should be the few most identifying fields, not all of them; the rest belong in ' +
           'options.detail as an OmfTabsLayout.\n\n';
@@ -589,7 +606,17 @@ export class FormConversionService {
       staticResult.transposedMatrices.length === 0 &&
       hasAddAffordance(html);
 
-    if (!scriptBuilt && !maybeGeometric) return staticResult;
+    // A matrix chart with a "+ Day"-style control inside a column heading holds
+    // one more fact than its markup states: WHICH rows repeat per sub-record.
+    // Pressing it in the sandbox measures that split instead of leaving the
+    // model to infer it, so it is worth a render even when the markup already
+    // parsed cleanly.
+    const measurableNesting =
+      !scriptBuilt &&
+      !maybeGeometric &&
+      staticResult.transposedMatrices.some((m) => !!m.addNestedLabel);
+
+    if (!scriptBuilt && !maybeGeometric && !measurableNesting) return staticResult;
 
     const outcome = await renderHtmlToDomWithOutcome(html);
     if (outcome.status !== 'rendered') {
@@ -604,7 +631,13 @@ export class FormConversionService {
     // The rendered DOM no longer carries the ORIGINAL scripts' config (the page
     // has run; its <script> text may be gone or rewritten), so config comes from
     // the static parse and is merged back below.
-    const renderedResult = extractFormHtml(outcome.html, options);
+    // Content that only exists after a click lives in the post-probe DOM and
+    // nowhere else, so read that when it is richer. Falling back to the
+    // pre-probe DOM keeps a probe that broke something from costing us fields.
+    const renderedResult = this.richerOf(
+      extractFormHtml(outcome.html, options),
+      outcome.probe ? extractFormHtml(outcome.probe.html, options) : undefined,
+    );
     // Only prefer the render if it actually recovered something. A mock-up whose
     // script does nothing useful should not lose its static content to a render
     // that happened to trip over an error partway through.
@@ -625,7 +658,70 @@ export class FormConversionService {
       best.scriptConfig.length === 0 && staticResult.scriptConfig.length > 0
         ? { ...best, scriptConfig: staticResult.scriptConfig }
         : best;
-    return this.withGeometryHints(merged, outcome.layout, warnings);
+    const hinted = this.withGeometryHints(merged, outcome.layout, warnings);
+    return this.withMeasuredNesting(hinted, outcome.probe, warnings);
+  }
+
+  /** Whichever extraction found more fields; `b` wins ties only if it exists. */
+  private richerOf(
+    a: ReturnType<typeof extractFormHtml>,
+    b: ReturnType<typeof extractFormHtml> | undefined,
+  ): ReturnType<typeof extractFormHtml> {
+    if (!b) return a;
+    return b.stats.fields > a.stats.fields ? b : a;
+  }
+
+  /**
+   * Replace an inferred repeating-group split with a measured one.
+   *
+   * A matrix hint lists every row label but cannot say which rows belong to the
+   * nested group — the VIP chart's 22 rows are 8 per-cannula and 14 per-day,
+   * and nothing in the markup states that. Pressing "+ Day" does: the rows that
+   * grew ARE the day-level group.
+   *
+   * Additive only. No probe, no matching click, or nothing measured leaves the
+   * hint exactly as it was, and the model infers the split as before.
+   */
+  private withMeasuredNesting(
+    result: ReturnType<typeof extractFormHtml>,
+    probe: ProbeOutcome | undefined,
+    warnings: string[],
+  ): ReturnType<typeof extractFormHtml> {
+    if (!probe || probe.clicks.length === 0) return result;
+    if (result.transposedMatrices.length === 0) return result;
+
+    let measured = 0;
+    const transposedMatrices = result.transposedMatrices.map((matrix) => {
+      if (!matrix.addNestedLabel) return matrix;
+      const click = probe.clicks.find((c) => c.label === matrix.addNestedLabel);
+      if (!click) return matrix;
+
+      const gained = new Set(rowsGainedBetween(click.before, click.after));
+      // Keep the hint's own order and vocabulary: a measurement that named rows
+      // the hint does not list would be worse than no measurement.
+      const nestedRowLabels = matrix.rowLabels.filter((label) => gained.has(label));
+      // All or nothing is not a split, it is noise.
+      if (nestedRowLabels.length === 0 || nestedRowLabels.length === matrix.rowLabels.length) {
+        return matrix;
+      }
+
+      measured++;
+      return { ...matrix, nestedRowLabels };
+    });
+
+    if (measured === 0) return result;
+
+    const first = transposedMatrices.find((m) => m.nestedRowLabels);
+    warnings.push(
+      `The repeating-group split in this chart was measured, not guessed: pressing ` +
+        `"${first?.addNestedLabel}" in a sandboxed browser grew ${first?.nestedRowLabels?.length} of ` +
+        `${first?.rowLabels.length} rows, so those rows repeat per sub-record and the rest belong to ` +
+        'the outer record.',
+    );
+    this.logger.log(
+      `Measured the nested repeating group for ${measured} matrix table(s) by interaction probe`,
+    );
+    return { ...result, transposedMatrices };
   }
 
   /**

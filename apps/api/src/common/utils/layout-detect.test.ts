@@ -3,7 +3,11 @@ import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 
 import { extractFormHtml } from './html-extract';
-import { detectLayoutStructures, type LayoutSnapshot } from './layout-detect';
+import {
+  detectLayoutStructures,
+  rowsGainedBetween,
+  type LayoutSnapshot,
+} from './layout-detect';
 
 /**
  * The geometry snapshots are captured from real Chromium runs of the sibling
@@ -113,5 +117,79 @@ describe('detectLayoutStructures', () => {
         countLabel: '3 sessions logged',
       },
     ]);
+  });
+});
+
+
+/**
+ * Measuring a repeating-group split by interaction, from real browser geometry
+ * captured either side of a "+ Day" click (see the regeneration note above).
+ */
+describe('rowsGainedBetween', () => {
+  const probe = JSON.parse(fixture('vip-interactive.probe.json')) as {
+    clicks: { label: string; before: LayoutSnapshot; after: LayoutSnapshot }[];
+  };
+  const clickNamed = (label: string) => probe.clicks.find((c) => c.label === label)!;
+
+  const CANNULA_ROWS = [
+    'Date of Insertion',
+    'Time of Insertion',
+    'Inserted At',
+    'Inserted By — Name',
+    'Inserted By — EC Code',
+    'Site',
+    'Side',
+    'Size of Cannula (Gauge)',
+  ];
+
+  it('names exactly the rows that grew when "+ Day" was pressed', () => {
+    const gained = rowsGainedBetween(clickNamed('+ Day').before, clickNamed('+ Day').after);
+
+    // 22 rows in the chart; the 14 day-level ones gained a cell.
+    expect(gained).toHaveLength(14);
+    expect(gained[0]).toBe('Day & Date');
+    expect(gained.at(-1)).toBe('Nurse Team Lead — EC Code');
+    // The point of measuring: the per-cannula rows must NOT be in there.
+    for (const row of CANNULA_ROWS) expect(gained).not.toContain(row);
+  });
+
+  it('reports nothing for a control that changed nothing', () => {
+    // The fixture's "+ Add Cannula" handler is a no-op, so a click that does
+    // nothing must measure as nothing rather than as "everything".
+    const click = clickNamed('+ Add Cannula');
+    expect(rowsGainedBetween(click.before, click.after)).toEqual([]);
+  });
+
+  it('is empty when the snapshots are identical', () => {
+    const snap = clickNamed('+ Day').after;
+    expect(rowsGainedBetween(snap, snap)).toEqual([]);
+  });
+
+  it('ignores a row that lost controls', () => {
+    const before: LayoutSnapshot = {
+      nodes: [
+        { kind: 'label', text: 'Shrinks', x: 0, y: 0, width: 100, height: 20 },
+        { kind: 'control', text: '', x: 120, y: 0, width: 80, height: 20 },
+        { kind: 'control', text: '', x: 210, y: 0, width: 80, height: 20 },
+      ],
+    };
+    const after: LayoutSnapshot = { nodes: before.nodes.slice(0, 2) };
+
+    expect(rowsGainedBetween(before, after)).toEqual([]);
+  });
+
+  it('sees a row that only exists after the click', () => {
+    const before: LayoutSnapshot = {
+      nodes: [{ kind: 'label', text: 'Existing', x: 0, y: 0, width: 100, height: 20 }],
+    };
+    const after: LayoutSnapshot = {
+      nodes: [
+        ...before.nodes,
+        { kind: 'label', text: 'Brand new', x: 0, y: 40, width: 100, height: 20 },
+        { kind: 'control', text: '', x: 120, y: 40, width: 80, height: 20 },
+      ],
+    };
+
+    expect(rowsGainedBetween(before, after)).toEqual(['Brand new']);
   });
 });

@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
-import { chromium, type Browser } from 'playwright-core';
+import { chromium, type Browser, type Page } from 'playwright-core';
+import { ADD_BUTTON, NESTED_ADD_BUTTON } from './html-extract';
 import type { LayoutNode, LayoutSnapshot } from './layout-detect';
 
 /**
@@ -54,6 +55,26 @@ const RENDER_TIMEOUT_MS = 30_000;
 const SETTLE_MS = 250;
 
 /**
+ * How many controls the probe may press. Pressing "+ Day" once is enough to
+ * learn which rows repeat; pressing it ten times only makes a bigger page.
+ */
+const MAX_PROBE_CLICKS = 3;
+
+/** Settle time after a click, for a handler that rebuilds part of the DOM. */
+const PROBE_SETTLE_MS = 200;
+
+/**
+ * Whole-probe budget. Kept well inside RENDER_TIMEOUT_MS so a page that hangs
+ * on click costs the probe and not the render that already succeeded.
+ */
+const PROBE_BUDGET_MS = 8_000;
+
+/** Set `HTML_PROBE_DISABLED=1` to render without pressing anything. */
+export function isHtmlProbeEnabled(): boolean {
+  return process.env.HTML_PROBE_DISABLED !== '1';
+}
+
+/**
  * Where to find Chromium. Playwright's bundled build does not support Alpine,
  * so the API image installs the distro package and points here.
  */
@@ -74,6 +95,25 @@ export function isHtmlRenderEnabled(): boolean {
  * identical from the outside but call for completely different advice — the
  * first is an operator's problem, the second is the author's.
  */
+/** One probe click, with the geometry either side of it. */
+export interface ProbeClick {
+  /** Text of the control that was clicked, e.g. '+ Day'. */
+  label: string;
+  /** Where things were immediately before the click. */
+  before: LayoutSnapshot;
+  /** Where they were after it settled. */
+  after: LayoutSnapshot;
+}
+
+export interface ProbeOutcome {
+  clicks: ProbeClick[];
+  /**
+   * The DOM after every probe click. Content that only exists once something
+   * has been pressed is readable here and nowhere else.
+   */
+  html: string;
+}
+
 export type HtmlRenderOutcome =
   | {
       status: 'rendered';
@@ -85,6 +125,12 @@ export type HtmlRenderOutcome =
        * still usable, so a capture failure must never fail the render.
        */
       layout?: LayoutSnapshot;
+      /**
+       * What pressing the page's add-controls revealed. Absent when probing is
+       * off, finds nothing to press, or fails — a probe only ever ADDS
+       * precision, so its absence is always the pre-probe behaviour.
+       */
+      probe?: ProbeOutcome;
     }
   /** HTML_RENDER_DISABLED=1. */
   | { status: 'disabled' }
@@ -109,12 +155,7 @@ let warnedUnavailable = false;
  * Never throws: a snapshot is a bonus on top of the HTML, so a failure here
  * degrades to markup-only detection rather than losing the render.
  */
-async function captureLayout(page: {
-  evaluate: {
-    <T>(fn: () => T): Promise<T>;
-    (source: string): Promise<unknown>;
-  };
-}): Promise<LayoutSnapshot | undefined> {
+async function captureLayout(page: Page): Promise<LayoutSnapshot | undefined> {
   try {
     // Playwright ships the callback below to the page as source text. Bundlers
     // that keep function names (esbuild, and therefore tsx/vitest) rewrite named
@@ -193,6 +234,107 @@ async function captureLayout(page: {
 }
 
 /**
+ * Press the page's add-controls once each and record what changed.
+ *
+ * WHY — a single read of the loaded DOM misses two things. Content that only
+ * exists after a click is simply absent. And in a matrix chart, *which* rows
+ * belong to the nested repeating group is left for the model to infer
+ * semantically: the VIP hint lists all 22 row labels with no way to say that
+ * rows 9–22 repeat per Day and rows 1–8 per Cannula. The page knows — pressing
+ * "+ Day" grows exactly the day-level rows — so measure it instead of guessing.
+ *
+ * The browser side stays dumb on purpose: click, re-measure, hand back
+ * geometry. Deciding which rows grew is layout-detect.ts's job, outside the
+ * browser, where it is unit-testable without Chromium.
+ *
+ * BOUNDS — this is interaction with an untrusted page, so it is fenced in:
+ *
+ * - only controls whose text matches the add-affordance patterns are pressed,
+ *   never arbitrary elements. Nothing that reads as submit/save/delete/print is
+ *   touched.
+ * - each control is pressed ONCE, at most MAX_PROBE_CLICKS in total.
+ * - the whole probe has its own budget inside the render timeout, so a handler
+ *   that hangs costs the probe and not the render that already succeeded.
+ * - dialogs are auto-dismissed, so an `alert()`/`confirm()` cannot wedge it.
+ * - it runs in the SAME sandboxed context: offline, every request aborted, no
+ *   downloads, torn down afterwards.
+ *
+ * Never throws. A probe that fails returns what it had, and the caller falls
+ * back to the un-probed result.
+ */
+/** Resolve `undefined` if `work` has not finished within `ms`. */
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      // A late rejection from the loser must not surface as an unhandled
+      // rejection after the deadline has already won.
+      work.catch(() => undefined),
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function probeAddControls(page: Page): Promise<ProbeOutcome | undefined> {
+  const clicks: ProbeClick[] = [];
+  try {
+    // Anything the page asks mid-probe is dismissed rather than answered.
+    page.on('dialog', (dialog) => void dialog.dismiss().catch(() => undefined));
+
+    const handles = await page.$$('button, a, input[type="button"], input[type="submit"]');
+    const targets: { handle: (typeof handles)[number]; label: string }[] = [];
+
+    for (const handle of handles) {
+      if (targets.length >= MAX_PROBE_CLICKS) break;
+      const label = (
+        await handle
+          .evaluate((el) => {
+            const text = (el.textContent ?? '') || (el as HTMLInputElement).value || '';
+            return text.replace(/\s+/g, ' ').trim();
+          })
+          .catch(() => '')
+      ) as string;
+      if (!label) continue;
+      // The same vocabulary the detectors use, so the probe presses exactly the
+      // controls a hint would have been built around.
+      if (!ADD_BUTTON.test(label) && !NESTED_ADD_BUTTON.test(label)) continue;
+      targets.push({ handle, label });
+    }
+
+    if (targets.length === 0) return undefined;
+
+    for (const { handle, label } of targets) {
+      const before = await captureLayout(page);
+      if (!before) break;
+
+      // force: the control may be behind an overlay; visibility is not our
+      // concern, and a real user could scroll to it.
+      await handle.click({ timeout: 1_000, force: true }).catch(() => undefined);
+      await page.waitForTimeout(PROBE_SETTLE_MS);
+
+      const after = await captureLayout(page);
+      if (!after) break;
+      clicks.push({ label, before, after });
+    }
+
+    const html = await page.evaluate(() => document.documentElement.outerHTML);
+    if (typeof html !== 'string' || html.length === 0) return undefined;
+    return { clicks, html };
+  } catch (err) {
+    logger.debug(
+      `Interaction probe failed, falling back to the un-probed render: ${
+        err instanceof Error ? err.message.split('\n')[0] : String(err)
+      }`,
+    );
+    return undefined;
+  }
+}
+
+/**
  * Render `html` and return `document.documentElement.outerHTML`.
  *
  * Returns null when rendering is disabled or no browser is available — callers
@@ -244,11 +386,21 @@ export async function renderHtmlToDomWithOutcome(html: string): Promise<HtmlRend
 
     const rendered = await page.evaluate(() => document.documentElement.outerHTML);
     const layout = await captureLayout(page);
+    // Probing comes last, so a failure there cannot cost us the render.
+    //
+    // Raced against the budget rather than merely checked between clicks: a
+    // click handler that spins blocks the page's JS, so the very next
+    // `evaluate` would sit there until the 30s context timeout and double the
+    // worst case. The race caps the whole probe regardless of where it stalls;
+    // whatever is still running is torn down with the context below.
+    const probe = isHtmlProbeEnabled()
+      ? await withDeadline(probeAddControls(page), PROBE_BUDGET_MS)
+      : undefined;
     await context.close();
     if (typeof rendered !== 'string' || rendered.length === 0) {
       return { status: 'failed', detail: 'the page produced no DOM' };
     }
-    return { status: 'rendered', html: rendered, layout };
+    return { status: 'rendered', html: rendered, layout, probe };
   } catch (err) {
     const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
     if (!launched) {

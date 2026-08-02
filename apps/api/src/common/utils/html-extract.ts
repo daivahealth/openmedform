@@ -728,6 +728,13 @@ export interface TransposedMatrixHint {
    * '+ Day'. Its presence means the record contains its own repeating group.
    */
   addNestedLabel?: string;
+  /**
+   * Which `rowLabels` belong to the NESTED group, measured by pressing
+   * `addNestedLabel` in the sandbox and seeing which rows grew. Absent when the
+   * page was not probed — the model then infers the split semantically, which
+   * is what it did before this could be measured.
+   */
+  nestedRowLabels?: string[];
 }
 
 function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {

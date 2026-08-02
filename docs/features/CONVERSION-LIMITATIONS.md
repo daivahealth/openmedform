@@ -17,7 +17,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | 2 | PDFs and images get no deterministic hints at all | High | Prefer an HTML mock-up of the same form when one exists | [#73](https://github.com/daivahealth/openmedform/issues/73) |
 | 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
 | 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
-| 5 | Content that only exists after a click is missed; matrix group-boundaries are inferred, not measured | Medium | Click the relevant buttons, then export `outerHTML` and upload that | [#76](https://github.com/daivahealth/openmedform/issues/76) |
+| 5 | ~~Click-built content missed; matrix group-boundaries inferred~~ — **fixed**: a bounded sandbox probe presses add-controls and measures the split | Resolved | — (requires Chromium; `HTML_PROBE_DISABLED=1` reverts to a single read) | [#76](https://github.com/daivahealth/openmedform/issues/76) ✅ |
 | 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload | By design | Split into one file per section | — |
 | 7 | Fidelity is structural, not pixel-exact | By design | Print engine reconstructs A4 from the Print Schema | — |
 
@@ -132,23 +132,38 @@ itself is audit-logged.
 Add those in the designer after conversion. Conditional *visibility* is a
 separate case and already converts — see limitation 3.
 
-## 5. Click-built content and unmeasured group boundaries
+## 5. Click-built content and unmeasured group boundaries — resolved
 
-The sandboxed render waits for page load plus a short settle, then reads the DOM
-once. Two consequences:
+**Was:** the sandboxed render waited for load plus a short settle and read the
+DOM once. Fields that only existed after an interaction were absent. And in a
+transposed matrix, *which* rows repeat per sub-record (VIP: per Day vs per
+Cannula) was inferred by the model from what the labels mean — the mock-up knew
+the answer, because pressing "+ Day" adds cells to exactly the day-level rows,
+but the render never pressed it.
 
-- Fields that only exist after an interaction (a panel that appears on click)
-  are absent from the conversion.
-- In a transposed matrix, *which* rows repeat per sub-record (VIP: per Day vs
-  per Cannula) is inferred by the model from the labels' meaning. The mock-up
-  itself knows the answer — clicking "+ Day" adds cells to exactly the day-level
-  rows — but the render never clicks it.
+**Now** ([#76](https://github.com/daivahealth/openmedform/issues/76)): a bounded
+probe inside the same sandbox presses each add-control once and re-measures.
+Two things follow:
 
-**Overcoming it** ([#76](https://github.com/daivahealth/openmedform/issues/76)):
-a bounded probe inside the existing sandbox — click each detected add-affordance
-once (hard cap, same isolation, same timeout), diff the DOM, and feed the
-*measured* structure into the hint. Probe failure degrades to today's
-behaviour, never to a worse one.
+- **Content that only exists after a click converts.** The post-probe DOM is
+  read when it is richer than the pre-click one. A wound-assessment mock-up that
+  renders nothing until "+ Add wound site" is pressed goes from 0 fields
+  (rejected as "not a form") to a converted form.
+- **The nested-group split is measured, not guessed.** Pressing "+ Day" on the
+  VIP chart grows exactly 14 of its 22 rows, so those 14 are the day-level
+  group and the other 8 belong to the cannula. The hint now says so, and the
+  prompt tells the model not to move a row between levels.
+
+See [Pressing the page](PDF-TO-FORM.md#pressing-the-page-interaction-probing)
+for the bounds and the failure behaviour. In short: only add-affordance controls
+are pressed, once each, at most three; the probe has its own budget inside the
+render timeout; dialogs are dismissed; and a probe that times out or crashes
+yields the un-probed result rather than a failure. `HTML_PROBE_DISABLED=1`
+switches it off without giving up rendering.
+
+**Residual limits:** only add-affordances are pressed, so content behind a tab,
+an accordion or a "Show details" toggle is still missed. And a control is
+pressed once — a structure that only appears on the *second* press is not seen.
 
 ## 6–7. Deliberate limits
 

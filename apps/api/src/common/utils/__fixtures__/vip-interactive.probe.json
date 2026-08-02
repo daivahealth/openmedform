@@ -1,0 +1,1930 @@
+{
+ "clicks": [
+  {
+   "label": "+ Day",
+   "before": {
+    "nodes": [
+     {
+      "kind": "label",
+      "text": "Visual Infusion Phlebitis Score (VIP)",
+      "x": 8,
+      "y": 21,
+      "width": 1264,
+      "height": 37
+     },
+     {
+      "kind": "label",
+      "text": "Parameter",
+      "x": 9,
+      "y": 80,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "label",
+      "text": "Cannula 1",
+      "x": 259,
+      "y": 80,
+      "width": 165,
+      "height": 32
+     },
+     {
+      "kind": "button",
+      "text": "+ Day",
+      "x": 354,
+      "y": 86,
+      "width": 51,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Insertion",
+      "x": 9,
+      "y": 112,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 118,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Insertion",
+      "x": 9,
+      "y": 144,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 150,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted At",
+      "x": 9,
+      "y": 176,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 182,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — Name",
+      "x": 9,
+      "y": 208,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 214,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — EC Code",
+      "x": 9,
+      "y": 240,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 246,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Site",
+      "x": 9,
+      "y": 272,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 278,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Side",
+      "x": 9,
+      "y": 304,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 310,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Size of Cannula (Gauge)",
+      "x": 9,
+      "y": 336,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 342,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Day & Date",
+      "x": 9,
+      "y": 368,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time (M/E/N)",
+      "x": 9,
+      "y": 400,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "VIP Score / Stage / Description",
+      "x": 9,
+      "y": 432,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention (auto)",
+      "x": 9,
+      "y": 464,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention Done (Y/N)",
+      "x": 9,
+      "y": 496,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Removal",
+      "x": 9,
+      "y": 528,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Removal",
+      "x": 9,
+      "y": 560,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Reason for Removal",
+      "x": 9,
+      "y": 592,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Removed By — Name & EC Code",
+      "x": 9,
+      "y": 624,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Name",
+      "x": 9,
+      "y": 656,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — EC Code",
+      "x": 9,
+      "y": 688,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Signature",
+      "x": 9,
+      "y": 720,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — Name",
+      "x": 9,
+      "y": 752,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — EC Code",
+      "x": 9,
+      "y": 784,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "button",
+      "text": "+ Add Cannula",
+      "x": 8,
+      "y": 817,
+      "width": 104,
+      "height": 21
+     }
+    ]
+   },
+   "after": {
+    "nodes": [
+     {
+      "kind": "label",
+      "text": "Visual Infusion Phlebitis Score (VIP)",
+      "x": 8,
+      "y": 21,
+      "width": 1264,
+      "height": 37
+     },
+     {
+      "kind": "label",
+      "text": "Parameter",
+      "x": 9,
+      "y": 80,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "label",
+      "text": "Cannula 1",
+      "x": 259,
+      "y": 80,
+      "width": 165,
+      "height": 32
+     },
+     {
+      "kind": "button",
+      "text": "+ Day",
+      "x": 354,
+      "y": 86,
+      "width": 51,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Insertion",
+      "x": 9,
+      "y": 112,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 118,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Insertion",
+      "x": 9,
+      "y": 144,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 150,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted At",
+      "x": 9,
+      "y": 176,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 182,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — Name",
+      "x": 9,
+      "y": 208,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 214,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — EC Code",
+      "x": 9,
+      "y": 240,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 246,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Site",
+      "x": 9,
+      "y": 272,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 278,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Side",
+      "x": 9,
+      "y": 304,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 310,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Size of Cannula (Gauge)",
+      "x": 9,
+      "y": 336,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 342,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Day & Date",
+      "x": 9,
+      "y": 368,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time (M/E/N)",
+      "x": 9,
+      "y": 400,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "VIP Score / Stage / Description",
+      "x": 9,
+      "y": 432,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention (auto)",
+      "x": 9,
+      "y": 464,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention Done (Y/N)",
+      "x": 9,
+      "y": 496,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Removal",
+      "x": 9,
+      "y": 528,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Removal",
+      "x": 9,
+      "y": 560,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Reason for Removal",
+      "x": 9,
+      "y": 592,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Removed By — Name & EC Code",
+      "x": 9,
+      "y": 624,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Name",
+      "x": 9,
+      "y": 656,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — EC Code",
+      "x": 9,
+      "y": 688,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Signature",
+      "x": 9,
+      "y": 720,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — Name",
+      "x": 9,
+      "y": 752,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — EC Code",
+      "x": 9,
+      "y": 784,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "button",
+      "text": "+ Add Cannula",
+      "x": 8,
+      "y": 817,
+      "width": 104,
+      "height": 21
+     }
+    ]
+   }
+  },
+  {
+   "label": "+ Add Cannula",
+   "before": {
+    "nodes": [
+     {
+      "kind": "label",
+      "text": "Visual Infusion Phlebitis Score (VIP)",
+      "x": 8,
+      "y": 21,
+      "width": 1264,
+      "height": 37
+     },
+     {
+      "kind": "label",
+      "text": "Parameter",
+      "x": 9,
+      "y": 80,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "label",
+      "text": "Cannula 1",
+      "x": 259,
+      "y": 80,
+      "width": 165,
+      "height": 32
+     },
+     {
+      "kind": "button",
+      "text": "+ Day",
+      "x": 354,
+      "y": 86,
+      "width": 51,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Insertion",
+      "x": 9,
+      "y": 112,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 118,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Insertion",
+      "x": 9,
+      "y": 144,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 150,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted At",
+      "x": 9,
+      "y": 176,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 182,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — Name",
+      "x": 9,
+      "y": 208,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 214,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — EC Code",
+      "x": 9,
+      "y": 240,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 246,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Site",
+      "x": 9,
+      "y": 272,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 278,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Side",
+      "x": 9,
+      "y": 304,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 310,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Size of Cannula (Gauge)",
+      "x": 9,
+      "y": 336,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 342,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Day & Date",
+      "x": 9,
+      "y": 368,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time (M/E/N)",
+      "x": 9,
+      "y": 400,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "VIP Score / Stage / Description",
+      "x": 9,
+      "y": 432,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention (auto)",
+      "x": 9,
+      "y": 464,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention Done (Y/N)",
+      "x": 9,
+      "y": 496,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Removal",
+      "x": 9,
+      "y": 528,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Removal",
+      "x": 9,
+      "y": 560,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Reason for Removal",
+      "x": 9,
+      "y": 592,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Removed By — Name & EC Code",
+      "x": 9,
+      "y": 624,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Name",
+      "x": 9,
+      "y": 656,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — EC Code",
+      "x": 9,
+      "y": 688,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Signature",
+      "x": 9,
+      "y": 720,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — Name",
+      "x": 9,
+      "y": 752,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — EC Code",
+      "x": 9,
+      "y": 784,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "button",
+      "text": "+ Add Cannula",
+      "x": 8,
+      "y": 817,
+      "width": 104,
+      "height": 21
+     }
+    ]
+   },
+   "after": {
+    "nodes": [
+     {
+      "kind": "label",
+      "text": "Visual Infusion Phlebitis Score (VIP)",
+      "x": 8,
+      "y": 21,
+      "width": 1264,
+      "height": 37
+     },
+     {
+      "kind": "label",
+      "text": "Parameter",
+      "x": 9,
+      "y": 80,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "label",
+      "text": "Cannula 1",
+      "x": 259,
+      "y": 80,
+      "width": 165,
+      "height": 32
+     },
+     {
+      "kind": "button",
+      "text": "+ Day",
+      "x": 354,
+      "y": 86,
+      "width": 51,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Insertion",
+      "x": 9,
+      "y": 112,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 118,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Insertion",
+      "x": 9,
+      "y": 144,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 150,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted At",
+      "x": 9,
+      "y": 176,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 182,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — Name",
+      "x": 9,
+      "y": 208,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 214,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inserted By — EC Code",
+      "x": 9,
+      "y": 240,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 246,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Site",
+      "x": 9,
+      "y": 272,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 278,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Side",
+      "x": 9,
+      "y": 304,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 310,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Size of Cannula (Gauge)",
+      "x": 9,
+      "y": 336,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 342,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Day & Date",
+      "x": 9,
+      "y": 368,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 374,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time (M/E/N)",
+      "x": 9,
+      "y": 400,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 406,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "VIP Score / Stage / Description",
+      "x": 9,
+      "y": 432,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 438,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention (auto)",
+      "x": 9,
+      "y": 464,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 470,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Intervention Done (Y/N)",
+      "x": 9,
+      "y": 496,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 502,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Date of Removal",
+      "x": 9,
+      "y": 528,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 534,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Time of Removal",
+      "x": 9,
+      "y": 560,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 566,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Reason for Removal",
+      "x": 9,
+      "y": 592,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 598,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Removed By — Name & EC Code",
+      "x": 9,
+      "y": 624,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 630,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Name",
+      "x": 9,
+      "y": 656,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 662,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — EC Code",
+      "x": 9,
+      "y": 688,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 694,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Inspected By — Signature",
+      "x": 9,
+      "y": 720,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 726,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — Name",
+      "x": 9,
+      "y": 752,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 758,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "label",
+      "text": "Nurse Team Lead — EC Code",
+      "x": 9,
+      "y": 784,
+      "width": 251,
+      "height": 32
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 268,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "control",
+      "text": "",
+      "x": 433,
+      "y": 790,
+      "width": 148,
+      "height": 21
+     },
+     {
+      "kind": "button",
+      "text": "+ Add Cannula",
+      "x": 8,
+      "y": 817,
+      "width": 104,
+      "height": 21
+     }
+    ]
+   }
+  }
+ ]
+}

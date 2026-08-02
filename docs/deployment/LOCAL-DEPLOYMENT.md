@@ -165,6 +165,7 @@ CHROMIUM_PATH=/usr/bin/chromium
 |---|---|
 | `CHROMIUM_PATH` | Browser executable. Unset → Playwright looks for its own download, which the repo does not install. |
 | `HTML_RENDER_DISABLED=1` | Turns rendering off entirely and silences the startup warning. |
+| `HTML_PROBE_DISABLED=1` | Keeps rendering but stops the sandbox pressing a mock-up's "Add …" controls. Costs click-built fields and the measured repeating-group split; see [PDF-TO-FORM](../features/PDF-TO-FORM.md#pressing-the-page-interaction-probing). |
 
 Everything else converts fine without it — this only affects mock-ups whose
 fields do not exist in the markup. See
