@@ -576,6 +576,11 @@ Multi-document files are flagged with a warning.
 
 ## Limitations
 
+> The full list — with severity, workarounds, and the tracked issue that closes
+> each gap — lives in [CONVERSION-LIMITATIONS.md](CONVERSION-LIMITATIONS.md).
+> Highlights:
+
+
 - Scanned PDFs with only images require page-image rendering plus a vision-capable provider. Text-only providers need embedded text or future OCR support.
 - Complex multi-page forms may exceed token limits for some providers.
 - Generated schemas should always be reviewed before publishing — AI output is a starting point, not a final form.

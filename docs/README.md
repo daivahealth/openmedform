@@ -18,6 +18,7 @@ AI-powered clinical form builder platform.
 ## Quick Links
 
 - [Technical Architecture](architecture/TECHNICAL-ARCHITECTURE.md)
+- [Conversion Limitations & Roadmap](features/CONVERSION-LIMITATIONS.md)
 - [Data Model](architecture/DATA-MODEL.md)
 - [API Reference](api/README.md)
 - [Form Builder](features/FORM-BUILDER.md)
