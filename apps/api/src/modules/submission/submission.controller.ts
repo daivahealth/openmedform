@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Ip,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -39,8 +41,11 @@ export class SubmissionController {
   }
 
   @Get('submissions')
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.submissionService.findAll(user.tenantId);
+  findAll(
+    @CurrentUser() user: RequestUser,
+    @Query('includeVoided') includeVoided?: string,
+  ) {
+    return this.submissionService.findAll(user.tenantId, includeVoided === 'true');
   }
 
   @Get('submissions/count')
@@ -96,6 +101,38 @@ export class SubmissionController {
       userId: user.userId,
       displayName: user.email,
       ipAddress: ip,
+    });
+  }
+
+  /**
+   * Void a record — how "delete" behaves for clinical data. The row and its
+   * data are retained; it leaves the default list. Own records for any user,
+   * anyone's for an admin.
+   */
+  @Delete('submissions/:id')
+  voidSubmission(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.submissionService.voidSubmission(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+      role: user.role,
+    });
+  }
+
+  /** Destroy a record for good. Admins only; unrecoverable. */
+  @Delete('submissions/:id/permanent')
+  removePermanently(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Ip() ip: string,
+  ) {
+    return this.submissionService.removePermanently(user.tenantId, id, {
+      userId: user.userId,
+      ipAddress: ip,
+      role: user.role,
     });
   }
 

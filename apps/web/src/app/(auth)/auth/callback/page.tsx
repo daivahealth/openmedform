@@ -15,20 +15,28 @@ import { useAuth } from '@/providers/auth-provider';
 function GoogleCallbackHandler() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { loginWithToken } = useAuth();
+  const { loginWithCode } = useAuth();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setError('Missing sign-in token. Please try again.');
+    const code = searchParams.get('code');
+    if (!code) {
+      setError('Missing sign-in code. Please try again.');
       return;
     }
 
-    loginWithToken(token)
+    // Strip the code from the address bar before anything else, so it does not
+    // sit in browser history or leak through a Referer. It is single-use and
+    // short-lived, but there is no reason to leave it lying around.
+    window.history.replaceState(null, '', window.location.pathname);
+
+    loginWithCode(code)
       .then(() => router.replace('/dashboard'))
       .catch(() => setError('Could not complete sign-in. Please try again.'));
-  }, [searchParams, loginWithToken, router]);
+    // `searchParams` is intentionally not a dependency: the effect rewrites the
+    // URL, and re-running on that change would try to spend the code twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginWithCode, router]);
 
   return (
     <Card>

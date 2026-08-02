@@ -36,6 +36,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "express": "^4",
+    "helmet": "^8.3.0",
     "node-html-parser": "^9.0.1",
     "openai": "^6.44.0",
     "passport": "^0.7.0",

@@ -16,12 +16,19 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Inbox, Plus, FileText } from 'lucide-react';
+import { Inbox, Plus, FileText, Trash2, Loader2 } from 'lucide-react';
 import { useForms } from '@/hooks/use-forms';
+import {
+  useVoidSubmission,
+  useDeleteSubmissionPermanently,
+} from '@/hooks/use-submissions';
+import { useAuth } from '@/providers/auth-provider';
+import { Input } from '@/components/ui/input';
 
 interface Submission {
   id: string;
@@ -42,11 +49,13 @@ const statusStyles: Record<string, string> = {
   VOIDED: 'bg-red-100 text-red-600 border-red-200',
 };
 
-function useAllSubmissions() {
+function useAllSubmissions(includeVoided: boolean) {
   return useQuery<Submission[]>({
-    queryKey: ['all-submissions'],
+    queryKey: ['all-submissions', includeVoided],
     queryFn: async () => {
-      const { data } = await api.get('/api/submissions');
+      const { data } = await api.get('/api/submissions', {
+        params: includeVoided ? { includeVoided: 'true' } : undefined,
+      });
       return data;
     },
   });
@@ -54,9 +63,42 @@ function useAllSubmissions() {
 
 export default function AllSubmissionsPage() {
   const router = useRouter();
-  const { data: submissions, isLoading } = useAllSubmissions();
+  const [showVoided, setShowVoided] = useState(false);
+  const { data: submissions, isLoading } = useAllSubmissions(showVoided);
   const { data: forms } = useForms();
+  const { user } = useAuth();
   const [pickFormOpen, setPickFormOpen] = useState(false);
+
+  // Only an admin may destroy a record; everyone can void their own. The API
+  // enforces both — this just avoids offering an action that would 403.
+  const isAdmin = user?.role === 'TENANT_ADMIN' || user?.role === 'SUPER_ADMIN';
+  const [removing, setRemoving] = useState<Submission | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [removeError, setRemoveError] = useState('');
+  const voidSubmission = useVoidSubmission();
+  const deletePermanently = useDeleteSubmissionPermanently();
+  const busy = voidSubmission.isPending || deletePermanently.isPending;
+
+  function closeRemove() {
+    setRemoving(null);
+    setConfirmText('');
+    setRemoveError('');
+  }
+
+  async function runRemoval(permanent: boolean) {
+    if (!removing) return;
+    setRemoveError('');
+    try {
+      if (permanent) await deletePermanently.mutateAsync(removing.id);
+      else await voidSubmission.mutateAsync(removing.id);
+      closeRemove();
+    } catch (err) {
+      setRemoveError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          'Could not remove this record. Please try again.',
+      );
+    }
+  }
 
   const publishedForms = forms?.filter((f) => f.status === 'PUBLISHED') ?? [];
 
@@ -69,10 +111,21 @@ export default function AllSubmissionsPage() {
             All form records across your organization
           </p>
         </div>
-        <Button onClick={() => setPickFormOpen(true)}>
+        <div className="flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showVoided}
+              onChange={(e) => setShowVoided(e.target.checked)}
+              className="h-4 w-4 rounded border-input"
+            />
+            Show deleted
+          </label>
+          <Button onClick={() => setPickFormOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Fill a Form
-        </Button>
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -151,6 +204,21 @@ export default function AllSubmissionsPage() {
                         >
                           View
                         </Button>
+                        {sub.status !== 'VOIDED' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Delete record ${sub.patientMrn ?? sub.id}`}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setRemoving(sub);
+                              setConfirmText('');
+                              setRemoveError('');
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -160,6 +228,76 @@ export default function AllSubmissionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!removing} onOpenChange={(open) => !open && closeRemove()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this record?</DialogTitle>
+            <DialogDescription>
+              {removing?.form?.name}
+              {removing?.patientMrn ? ` — ${removing.patientMrn}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-md border p-3 text-sm">
+              <p className="font-medium">Delete</p>
+              <p className="mt-1 text-muted-foreground">
+                Removes it from this list. This is a clinical record, so it is kept and
+                stays available for audit &mdash; tick &ldquo;Show deleted&rdquo; to see it
+                again.
+              </p>
+            </div>
+
+            {isAdmin && (
+              <div className="rounded-md border border-destructive/40 p-3 text-sm">
+                <p className="font-medium text-destructive">Delete permanently</p>
+                <p className="mt-1 text-muted-foreground">
+                  Erases the record and its data for good. This cannot be undone; only the
+                  audit log will show it existed. Type <strong>DELETE</strong> to confirm.
+                </p>
+                <Input
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  className="mt-2"
+                  aria-label="Type DELETE to confirm permanent deletion"
+                />
+              </div>
+            )}
+
+            {removeError && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {removeError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="ghost" onClick={closeRemove} disabled={busy}>
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              {isAdmin && (
+                <Button
+                  variant="destructive"
+                  disabled={busy || confirmText !== 'DELETE'}
+                  onClick={() => runRemoval(true)}
+                >
+                  {deletePermanently.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Delete permanently
+                </Button>
+              )}
+              <Button disabled={busy} onClick={() => runRemoval(false)}>
+                {voidSubmission.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={pickFormOpen} onOpenChange={setPickFormOpen}>
         <DialogContent>

@@ -41,3 +41,11 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # A public deployment should not silently accumulate known-exploitable
+      # dependencies. Blocking at high+ because that backlog is currently zero
+      # — the moment it is not, someone has to make a decision rather than
+      # merge past it. Moderates are reported (see the summary above) but do
+      # not block, so this stays actionable rather than routinely overridden.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high

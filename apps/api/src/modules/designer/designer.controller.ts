@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Logger,
   Ip,
   Param,
   ParseUUIDPipe,
@@ -21,6 +22,8 @@ import { AI_THROTTLE } from '../../common/throttle.config';
 
 @Controller('forms')
 export class DesignerController {
+  private readonly logger = new Logger(DesignerController.name);
+
   constructor(private readonly designer: DesignerService) {}
 
   /**
@@ -79,13 +82,26 @@ export class DesignerController {
       );
       send('result', result);
     } catch (err) {
-      const message =
-        err instanceof BadRequestException
-          ? ((err.getResponse() as { message?: string }).message ?? err.message)
-          : err instanceof Error
-            ? err.message
-            : 'An unexpected error occurred';
-      send('error', { message });
+      // Only BadRequestException messages are written FOR the user — everything
+      // else is an internal failure whose message is not fit to send.
+      //
+      // A Prisma validation error, for instance, pretty-prints the entire
+      // failing query: 114 KB of the form's own schema, absolute server paths
+      // and source line numbers, all of which used to be streamed straight into
+      // the browser. Unreadable as an error, and it leaks server internals.
+      if (err instanceof BadRequestException) {
+        const response = err.getResponse() as { message?: string };
+        send('error', { message: response.message ?? err.message });
+      } else {
+        this.logger.error(
+          `Refine failed for form ${id}: ${err instanceof Error ? err.stack : String(err)}`,
+        );
+        send('error', {
+          message:
+            'Refinement failed because of a problem on the server. Nothing was changed. ' +
+            'Please try again, and report this if it keeps happening.',
+        });
+      }
     }
 
     res.end();

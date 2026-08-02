@@ -124,10 +124,10 @@ model Form {
   createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
-  createdBy      User            @relation("FormCreator", fields: [createdById], references: [id])
+  tenant         Tenant        @relation(fields: [tenantId], references: [id])
+  createdBy      User          @relation("FormCreator", fields: [createdById], references: [id])
   versions       FormVersion[]
-  currentVersion FormVersion?    @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  currentVersion FormVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   submissions    Submission[]
 
   @@unique([tenantId, slug], name: "uq_form_tenant_slug")
@@ -139,24 +139,24 @@ model Form {
 // ─── Form Version ────────────────────────────────────────────────────────────
 
 model FormVersion {
-  id           String     @id @default(uuid()) @db.Uuid
-  formId       String     @map("form_id") @db.Uuid
-  version      Int        @default(1)
+  id                 String    @id @default(uuid()) @db.Uuid
+  formId             String    @map("form_id") @db.Uuid
+  version            Int       @default(1)
   // Separated Data / UI / Print schemas — see ADR-004. Form.io's single coupled
   // `schema` column was dropped with the engine.
-  dataSchema   Json?      @map("data_schema")
-  uiSchema     Json?      @map("ui_schema")
-  printSchema  Json?      @map("print_schema")
-  translations Json?
-  scoringRules Json?      @map("scoring_rules")
-  metadata     Json?      @default("{}")
-  conversionMetadata Json? @map("conversion_metadata")
-  changelog    String?    @db.Text
+  dataSchema         Json?     @map("data_schema")
+  uiSchema           Json?     @map("ui_schema")
+  printSchema        Json?     @map("print_schema")
+  translations       Json?
+  scoringRules       Json?     @map("scoring_rules")
+  metadata           Json?     @default("{}")
+  conversionMetadata Json?     @map("conversion_metadata")
+  changelog          String?   @db.Text
   // SHA-256 of the canonical published payload; set at publish time and used to
   // detect tampering with an immutable published version.
-  contentHash  String?    @map("content_hash") @db.VarChar(64)
-  publishedAt  DateTime?  @map("published_at") @db.Timestamp(6)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  contentHash        String?   @map("content_hash") @db.VarChar(64)
+  publishedAt        DateTime? @map("published_at") @db.Timestamp(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
 
   form        Form         @relation(fields: [formId], references: [id])
   currentOf   Form?        @relation("CurrentVersion")
@@ -170,22 +170,22 @@ model FormVersion {
 // ─── Submission ──────────────────────────────────────────────────────────────
 
 model Submission {
-  id            String           @id @default(uuid()) @db.Uuid
-  tenantId      String           @map("tenant_id") @db.Uuid
-  formId        String           @map("form_id") @db.Uuid
-  formVersionId String           @map("form_version_id") @db.Uuid
-  submittedById String           @map("submitted_by_id") @db.Uuid
-  status        SubmissionStatus @default(IN_PROGRESS)
-  data          Json
-  scores        Json?            @default("{}")
-  riskLevel     String?          @map("risk_level") @db.VarChar(50)
-  patientMrn    String?          @map("patient_mrn") @db.VarChar(50)
-  encounterId   String?          @map("encounter_id") @db.VarChar(100)
-  patientContext Json?           @map("patient_context")
-  signedAt      DateTime?        @map("signed_at") @db.Timestamp(6)
-  signedBy      String?          @map("signed_by") @db.VarChar(255)
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  formId         String           @map("form_id") @db.Uuid
+  formVersionId  String           @map("form_version_id") @db.Uuid
+  submittedById  String           @map("submitted_by_id") @db.Uuid
+  status         SubmissionStatus @default(IN_PROGRESS)
+  data           Json
+  scores         Json?            @default("{}")
+  riskLevel      String?          @map("risk_level") @db.VarChar(50)
+  patientMrn     String?          @map("patient_mrn") @db.VarChar(50)
+  encounterId    String?          @map("encounter_id") @db.VarChar(100)
+  patientContext Json?            @map("patient_context")
+  signedAt       DateTime?        @map("signed_at") @db.Timestamp(6)
+  signedBy       String?          @map("signed_by") @db.VarChar(255)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id])
   form        Form        @relation(fields: [formId], references: [id])
@@ -331,4 +331,31 @@ model AiUsage {
   @@index([formId])
   @@index([createdAt])
   @@map("ai_usage")
+}
+
+/// One-time code that trades for an access token after Google SSO.
+///
+/// The callback used to redirect with the JWT itself in the query string, which
+/// put a 24-hour credential into browser history, Referer headers and every
+/// access log between the load balancer and the browser. This is what travels
+/// in the URL instead: single-use, valid for seconds, and worthless against any
+/// other endpoint.
+///
+/// It is a table rather than in-process state because the redirect and the
+/// exchange are two requests that can land on different Cloud Run instances.
+model AuthExchangeCode {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// SHA-256 of the code. The plaintext exists only in the redirect URL, so a
+  /// leak of this table yields nothing usable.
+  codeHash  String    @unique @map("code_hash") @db.VarChar(64)
+  userId    String    @map("user_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamp(6)
+  /// Set on first use. Present rows are kept briefly so a replay can be told
+  /// apart from an expired code.
+  usedAt    DateTime? @map("used_at") @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([expiresAt])
+  @@map("auth_exchange_code")
 }
