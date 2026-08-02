@@ -49,6 +49,10 @@ image-input support. Each supplied page acts as its own visual reference: the
 conversion uses parallel columns only where the source has them, and keeps wide
 tables, grids and narrative areas full-width where the source does.
 
+The page images are also used for a structure pre-pass before the conversion
+itself — see [Structure hints for PDFs and
+images](#structure-hints-for-pdfs-and-images).
+
 Providers with page-image vision support: **Claude**, **OpenAI**.
 Text-only fallback: **Ollama**, **Minimax**, **Kimi**.
 
@@ -723,6 +727,84 @@ its budget, the render still returns usable HTML, and the whole call finishes in
 **What it does not reach.** Only add-affordances are pressed, so content behind
 a tab, an accordion or a "Show details" toggle is still missed; and a control is
 pressed once, so a structure that only appears on the second press is not seen.
+
+### Structure hints for PDFs and images
+
+Everything above reads structure out of HTML: markup for a `<table>`, rendered
+geometry for a div grid. A PDF or image has neither — no DOM to parse, no
+browser to render it in. Those uploads went to the model as page pictures plus
+text, so a scanned cannula chart converted on prompt rules alone and landed less
+reliably than the same form as HTML.
+
+So the pages are asked directly, **before** the conversion, one narrow question:
+*what repeating table structures are on them?* The reply is a small, fixed shape
+
+```jsonc
+{ "tables": [ { "kind": "matrix" | "log", "page": 1,
+                "labelHeader": "Parameter",
+                "rowLabels": ["Date of Insertion", "Site", …],
+                "instanceHeaders": ["Cannula 1"],
+                "addLabel": "+ Add Cannula", "confidence": 0.9 } ] }
+```
+
+which is validated by
+[`parseStructureProbe`](../../apps/api/src/common/utils/structure-probe.ts) and
+turned into the **same** `REPEATING LOG:` / `MATRIX TABLE:` paragraphs the HTML
+detectors emit — the shared text lives in
+[`structure-hint-text.ts`](../../apps/api/src/modules/form-conversion/structure-hint-text.ts),
+so all three sources say the same thing.
+
+**Why a separate call rather than better conversion instructions.** A narrow
+question with a checkable answer is far more reliable than the same judgement
+made in passing while generating a whole form — and its answer can be validated
+before anything depends on it. The pre-pass is also cheap: one small reply
+(4 096 tokens) against a 32 768-token conversion.
+
+**Every hint is discardable.** The reply is model output derived from a document
+the uploader supplied, so it is treated like any other untrusted source. A
+malformed or hallucinated hint is worse than none, because the conversion treats
+hints as fact — so a reported table is dropped **whole** if:
+
+| Condition | Why |
+|---|---|
+| the reply does not parse, or has no `tables` array | nothing to trust |
+| the model reported `confidence` below 0.5 | it told us it was unsure |
+| any label is missing, non-string, empty, or over 160 characters | a partial row list would build a record type silently missing fields |
+| a matrix has fewer than 3 rows, or a log fewer than 2 columns | too small to be the shape |
+| more than 8 tables, or more than 120 labels in one | not a form |
+| `kind` is anything else | this pipeline has no hint for that shape; never coerced into one it does |
+
+A probe that fails entirely is reported too, rather than silently yielding
+nothing — see the warnings below.
+
+**Not the same guarantee as HTML.** A markup hint is something the extractor
+proved. A page hint is a careful reading of a picture, and it is introduced to
+the conversion as exactly that: *"if the pages plainly show something different,
+follow the pages and add a NEEDS_REVIEW warning."*
+
+**The warnings tell you which thing went wrong.** A converted form with no
+record table has two very different causes, and they need different fixes:
+
+| Warning | Cause | Fix |
+|---|---|---|
+| "No repeating table structure was detected on these pages…" | the probe found nothing (or could not run — it says so) | prompt/probe work; or upload the HTML mock-up |
+| "…structures were detected on these pages, but the generated form contains no record table — the model diverged from the hint" | the hint was given and ignored | conversion-prompt work; fix this form in review |
+
+Both are backed by `conversionMetadata.structureProbe`, written by the server —
+`{ source, detected[], rejected[] }` — so a reviewer can see exactly what the
+pipeline passed to the model rather than what the model says it received.
+
+Measured on a PDF of the VIP cannula chart: the pre-pass read all 22 row labels
+and the `Cannula 1` instance heading off the page image, matching what the HTML
+detector produces for the same form, and the PDF converted to a single record
+table. On a plain patient-details PDF it correctly reported no tables rather
+than inventing one.
+
+**What it does not do.** It cannot press anything, so a PDF never gets the
+[measured nested split](#pressing-the-page-interaction-probing) that an
+interactive mock-up does — a matrix arrives as one flat record type. And it
+needs a vision-capable provider; a text-only provider skips the pre-pass
+entirely and converts as before.
 
 ### Grids built without tables
 

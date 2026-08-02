@@ -436,3 +436,105 @@ describe('interaction probing', () => {
     expect(result.stats.fields).toBe(2);
   });
 });
+
+
+describe('page-structure probe (PDF / image sources)', () => {
+  const matrix = {
+    labelHeader: 'Parameter',
+    rowLabels: ['Date of Insertion', 'Site', 'Side'],
+    instanceHeaders: ['Cannula 1'],
+  };
+
+  /** Minimal assembled output; only what recordStructureProbe touches. */
+  const assembled = (uiSchema: unknown) => ({
+    dataSchema: {},
+    uiSchema,
+    printSchema: {},
+    translations: {},
+    conversionMetadata: {} as Record<string, unknown>,
+    scoringRules: {},
+    warnings: [] as { type: string; message: string }[],
+  });
+
+  const record = (out: ReturnType<typeof assembled>, probe: unknown) =>
+    (
+      conversionService() as unknown as {
+        recordStructureProbe(a: unknown, p: unknown): void;
+      }
+    ).recordStructureProbe(out, probe);
+
+  const withRecordTable = {
+    type: 'VerticalLayout',
+    elements: [
+      { type: 'Control', scope: '#/properties/c', options: { omf: { control: 'recordTable' } } },
+    ],
+  };
+  const flat = { type: 'VerticalLayout', elements: [{ type: 'Control', scope: '#/properties/a' }] };
+
+  it('records what was detected, so a reviewer can verify the hint existed', () => {
+    const out = assembled(withRecordTable);
+    record(out, { repeatingTables: [], transposedMatrices: [matrix], warnings: [] });
+
+    expect(out.conversionMetadata.structureProbe).toEqual({
+      source: 'page-images',
+      detected: [
+        {
+          kind: 'matrix',
+          labelHeader: 'Parameter',
+          rowLabels: matrix.rowLabels,
+          instanceHeaders: ['Cannula 1'],
+        },
+      ],
+      rejected: [],
+    });
+  });
+
+  it('warns that NOTHING was detected — a probe problem', () => {
+    const out = assembled(flat);
+    record(out, { repeatingTables: [], transposedMatrices: [], warnings: [] });
+
+    expect(out.warnings).toHaveLength(1);
+    expect(out.warnings[0].message).toMatch(/No repeating table structure was detected/);
+    expect(out.warnings[0].message).not.toMatch(/diverged/);
+  });
+
+  it('warns that the model DIVERGED — a different problem with a different fix', () => {
+    // Structure was detected and passed to the model, and the finished form has
+    // no record table. Identical symptom to the case above, opposite cause.
+    const out = assembled(flat);
+    record(out, { repeatingTables: [], transposedMatrices: [matrix], warnings: [] });
+
+    expect(out.warnings).toHaveLength(1);
+    expect(out.warnings[0].message).toMatch(/diverged from the hint/);
+    expect(out.warnings[0].message).not.toMatch(/No repeating table structure/);
+  });
+
+  it('stays quiet when the hint was detected and honoured', () => {
+    const out = assembled(withRecordTable);
+    record(out, { repeatingTables: [], transposedMatrices: [matrix], warnings: [] });
+
+    expect(out.warnings).toEqual([]);
+  });
+
+  it('carries the probe\'s own rejections into the metadata', () => {
+    const out = assembled(withRecordTable);
+    record(out, {
+      repeatingTables: [],
+      transposedMatrices: [matrix],
+      warnings: ['a table structure was reported with low confidence and was not used as a hint'],
+    });
+
+    expect(
+      (out.conversionMetadata.structureProbe as { rejected: string[] }).rejected,
+    ).toHaveLength(1);
+  });
+
+  it('does nothing at all for a source that was never probed', () => {
+    // HTML uploads go through the markup detectors; there is no probe to report.
+    const out = assembled(flat);
+    record(out, undefined);
+
+    expect(out.conversionMetadata).toEqual({});
+    expect(out.warnings).toEqual([]);
+  });
+});

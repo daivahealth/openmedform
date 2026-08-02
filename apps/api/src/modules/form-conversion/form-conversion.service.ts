@@ -4,7 +4,10 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AiUsageService } from '../ai-builder/ai-usage.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
-import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
+import type {
+  ImageContent,
+  LlmProvider,
+} from '../ai-builder/providers/llm-provider.interface';
 import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-prompt';
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
 import {
@@ -22,7 +25,18 @@ import {
   rowsGainedBetween,
   type LayoutSnapshot,
 } from '../../common/utils/layout-detect';
-import { JsonFormsAssemblerService } from './jsonforms-assembler.service';
+import { JsonFormsAssemblerService, type AssembledJsonForms } from './jsonforms-assembler.service';
+import { getStructureProbePrompt } from '../ai-builder/prompts/structure-probe-prompt';
+import {
+  hasRecordTable,
+  parseStructureProbe,
+  type ProbedStructures,
+} from '../../common/utils/structure-probe';
+import {
+  pageProbePreamble,
+  repeatingLogHintText,
+  transposedMatrixHintText,
+} from './structure-hint-text';
 
 // Keep typical multi-page clinical forms visually grounded without sending an
 // unbounded number of high-resolution images to a provider.
@@ -51,6 +65,13 @@ const MAX_HTML_TABLE_ROWS = 120;
  * still runs out mid-object.
  */
 const CONVERSION_MAX_TOKENS = 32768;
+
+/**
+ * Budget for the page-structure pre-pass. It answers one narrow question, so it
+ * needs a fraction of a conversion's budget — a full row-label list for a large
+ * chart is a few hundred tokens, not thousands.
+ */
+const STRUCTURE_PROBE_MAX_TOKENS = 4096;
 
 export interface ConversionInput {
   fileBuffer: Buffer;
@@ -247,6 +268,8 @@ export class FormConversionService {
     const systemPrompt = getPdfToJsonFormsPrompt();
     let pageCount: number | undefined;
     let rawOutput: string;
+    /** Structures read off the page images, for PDF/image sources only. */
+    let structureProbe: ProbedStructures | undefined;
     // Notes produced while preparing the source (e.g. hidden HTML removed);
     // merged into the job's conversion_warning rows so nothing is dropped
     // silently from the reviewer's point of view.
@@ -291,63 +314,19 @@ export class FormConversionService {
 
       // The recoverable twin of the placeholder case above: the <tbody> is empty
       // for the same reason (script removed), but the <thead> names every column
-      // and the button names the record, so the log IS reconstructable. Spell it
-      // out with the exact labels, or the model flattens it to a text line.
+      // and the button names the record, so the log IS reconstructable. The text
+      // is shared with the page-probe path so both sources say the same thing.
       for (const t of extracted.repeatingTables) {
-        userPrompt +=
-          `REPEATING LOG: the table with columns [${t.columns.join(' | ')}] has an empty ` +
-          `<tbody> and an "${t.addLabel}" button — the user adds rows to it. Emit it as a ` +
-          'single array Control with options.omf.control "recordTable", NOT as a Label and ' +
-          'not as one Group per column. Set options.omf.recordTable.addLabel to ' +
-          `"${t.addLabel}"` +
-          (t.countLabel
-            ? `, countLabel to "${t.countLabel.replace(/^\d+/, '{n}').replace(/\bdays\b/, 'day{s}')}"`
-            : '') +
-          ', and columns to one entry per header above (use "pairWith" for a combined ' +
-          '"A / B" header and "countOf" for a header that counts nested records). The item ' +
-          'schema holds every field of ONE record; put its detail UI in options.detail as an ' +
-          '"OmfTabsLayout" whose children are Groups, one per stage of the record.\n\n';
+        userPrompt += repeatingLogHintText(t, 'markup');
       }
 
       // A MATRIX table is the transpose of the repeating log above: fields run
       // down, record instances run across. Without this the model reliably turns
       // the instance heading into a column, drops the per-instance fields, and
       // leaves any nested group unconfigured — which is exactly what happened to
-      // the VIP cannula chart. Spell out the full row-label list so nothing can
-      // be silently dropped.
+      // the VIP cannula chart.
       for (const m of extracted.transposedMatrices) {
-        userPrompt +=
-          `MATRIX TABLE: the table headed "${m.labelHeader}" is TRANSPOSED — its ROWS are the ` +
-          `fields of ONE record and each remaining COLUMN is a separate record instance ` +
-          `(${m.instanceHeaders.join(', ')}). ` +
-          `Emit ONE array Control with options.omf.control "recordTable" whose item schema has ` +
-          `exactly these ${m.rowLabels.length} fields, in this order: ` +
-          m.rowLabels.map((l) => `"${l}"`).join(', ') +
-          '. ' +
-          `"${m.instanceHeaders[0]}" is an INSTANCE NAME, not a field and not a column — never emit it as either. ` +
-          (m.addInstanceLabel
-            ? `Set options.omf.recordTable.addLabel to "${m.addInstanceLabel}". `
-            : '') +
-          (m.addNestedLabel
-            ? `The "${m.addNestedLabel}" control inside a column heading means each record ALSO contains its own ` +
-              'repeating group: put the fields that repeat per sub-record into a NESTED array property, and give ' +
-              `that nested array its own options.omf.control "recordTable" with addLabel "${m.addNestedLabel}". ` +
-              'A nested array left without recordTable config renders as an unusable generic list widget. ' +
-              `"${m.addNestedLabel}" is the BUTTON'S OWN TEXT — like the instance name, it is never a field ` +
-              'and never a property. Emit it only as the addLabel. '
-            : '') +
-          // Measured, not inferred: pressing the nested-add control in the
-          // sandbox showed exactly which rows belong to the sub-record. Say so
-          // emphatically — left to judgement the model splits these wrong.
-          (m.nestedRowLabels && m.nestedRowLabels.length > 0
-            ? 'THE SPLIT IS MEASURED, NOT A SUGGESTION — the control was actually pressed and these ' +
-              `${m.nestedRowLabels.length} rows are the ones that gained a cell, so they belong to the NESTED ` +
-              'array and NOT to the outer record: ' +
-              m.nestedRowLabels.map((l) => `"${l}"`).join(', ') +
-              '. Every other row above belongs to the OUTER record. Do not move a row between the two levels. '
-            : '') +
-          'Summary columns should be the few most identifying fields, not all of them; the rest belong in ' +
-          'options.detail as an OmfTabsLayout.\n\n';
+        userPrompt += transposedMatrixHintText(m, 'markup');
       }
 
       // Fields the mock-up hides until a select is set to "Other". They are
@@ -426,6 +405,10 @@ export class FormConversionService {
           mediaType: 'image/png',
           data,
         }));
+        // A PDF has no markup to detect structure in, so ask the pages one
+        // narrow question first and turn the answer into the same hints.
+        structureProbe = await this.probePageStructure(provider, images);
+        userPrompt += this.pageHintText(structureProbe);
         rawOutput = await provider.generateWithImages(userPrompt, images, systemPrompt, {
           temperature: 0.2,
           maxTokens: CONVERSION_MAX_TOKENS,
@@ -443,25 +426,28 @@ export class FormConversionService {
       if (!provider.generateWithImages) {
         throw new Error(`Provider "${provider.name}" does not support image conversion`);
       }
+      const images: ImageContent[] = [
+        {
+          type: 'image',
+          mediaType: input.mimeType as ImageContent['mediaType'],
+          data: input.fileBuffer.toString('base64'),
+        },
+      ];
+      structureProbe = await this.probePageStructure(provider, images);
       const userPrompt =
         'Convert this clinical form image into the jsonforms engine format.' +
-        (input.instructions ? `\n\nAdditional instructions: ${input.instructions}` : '');
-      rawOutput = await provider.generateWithImages(
-        userPrompt,
-        [
-          {
-            type: 'image',
-            mediaType: input.mimeType as ImageContent['mediaType'],
-            data: input.fileBuffer.toString('base64'),
-          },
-        ],
-        systemPrompt,
-        { temperature: 0.2, maxTokens: CONVERSION_MAX_TOKENS, jsonMode: true },
-      );
+        (input.instructions ? `\n\nAdditional instructions: ${input.instructions}` : '') +
+        this.pageHintText(structureProbe);
+      rawOutput = await provider.generateWithImages(userPrompt, images, systemPrompt, {
+        temperature: 0.2,
+        maxTokens: CONVERSION_MAX_TOKENS,
+        jsonMode: true,
+      });
     }
 
     assertConversionOutputComplete(rawOutput);
     const assembled = this.assembler.assemble(rawOutput);
+    this.recordStructureProbe(assembled, structureProbe);
 
     const form = await this.createDraftForm(tenantId, userId, input.fileName, {
       dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
@@ -580,6 +566,135 @@ export class FormConversionService {
    */
   /** Outcome of the most recent render attempt, for error reporting. */
   private lastRenderOutcome: HtmlRenderOutcome['status'] | 'not-attempted' = 'not-attempted';
+
+  /**
+   * Ask the page images what table structures they contain, before converting.
+   *
+   * A PDF or image has no markup to detect structure in and no browser to
+   * render it in, so the deterministic detectors have nothing to work with.
+   * Asking the vision model ONE narrow question — with a strict reply shape that
+   * is validated before anything depends on it — is far more reliable than the
+   * same judgement made in passing while generating a whole form.
+   *
+   * Never throws and never blocks the conversion: a probe that fails, times out
+   * or answers nonsense yields no hints, and the PDF converts exactly as it did
+   * before this existed.
+   */
+  private async probePageStructure(
+    provider: LlmProvider,
+    images: ImageContent[],
+  ): Promise<ProbedStructures | undefined> {
+    if (!provider.generateWithImages || images.length === 0) return undefined;
+    try {
+      const raw = await provider.generateWithImages(
+        // "json" has to appear in the USER message: some providers reject
+        // json-mode outright unless it does, and a system prompt sent as a
+        // separate instructions field does not count.
+        'Identify the repeating table structures on these page images. ' +
+          'Reply with json matching the schema you were given.',
+        images,
+        getStructureProbePrompt(),
+        {
+          // One narrow answer, not a form: a small budget keeps the pre-pass
+          // cheap next to the conversion it precedes.
+          temperature: 0,
+          maxTokens: STRUCTURE_PROBE_MAX_TOKENS,
+          jsonMode: true,
+        },
+      );
+      const probed = parseStructureProbe(raw);
+      const found = probed.repeatingTables.length + probed.transposedMatrices.length;
+      this.logger.log(
+        `Page-structure probe over ${images.length} image(s): ${found} structure(s) usable` +
+          (probed.warnings.length ? `, ${probed.warnings.length} rejected` : ''),
+      );
+      return probed;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
+      this.logger.warn(`Page-structure probe failed, converting without hints: ${detail}`);
+      // Report the failure rather than returning nothing: "the probe broke" and
+      // "the pages have no repeating table" produce the same finished form, and
+      // a reviewer needs to know which one they are looking at.
+      return {
+        repeatingTables: [],
+        transposedMatrices: [],
+        warnings: ['the page-structure probe could not be run'],
+      };
+    }
+  }
+
+  /** The probe's findings as prompt text, or '' when it found nothing. */
+  private pageHintText(probe: ProbedStructures | undefined): string {
+    if (!probe) return '';
+    const count = probe.repeatingTables.length + probe.transposedMatrices.length;
+    if (count === 0) return '';
+
+    return (
+      '\n\n' +
+      pageProbePreamble(count) +
+      probe.repeatingTables.map((t) => repeatingLogHintText(t, 'page')).join('') +
+      probe.transposedMatrices.map((m) => transposedMatrixHintText(m, 'page')).join('')
+    );
+  }
+
+  /**
+   * Record what the probe saw and whether the model acted on it.
+   *
+   * The two failure modes read identically from the outside — a converted form
+   * with no record table — but they need different fixes. "Nothing was detected"
+   * is a probe problem; "a matrix was detected and the form has no record table"
+   * is the model ignoring a hint it was given. Saying which is which is the
+   * difference between a useful review and a shrug.
+   */
+  private recordStructureProbe(
+    assembled: AssembledJsonForms,
+    probe: ProbedStructures | undefined,
+  ): void {
+    if (!probe) return;
+
+    const detected = [
+      ...probe.transposedMatrices.map((m) => ({
+        kind: 'matrix' as const,
+        labelHeader: m.labelHeader,
+        rowLabels: m.rowLabels,
+        instanceHeaders: m.instanceHeaders,
+      })),
+      ...probe.repeatingTables.map((t) => ({ kind: 'log' as const, columns: t.columns })),
+    ];
+
+    // Server-written, so a reviewer can tell what the pipeline actually passed
+    // to the model rather than what the model says it received.
+    assembled.conversionMetadata.structureProbe = {
+      source: 'page-images',
+      detected,
+      rejected: probe.warnings,
+    };
+
+    if (detected.length === 0) {
+      assembled.warnings.push({
+        type: 'POTENTIAL_MISSING_FIELD',
+        message:
+          'No repeating table structure was detected on these pages, so the conversion ran ' +
+          'without a structural hint' +
+          (probe.warnings.length ? ` (${probe.warnings.join('; ')})` : '') +
+          '. If the form has a chart the user adds rows or columns to, it may have been ' +
+          'flattened — check it, and consider uploading an HTML mock-up, where structure is ' +
+          'detected deterministically.',
+      });
+      return;
+    }
+
+    if (!hasRecordTable(assembled.uiSchema)) {
+      assembled.warnings.push({
+        type: 'UNCERTAIN_FIELD_BINDING',
+        message:
+          `${detected.length} repeating table structure(s) were detected on these pages ` +
+          `(${detected.map((d) => d.kind).join(', ')}), but the generated form contains no record ` +
+          'table — the model diverged from the hint it was given. The repeating chart is likely ' +
+          'flattened into ordinary fields; fix it in review or with "Refine with AI".',
+      });
+    }
+  }
 
   private async extractHtmlSource(
     html: string,

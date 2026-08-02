@@ -76,7 +76,7 @@ tampering). Each edit creates a new version. JSON Forms only — see [ADR-004](.
 | translations | JSONB | Translation bundle (nullable) |
 | scoring_rules | JSONB | Scoring config used by the server-side engine |
 | metadata | JSONB | Display settings, theme overrides |
-| conversion_metadata | JSONB | Per-field confidence/warnings from AI conversion |
+| conversion_metadata | JSONB | Per-field confidence/warnings from AI conversion. Also carries `structureProbe` — written by the server, not the model — recording what a PDF/image page-structure pre-pass detected and rejected, so a reviewer can see what the pipeline actually passed to the model |
 | content_hash | VARCHAR(64) | SHA-256 of canonical published payload (immutability) |
 | changelog | TEXT | |
 | published_at | TIMESTAMP | NULL = draft |
