@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Wound assessment — fields on demand</title>
+<style>
+  .card { border: 1px solid #c6d6e4; padding: 12px; margin-bottom: 12px; }
+  label { display: block; font-weight: 700; margin-top: 8px; }
+  input, select { width: 220px; }
+</style></head>
+<body>
+  <h1>Wound Assessment</h1>
+  <p>Record one entry per wound site.</p>
+
+  <div class="card">
+    <h2>Wound sites</h2>
+    <div id="sites"></div>
+    <button type="button" onclick="addSite()">+ Add wound site</button>
+  </div>
+
+  <script>
+    // Nothing is rendered at load: the form has zero fields until the button is
+    // pressed. Read once, this file looks like "not a form mock-up" — the whole
+    // reason the probe exists.
+    var n = 0;
+
+    function addSite() {
+      n++;
+      var wrap = document.createElement('div');
+      wrap.className = 'card';
+      wrap.innerHTML =
+        '<h3>Site ' + n + '</h3>' +
+        '<label>Location<input type="text"></label>' +
+        '<label>Length (cm)<input type="number"></label>' +
+        '<label>Width (cm)<input type="number"></label>' +
+        '<label>Depth (cm)<input type="number"></label>' +
+        '<label>Tissue type<select>' +
+          '<option value="">Select…</option>' +
+          '<option>Granulating</option><option>Sloughy</option>' +
+          '<option>Necrotic</option><option>Epithelialising</option>' +
+        '</select></label>' +
+        '<label>Exudate<select>' +
+          '<option value="">Select…</option>' +
+          '<option>None</option><option>Low</option>' +
+          '<option>Moderate</option><option>High</option>' +
+        '</select></label>' +
+        '<label>Dressing applied<input type="text"></label>' +
+        '<label>Assessed by<input type="text"></label>';
+      document.getElementById('sites').appendChild(wrap);
+    }
+  </script>
+</body></html>

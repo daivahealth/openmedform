@@ -216,13 +216,26 @@ describe('geometry fallback wiring', () => {
   it('leaves a real table alone — markup wins over geometry', async () => {
     render.mockClear();
     const html = fixture('vip-rendered.html');
+    // This chart DOES get rendered, but for the nesting measurement rather than
+    // for geometry (see "interaction probing" below). With no probe coming
+    // back, the markup hint must survive untouched — geometry never overrides
+    // a real <table>.
+    render.mockResolvedValue({ status: 'rendered', html });
 
     const result = await extractSource(html, []);
 
-    // Markup detection already found the matrix, so there is nothing to gain
-    // from measuring pixels and a render would be pure cost.
-    expect(render).not.toHaveBeenCalled();
     expect(result.transposedMatrices).toEqual(extractFormHtml(html).transposedMatrices);
+  });
+
+  it('does not render a table that has nothing left to measure', async () => {
+    // Same chart with the nested "+ Day" control removed: markup detection
+    // already knows everything, so a render would be pure cost.
+    render.mockClear();
+    const html = fixture('vip-rendered.html').replace(/\+ Day/g, 'Day');
+
+    await extractSource(html, []);
+
+    expect(render).not.toHaveBeenCalled();
   });
 
   it('keeps the static result when the browser is unavailable', async () => {
@@ -272,5 +285,154 @@ describe('script-config opt-in (POST /conversions)', () => {
       expect.objectContaining({ extractScriptConfig: expected }),
       '127.0.0.1',
     );
+  });
+});
+
+
+describe('interaction probing', () => {
+  const render = vi.mocked(renderHtmlToDomWithOutcome);
+  const probeFixture = JSON.parse(fixture('vip-interactive.probe.json')) as {
+    clicks: { label: string; before: LayoutSnapshot; after: LayoutSnapshot }[];
+  };
+  /** Only the click that matters here; the other one changed nothing. */
+  const dayClick = probeFixture.clicks.filter((c) => c.label === '+ Day');
+  const vipHtml = fixture('vip-rendered.html');
+
+  const CANNULA_ROWS = [
+    'Date of Insertion',
+    'Time of Insertion',
+    'Inserted At',
+    'Inserted By — Name',
+    'Inserted By — EC Code',
+    'Site',
+    'Side',
+    'Size of Cannula (Gauge)',
+  ];
+
+  it('replaces the inferred nested split with a measured one', async () => {
+    render.mockClear();
+    render.mockResolvedValue({
+      status: 'rendered',
+      html: vipHtml,
+      probe: { clicks: dayClick, html: vipHtml },
+    });
+
+    const warnings: string[] = [];
+    const result = await extractSource(vipHtml, warnings);
+    const matrix = result.transposedMatrices[0];
+
+    expect(matrix.rowLabels).toHaveLength(22);
+    expect(matrix.nestedRowLabels).toHaveLength(14);
+    // The measurement is only useful if it puts the 8 cannula-level rows on the
+    // OUTER record; that is the split the model used to get wrong.
+    for (const row of CANNULA_ROWS) expect(matrix.nestedRowLabels).not.toContain(row);
+    expect(warnings.join(' ')).toMatch(/measured, not guessed/);
+  });
+
+  it('keeps the hint order and vocabulary', async () => {
+    render.mockClear();
+    render.mockResolvedValue({
+      status: 'rendered',
+      html: vipHtml,
+      probe: { clicks: dayClick, html: vipHtml },
+    });
+
+    const matrix = (await extractSource(vipHtml, [])).transposedMatrices[0];
+
+    // A measurement naming rows the hint does not list would be worse than none.
+    for (const label of matrix.nestedRowLabels ?? []) {
+      expect(matrix.rowLabels).toContain(label);
+    }
+    const order = (matrix.nestedRowLabels ?? []).map((l) => matrix.rowLabels.indexOf(l));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('leaves the hint alone when nothing was probed', async () => {
+    render.mockClear();
+    render.mockResolvedValue({ status: 'rendered', html: vipHtml });
+
+    const matrix = (await extractSource(vipHtml, [])).transposedMatrices[0];
+
+    expect(matrix.rowLabels).toHaveLength(22);
+    expect(matrix.nestedRowLabels).toBeUndefined();
+  });
+
+  it('ignores a measurement that claims every row, or none', async () => {
+    // All-or-nothing is not a split, it is noise — and acting on it would move
+    // the outer record's fields into the nested one.
+    const flat: LayoutSnapshot = { nodes: [] };
+    for (const clicks of [
+      [{ label: '+ Day', before: flat, after: flat }],
+      [{ label: '+ Day', before: dayClick[0].after, after: dayClick[0].after }],
+    ]) {
+      render.mockClear();
+      render.mockResolvedValue({
+        status: 'rendered',
+        html: vipHtml,
+        probe: { clicks, html: vipHtml },
+      });
+
+      const matrix = (await extractSource(vipHtml, [])).transposedMatrices[0];
+      expect(matrix.nestedRowLabels).toBeUndefined();
+    }
+  });
+
+  it('ignores a click whose label matches no nested-add control', async () => {
+    render.mockClear();
+    render.mockResolvedValue({
+      status: 'rendered',
+      html: vipHtml,
+      probe: {
+        clicks: [{ ...dayClick[0], label: '+ Something Else' }],
+        html: vipHtml,
+      },
+    });
+
+    expect((await extractSource(vipHtml, [])).transposedMatrices[0].nestedRowLabels).toBeUndefined();
+  });
+
+  it('reads fields that only exist after a click', async () => {
+    // The pre-click DOM has none; the post-probe DOM has them. Preferring the
+    // richer read is what turns a rejected upload into a converted form.
+    const before = '<html><body><div id="sites"></div><button>+ Add wound site</button></body></html>';
+    const after =
+      '<html><body><div id="sites">' +
+      '<label>Location<input type="text"></label>' +
+      '<label>Depth<input type="number"></label>' +
+      '</div><button>+ Add wound site</button></body></html>';
+
+    render.mockClear();
+    render.mockResolvedValue({
+      status: 'rendered',
+      html: before,
+      probe: { clicks: [], html: after },
+    });
+
+    const result = await extractSource(
+      '<html><body><div id="sites"></div><button>+ Add wound site</button>' +
+        '<script>/* builds on click */</script></body></html>',
+      [],
+    );
+
+    expect(result.stats.fields).toBe(2);
+  });
+
+  it('never lets a worse post-probe DOM lose fields', async () => {
+    // A probe that broke the page must not cost us what the render already had.
+    const good = '<html><body><form><input type="text"><input type="text"></form>' +
+      '<script>x</script></body></html>';
+    render.mockClear();
+    render.mockResolvedValue({
+      status: 'rendered',
+      html: good,
+      probe: { clicks: [], html: '<html><body>gone</body></html>' },
+    });
+
+    const result = await extractSource(
+      '<html><body><form></form><script>x</script></body></html>',
+      [],
+    );
+
+    expect(result.stats.fields).toBe(2);
   });
 });

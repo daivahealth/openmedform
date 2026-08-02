@@ -10,6 +10,7 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import {
+  isHtmlProbeEnabled,
   isHtmlRenderEnabled,
   renderHtmlToDom,
   renderHtmlToDomWithOutcome,
@@ -66,5 +67,27 @@ describe('renderHtmlToDomWithOutcome', () => {
     // operator problem — distinct from "your file builds nothing".
     expect(outcome.status).toBe('unavailable');
     expect(outcome).toHaveProperty('detail');
+  });
+});
+
+
+describe('isHtmlProbeEnabled', () => {
+  // Interaction probing presses controls on an untrusted page, so an operator
+  // must be able to switch it off without giving up rendering entirely.
+  it('is on by default', () => {
+    delete process.env.HTML_PROBE_DISABLED;
+    expect(isHtmlProbeEnabled()).toBe(true);
+  });
+
+  it('is off when HTML_PROBE_DISABLED=1', () => {
+    process.env.HTML_PROBE_DISABLED = '1';
+    expect(isHtmlProbeEnabled()).toBe(false);
+  });
+
+  it('is independent of the render switch', () => {
+    process.env.HTML_PROBE_DISABLED = '1';
+    delete process.env.HTML_RENDER_DISABLED;
+    expect(isHtmlRenderEnabled()).toBe(true);
+    expect(isHtmlProbeEnabled()).toBe(false);
   });
 });

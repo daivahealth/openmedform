@@ -213,3 +213,47 @@ function buildRepeatingLog(
 
   return { columns, addLabel: addButtons[0].text, countLabel };
 }
+
+/**
+ * Row label -> how many controls sit on that row.
+ *
+ * The row's label is the leftmost static text on it; its controls are every
+ * input/select/textarea to the right. That is the same reading of a row the
+ * matrix detector uses, so the counts line up with a hint's `rowLabels`.
+ */
+function controlsByRowLabel(snapshot: LayoutSnapshot): Map<string, number> {
+  const counts = new Map<string, number>();
+  const nodes = snapshot.nodes.filter((n) => n.width > 0 && n.height > 0);
+
+  for (const row of cluster(nodes, centreY, ROW_TOLERANCE_PX)) {
+    const ordered = [...row].sort((a, b) => a.x - b.x);
+    const label = ordered.find((n) => n.kind === 'label' && n.text)?.text;
+    if (!label) continue;
+    const controls = ordered.filter((n) => n.kind === 'control').length;
+    // A label can legitimately repeat across a long chart; sum rather than
+    // overwrite, so the comparison stays symmetric.
+    counts.set(label, (counts.get(label) ?? 0) + controls);
+  }
+  return counts;
+}
+
+/**
+ * Which rows gained controls between two geometry snapshots.
+ *
+ * This is what turns "the model should split these 22 rows sensibly" into a
+ * measurement: press the chart's "+ Day" and the rows that grow ARE the
+ * day-level group. Rows that did not grow belong to the outer record.
+ *
+ * Order follows the *after* snapshot, top to bottom, so the returned labels
+ * read in the same order as the hint's `rowLabels`.
+ */
+export function rowsGainedBetween(before: LayoutSnapshot, after: LayoutSnapshot): string[] {
+  const start = controlsByRowLabel(before);
+  const end = controlsByRowLabel(after);
+
+  const gained: string[] = [];
+  for (const [label, count] of end) {
+    if (count > (start.get(label) ?? 0)) gained.push(label);
+  }
+  return gained;
+}

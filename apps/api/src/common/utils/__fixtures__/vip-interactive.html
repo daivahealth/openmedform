@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>VIP chart — interactive</title>
+<style>
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #c6d6e4; padding: 5px 8px; }
+  th { background: #dbe9f7; }
+  td.lbl { font-weight: 700; }
+  input, select { width: 140px; }
+</style></head>
+<body>
+  <h1>Visual Infusion Phlebitis Score (VIP)</h1>
+
+  <table id="vip">
+    <thead>
+      <tr id="vip-head">
+        <th>Parameter</th>
+        <th>Cannula 1 <button type="button" onclick="addDay()">+ Day</button></th>
+      </tr>
+    </thead>
+    <tbody id="vip-body"></tbody>
+  </table>
+  <button type="button" onclick="addCannula()">+ Add Cannula</button>
+
+  <script>
+    // Eight parameters recorded ONCE per cannula, then fourteen recorded for
+    // every treatment day. Nothing in the markup states which is which — the
+    // only way to know is to press "+ Day" and see which rows grow.
+    var cannulaRows = [
+      'Date of Insertion', 'Time of Insertion', 'Inserted At',
+      'Inserted By — Name', 'Inserted By — EC Code', 'Site', 'Side',
+      'Size of Cannula (Gauge)'
+    ];
+    var dayRows = [
+      'Day & Date', 'Time (M/E/N)', 'VIP Score / Stage / Description',
+      'Intervention (auto)', 'Intervention Done (Y/N)', 'Date of Removal',
+      'Time of Removal', 'Reason for Removal', 'Removed By — Name & EC Code',
+      'Inspected By — Name', 'Inspected By — EC Code', 'Inspected By — Signature',
+      'Nurse Team Lead — Name', 'Nurse Team Lead — EC Code'
+    ];
+
+    var days = 1;
+
+    function cell() {
+      var td = document.createElement('td');
+      td.innerHTML = '<input type="text">';
+      return td;
+    }
+
+    function build() {
+      var body = document.getElementById('vip-body');
+      body.innerHTML = '';
+      cannulaRows.concat(dayRows).forEach(function (label) {
+        var tr = document.createElement('tr');
+        var th = document.createElement('td');
+        th.className = 'lbl';
+        th.textContent = label;
+        tr.appendChild(th);
+        // A cannula-level row gets one cell per cannula; a day-level row gets
+        // one per day. This is the structure the probe measures.
+        var count = dayRows.indexOf(label) === -1 ? 1 : days;
+        for (var i = 0; i < count; i++) tr.appendChild(cell());
+        body.appendChild(tr);
+      });
+    }
+
+    function addDay() {
+      days++;
+      build();
+    }
+
+    function addCannula() {
+      // Out of scope for this fixture; present so the probe has a second
+      // add-control to consider.
+    }
+
+    build();
+  </script>
+</body></html>

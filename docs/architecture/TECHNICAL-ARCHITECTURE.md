@@ -90,6 +90,8 @@ rationale and threat model: [ADR-003](../ADR/003-json-forms-platform.md).
 - Alpine images use the distro `chromium` package (Playwright's bundled build
   does not support Alpine), located via `CHROMIUM_PATH`.
 - `HTML_RENDER_DISABLED=1` turns rendering off entirely.
+- `HTML_PROBE_DISABLED=1` keeps rendering but stops the sandbox pressing the
+  page's "Add …" controls (interaction probing).
 - Allow **≥1 GiB** per API instance; Chromium is short-lived but not free.
 - Local development and CI need neither binary.
 

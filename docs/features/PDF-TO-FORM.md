@@ -494,7 +494,9 @@ Rendering is **not** trusting:
   page attempting `169.254.169.254` metadata, `file:///etc/passwd` and an
   external exfil URL: all three blocked, nothing leaked into the DOM.
 - **Bounded.** 30s wall-clock cap (it must cover a cold browser launch, not
-  just the page), downloads refused, pop-ups closed unread,
+  just the page), with a separate 8s budget for
+  [interaction probing](#pressing-the-page-interaction-probing) inside it;
+  downloads refused, pop-ups closed unread,
   context always torn down. A `while(true)` script costs one timeout and the
   renderer returns null.
 - **The output is re-sanitised.** The rendered DOM goes back through the same
@@ -553,7 +555,8 @@ Two things still worth checking after a render:
   conditional block that does not match that pattern must be revealed before
   upload. See [Conditional fields](#conditional-other--please-specify-fields).
 - **Row count.** A repeating table renders however many rows the script created
-  on load, which is normally the one representative row you want.
+  on load, plus one more per add-control the probe pressed — see
+  [Pressing the page](#pressing-the-page-interaction-probing).
 
 ### Conditional "Other → Please specify…" fields
 
@@ -673,6 +676,53 @@ Measured on the Blood Sugar (GRBS) fixture, same file both ways:
 ("Intervention (auto)") and code-path-driven enable/disable live in function
 bodies, and a function body is never a literal — those still belong in the
 designer.
+
+### Pressing the page (interaction probing)
+
+Reading the rendered DOM once leaves two things invisible.
+
+**Content that only exists after a click.** A mock-up whose fields are built by
+an "+ Add wound site" handler renders as an empty page: 0 fields, rejected as
+"not a form mock-up".
+
+**Which rows belong to the nested group.** A [matrix hint](#matrix-transposed-tables)
+lists all 22 of the VIP chart's row labels, but nothing in the markup says that
+8 of them are recorded once per cannula and 14 once per treatment day. The model
+had to infer that from what the labels *mean* — and the page knew the answer all
+along, because pressing "+ Day" adds a cell to exactly the day-level rows.
+
+So the sandbox presses the page. After the normal render it clicks each
+add-control once, re-measures the geometry, and hands both snapshots back;
+[`rowsGainedBetween`](../../apps/api/src/common/utils/layout-detect.ts) works out
+which rows grew. As with everything else in the render, the browser side stays
+dumb — click, re-measure — and the interpretation happens outside it, where it
+is unit-testable without Chromium.
+
+The measured split reaches the model as a statement of fact rather than a
+suggestion: *"the control was actually pressed and these 14 rows are the ones
+that gained a cell, so they belong to the NESTED array and NOT to the outer
+record. Do not move a row between the two levels."*
+
+**Bounds.** This is interaction with an untrusted page, so it is fenced in:
+
+| Bound | Why |
+|---|---|
+| Only controls matching the add-affordance patterns are pressed | Nothing that reads as submit / save / delete / print is ever touched. |
+| Each control once; at most 3 in total | Pressing "+ Day" once is enough to learn which rows repeat; pressing it ten times only makes a bigger page. |
+| The probe has its own budget (8 s) *raced*, not merely checked between clicks | A handler that spins blocks the page's JS, so the next measurement would otherwise sit there until the 30 s context timeout and double the worst case. |
+| Dialogs are auto-dismissed | An `alert()`/`confirm()` cannot wedge it. |
+| Same sandbox | Offline, every request aborted, no downloads, context torn down afterwards. |
+| Additive only | A probe that times out, crashes, or measures all-or-no rows leaves the result exactly as it was. |
+
+Measured against a spinning `while(true)` click handler: the probe gives up at
+its budget, the render still returns usable HTML, and the whole call finishes in
+~10 s — inside the 30 s cap.
+
+`HTML_PROBE_DISABLED=1` turns probing off without giving up rendering.
+
+**What it does not reach.** Only add-affordances are pressed, so content behind
+a tab, an accordion or a "Show details" toggle is still missed; and a control is
+pressed once, so a structure that only appears on the second press is not seen.
 
 ### Grids built without tables
 
