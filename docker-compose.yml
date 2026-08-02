@@ -26,7 +26,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       PORT: 3100
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost}
-      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-default-dev-encryption-key-change-in-prod}
+      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:?AI_ENCRYPTION_KEY is required (openssl rand -hex 32)}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-}
       AI_CLAUDE_API_KEY: ${AI_CLAUDE_API_KEY:-}
       AI_CLAUDE_MODEL: ${AI_CLAUDE_MODEL:-}
