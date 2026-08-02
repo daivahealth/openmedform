@@ -1,0 +1,53 @@
+name: Label issues
+
+# Auto-labels issues at creation. Issue templates already pre-apply labels;
+# this catches issues filed WITHOUT a template (gh CLI, API, blank form) so
+# nothing lands unlabeled. It only ever ADDS labels — humans remove/refine.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.issue.title ?? '';
+            const body = context.payload.issue.body ?? '';
+            const text = `${title}\n${body}`;
+            const existing = (context.payload.issue.labels ?? []).map(l => l.name);
+
+            // Keep in sync with the label taxonomy (gh label list).
+            const rules = [
+              ['epic',             /^epic:/i,  'title'],
+              ['integration',      /\b(openEHR|FHIR|EMR|CDR|composition|questionnaire|HL7|ABDM|interop\w*)\b/i],
+              ['area: conversion', /\b(conversion|extractor|mock-?ups?|pdf-to-jsonforms|from-prompt|hint|prompt injection|chromium|sandbox)\b/i],
+              ['area: renderer',   /\b(renderer|recordTable|omf|JSON ?Forms|print engine|checklistMatrix|scoringMatrix|scoreSummary)\b/i],
+              ['area: api',        /\b(NestJS|Prisma|migration|endpoint|REST)\b/i],
+              ['area: web',        /\b(Next\.js|dashboard|frontend|apps\/web|designer UI)\b/i],
+              ['area: ci-release', /\b(CI|release|changeset|deploy|Docker|Cloud Run|npm publish)\b/i],
+              ['area: security',   /\b(security|sandbox|injection|untrusted|audit|tenant isolation|RBAC)\b/i],
+              ['documentation',    /\b(documentation|ADR-?\d*|docs\/)\b/],
+              ['bug',              /\b(bug|regression|broken|crash)\b/i],
+            ];
+
+            const matched = rules
+              .filter(([, re, scope]) => re.test(scope === 'title' ? title : text))
+              .map(([label]) => label)
+              .filter(l => !existing.includes(l));
+
+            // Guarantee at least one label on every new issue.
+            const labels = (matched.length || existing.length) ? matched : ['needs-triage'];
+            if (labels.length) {
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: context.payload.issue.number,
+                labels,
+              });
+            }

@@ -1,0 +1,27 @@
+name: Bug report
+description: Something converts, renders, or behaves wrongly
+labels: ["bug", "needs-triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the form/file involved if conversion-related — attach the mock-up or PDF when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      placeholder: production (openmedform.daiva.health) / local dev / EMR embed
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots / error text
+      description: For conversion issues, the exact rejection message matters — it names the failing stage.

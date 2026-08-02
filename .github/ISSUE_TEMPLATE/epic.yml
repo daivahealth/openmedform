@@ -1,0 +1,29 @@
+name: Epic
+description: Multi-phase initiative (like the openEHR/FHIR integrations)
+title: "Epic: "
+labels: ["epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: nongoals
+    attributes:
+      label: Non-goals
+      description: Explicit, so scope cannot creep.
+    validations:
+      required: true
+  - type: textarea
+    id: phases
+    attributes:
+      label: Phases
+      description: Each phase sized to become its own sub-issue, with acceptance criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions

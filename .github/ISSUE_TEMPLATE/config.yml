@@ -1,0 +1,3 @@
+# Blank issues stay allowed (maintainers file quick ones via `gh`);
+# the auto-label workflow catches those, templates catch everyone else.
+blank_issues_enabled: true
