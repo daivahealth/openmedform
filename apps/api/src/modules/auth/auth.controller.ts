@@ -16,6 +16,7 @@ import { Request, Response } from 'express';
 import { Tenant, User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ExchangeCodeDto } from './dto/exchange-code.dto';
 import { SsoAuthExceptionFilter } from './sso-auth.filter';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -46,9 +47,10 @@ export class AuthController {
   }
 
   /**
-   * Google OAuth2 callback. On success, issues an app JWT and redirects to the
-   * web callback page with the token. On any failure, the filter redirects to
-   * the web login page with an error message instead.
+   * Google OAuth2 callback. On success it hands off to completeSsoLogin, which
+   * redirects to the web callback page with a one-time exchange code — never
+   * the token. On any failure, the filter redirects to the web login page with
+   * an error message instead.
    */
   @Public()
   @Get('google/callback')
@@ -96,12 +98,33 @@ export class AuthController {
     res: Response,
     ip: string,
   ) {
-    const session = await this.authService.ssoLogin(provider, user, ip);
+    await this.authService.ssoLogin(provider, user, ip);
+    // A one-time code, never the access token. The URL this builds ends up in
+    // browser history, Referer headers and every access log on the way — a
+    // 24-hour credential must not be in it. See createExchangeCode.
+    //
+    // Living in the shared handler is the point: Microsoft inherits it rather
+    // than needing the same reasoning applied a second time.
+    const code = await this.authService.createExchangeCode(user.id);
     const frontendOrigin =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3000';
     const target = new URL('/auth/callback', frontendOrigin);
-    target.searchParams.set('token', session.accessToken);
+    target.searchParams.set('code', code);
     res.redirect(target.toString());
+  }
+
+  /**
+   * Trade the redirect's one-time code for a session.
+   *
+   * Throttled with the credential tier: the code is 256 bits of randomness, so
+   * guessing is not the threat, but this is an unauthenticated endpoint that
+   * touches the database and should not be free to hammer.
+   */
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @Post('exchange')
+  exchange(@Body() dto: ExchangeCodeDto, @Ip() ip: string) {
+    return this.authService.exchangeCode(dto.code, ip);
   }
 
   @Get('me')

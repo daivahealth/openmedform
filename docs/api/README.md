@@ -19,9 +19,10 @@ All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` 
 ### Auth
 | Method | Path | Description |
 |--------|------|-------------|
+| POST | /api/auth/exchange | Trade the one-time `code` from an SSO redirect (either provider) for `{ accessToken, user }`. Single-use, 60s TTL; expired/spent/unknown all return the same 401. The redirect never carries the token itself |
 | POST | /api/auth/login | Login, returns JWT (audit-logged as `auth.login`) |
 | GET | /api/auth/microsoft | Start the Microsoft (Entra ID) handshake. Same `?mode=signup&org=&country=` contract as Google. 503 when unconfigured |
-| GET | /api/auth/microsoft/callback | Microsoft callback; issues the session and redirects to the web app |
+| GET | /api/auth/microsoft/callback | Microsoft callback; same one-time-code redirect as Google |
 | GET | /api/auth/google | Start Google OAuth2 handshake (redirect). `?mode=signup&org=...&country=...` provisions a new tenant on first sign-in (org + country mandatory); default `login` is invite-only |
 | GET | /api/auth/google/callback | Google OAuth2 callback, redirects to web with JWT |
 | GET | /api/auth/me | Current user profile |
@@ -51,11 +52,12 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 ### Forms
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/forms | List forms (paginated) |
+| GET | /api/forms | List forms (paginated). Archived forms are excluded unless `?includeArchived=true`; `/api/forms/count` counts the same set |
 | GET | /api/forms/count | Total form count for the tenant |
 | POST | /api/forms | Create form. Subject to the per-user creation quota (default 5; 403 with a contact-admin message when exceeded) — waived once the tenant has configured its own active AI provider (Settings → AI Providers), since it then pays for its own AI usage. SUPER_ADMIN is exempt. **The same quota applies to every route that creates a form**: `/api/forms/from-prompt`, `/api/forms/:id/clone`, `/api/forms/import` and `POST /api/conversions`. It is checked before any LLM call, so a user at their limit is refused without spending tokens |
 | GET | /api/forms/:id | Get form with current version |
 | PUT | /api/forms/:id | Update form metadata |
+| POST | /api/forms/:id/unarchive | Restore an archived form to the status it had when archived (`statusBeforeArchive`, or DRAFT for forms archived before that was recorded). 400 if not archived. Audited as `form.unarchive` |
 | DELETE | /api/forms/:id | Archive form (soft delete — sets status ARCHIVED) |
 | GET | /api/forms/:id/deletion-summary | Counts of versions and submissions a permanent delete would destroy |
 | DELETE | /api/forms/:id/permanent | Permanently delete the form and ALL related data (versions, submissions, AI messages) — irreversible |
@@ -76,11 +78,13 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 |--------|------|-------------|
 | GET | /api/forms/:formId/submissions | List submissions |
 | POST | /api/forms/:formId/submissions | Start submission |
-| GET | /api/submissions | List all submissions for the tenant |
-| GET | /api/submissions/count | Total submission count for the tenant |
+| GET | /api/submissions | List records. Voided ones are excluded unless `?includeVoided=true`. `/api/submissions/count` counts the same set |
+| GET | /api/submissions/count | Total record count, matching the default list (voided excluded) |
 | GET | /api/submissions/:id | Get submission |
 | PUT | /api/submissions/:id | Update submission (auto-save) |
 | POST | /api/submissions/:id/complete | Finalize and score (jsonforms: Ajv-validated server-side; 400 on invalid; audit-logged) |
+| DELETE | /api/submissions/:id | **Void** a record — how "delete" behaves for clinical data. Status becomes `VOIDED`; the row and its data are kept and drop out of the default list. Own records for any user; anyone's for `TENANT_ADMIN`/`SUPER_ADMIN` (403 otherwise). Idempotent. Audited as `submission.void` with the previous status |
+| DELETE | /api/submissions/:id/permanent | **Destroy** a record. `TENANT_ADMIN`/`SUPER_ADMIN` only (403 otherwise), unrecoverable. Audited as `submission.delete` **before** the row is removed, with form, status, MRN, encounter and submitter — once it is gone that entry is the only trace |
 | POST | /api/submissions/:id/sign | Sign a COMPLETED submission → status SIGNED + signed_at/signed_by (audit-logged) |
 
 ### AI Builder

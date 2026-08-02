@@ -52,14 +52,70 @@ kind of thing someone would try to fix by turning it on.
 restrict to one organisation, or `common` to also admit personal Microsoft
 accounts — a weaker identity signal, since anyone can create one.
 
-## Google SSO
-- OAuth2 via `passport-google-oauth20`: `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` → app JWT → redirect to `<FRONTEND_ORIGIN>/auth/callback?token=<jwt>`.
-- **Login vs signup intent** (and, for signup, the organization name + country) is carried through the OAuth `state` param — a base64url JSON payload set by `GoogleAuthGuard` and read back in `GoogleStrategy.validate` (legacy plain `login`/`signup` strings still accepted):
-  - **login** (default): invite-only match-by-email — the Google email must match exactly one existing active user; unknown emails are rejected.
-  - **signup**: if no account exists, a **new tenant + first `TENANT_ADMIN`** is provisioned (Google display name → `fullName`; organization + country from the state payload — the guard rejects the handshake without them). Password login is disabled for these accounts (random hash).
-- Either intent rejects an ambiguous multi-tenant email; a signup whose email already exists (even inactive) is rejected with "please sign in instead". Email stays globally unique.
-- The strategy registers only when `GOOGLE_CLIENT_ID` is configured; without it the SSO routes return 503 and password login is unaffected.
-- SSO failures redirect to `<FRONTEND_ORIGIN>/login?error=google_sso&message=...` — never raw JSON, since the browser is mid-redirect.
+## How an SSO sign-in resolves
+
+Identical for both providers — only the consent screen differs.
+
+`GET /api/auth/<provider>` → the provider's consent → `GET
+/api/auth/<provider>/callback` → `completeSsoLogin` → redirect to
+`<FRONTEND_ORIGIN>/auth/callback?code=<one-time code>` (never the token — see
+below).
+
+- **Login vs signup intent** (and, for signup, the organization name + country)
+  travels through the OAuth `state` param — a base64url JSON payload written by
+  the handshake guard and read back by `decodeOauthState` in `oauth-state.ts`
+  (legacy plain `login`/`signup` strings still accepted):
+  - **login** (default): invite-only match-by-email — the address must match
+    exactly one existing active user; unknown emails are rejected.
+  - **signup**: if no account exists, a **new tenant + first `TENANT_ADMIN`** is
+    provisioned (SSO display name → `fullName`; organization + country from the
+    state payload — the guard rejects the handshake without them). Password
+    login is disabled for these accounts (random hash).
+- Either intent rejects an ambiguous multi-tenant email; a signup whose email
+  already exists (even inactive) is rejected with "please sign in instead".
+  Email stays globally unique.
+- A provider's strategy registers only when its client id is configured;
+  without it that provider's routes return 503, and password login and the
+  other provider are unaffected.
+- Failures redirect to `<FRONTEND_ORIGIN>/login?error=sso&message=...` — never
+  raw JSON, since the browser is mid-redirect.
+
+## SSO Redirect Does Not Carry the Token
+
+The SSO callback used to redirect to `/auth/callback?token=<jwt>`. That put a
+24-hour credential into browser history, `Referer` headers, and every access log
+between the load balancer and the browser — and with no token revocation, a
+leaked one stays valid for the full day. Server-side logs are the part that
+cannot be cleaned up afterwards.
+
+The redirect now carries a **one-time exchange code** (`?code=…`), which the
+callback page immediately POSTs to `POST /api/auth/exchange` for the real
+session. The code:
+
+- is 32 random bytes, stored only as a **SHA-256 hash**, so the plaintext exists
+  nowhere but the redirect URL;
+- is valid for **60 seconds** and **single-use**;
+- buys nothing but an exchange — it is useless against every other endpoint;
+- is **claimed atomically**: the `usedAt: null` filter lives inside the same
+  `updateMany` that marks it used, so two simultaneous requests cannot both win.
+  Verified with five parallel exchanges of one code — exactly one succeeded.
+
+Expired, already-spent and unknown codes return the **same** message. Telling
+them apart would say which codes are real.
+
+The callback page also strips the code from the address bar with
+`history.replaceState` before doing anything else.
+
+It is a database table (`auth_exchange_code`) rather than in-process state
+because the redirect and the exchange are two requests that can be served by
+different Cloud Run instances. Expired rows are swept opportunistically when new
+codes are minted; there is no scheduler.
+
+**This does not fix token storage.** The access token still lands in
+`localStorage`, so an XSS on the web origin can still read it — see the
+hardening backlog. Moving to an httpOnly cookie would fix both, but the API and
+the web app are on different registrable domains, which makes that a
+cross-site-cookie problem rather than a one-line change.
 
 ## Roles
 | Role | Permissions |
@@ -78,7 +134,7 @@ clinical operation, and is recorded after the primary write commits.
 
 **Currently wired:**
 - Auth: `auth.register`, `auth.login`, `auth.login.failed` (email + IP)
-- Forms: `form.create`, `form.publish`, `form.delete`
+- Forms: `form.create`, `form.publish`, `form.archive`, `form.unarchive`, `form.delete`
 - Submissions: `submission.complete`, `submission.sign`
 - Designer: `form.designer.refine`
 - Conversion: `ai.convert`, `ai.convert.failed`, `ai.convert.accept`
@@ -129,6 +185,36 @@ is what makes the 4× slack acceptable in the meantime.
 There is also **no per-email lockout**: ten login attempts a minute per IP
 bounds online guessing from one source, but not a distributed attempt against
 one account. That needs persistent state rather than an in-process counter.
+
+## Security Headers
+
+`helmet` is installed in `apps/api/src/main.ts`. The API serves JSON and
+uploaded binaries, never HTML pages of its own, so the policy can be strict:
+`default-src 'none'`, `frame-ancestors 'none'`, `sandbox`, HSTS, nosniff,
+`Referrer-Policy: strict-origin-when-cross-origin`, and
+`Cross-Origin-Resource-Policy: same-site`. `X-Powered-By` is removed.
+
+The web app sets its own in `next.config.mjs` — nosniff, `X-Frame-Options`,
+HSTS, `Referrer-Policy`, `Permissions-Policy`. **No CSP there yet**: Next's
+inline bootstrap and styled-jsx need either nonces or `'unsafe-inline'`, and
+shipping the latter would be a CSP in name only. Tracked rather than faked.
+
+### Uploaded assets
+
+`GET /forms/:id/assets/:assetId` returns attacker-supplied bytes, so every
+response carries `X-Content-Type-Options: nosniff` and
+`Content-Security-Policy: default-src 'none'; sandbox`.
+
+**SVG is served as `attachment`, not `inline`.** An SVG is an active document:
+navigate straight to one and its `<script>` runs on the API origin. Verified in
+a real browser against the pre-fix headers — the script executed and rewrote
+`document.title`. With `attachment` the navigation produces no document at all,
+and the script never runs.
+
+Embedding still works. An SVG loaded through `<img src>` — which is how the
+renderer and the print engine use it — cannot execute script by design, and was
+confirmed to render normally with the new headers. So the hole closes without
+costing the feature anything, and no SVG sanitiser is needed.
 
 ## Uploaded Mock-ups Are Untrusted Input
 
@@ -183,6 +269,50 @@ pinned to the exact `form_version_id` (and engine) it was captured against.
 jsonforms submissions are re-validated server-side with Ajv (Draft 2020-12)
 against the published data schema on `complete` — client validity is advisory and
 never trusted (Form Engine Rules). Scores are likewise recalculated server-side.
+
+## Encryption of Stored Provider Keys
+
+Tenant LLM API keys are encrypted at rest with AES-256-GCM (a fresh IV per
+record, auth tag verified on decrypt) in `apps/api/src/common/utils/crypto.ts`.
+
+**The key is derived, not sliced.** It used to be
+`Buffer.from(AI_ENCRYPTION_KEY.slice(0, 32), 'utf8')` — the first 32
+*characters* of the env var, which for a printable passphrase is well under 256
+bits. Now:
+
+- a 64-char **hex** or 32-byte **base64** secret is used directly, as real key
+  material, with no derivation loss;
+- anything else is treated as a passphrase and stretched with `scrypt` against a
+  fixed application salt (fixed so the cost is paid once and cached — the salt
+  separates deployments, it is not standing in for many low-entropy passwords);
+- known placeholders, including the one this repository used to default to, are
+  **rejected at startup**. A deployment running on a published key has no
+  encryption at all, and failing to start is the only honest response.
+
+`AI_ENCRYPTION_KEY` is now required by `docker-compose.yml` (`:?`), matching
+`JWT_SECRET`. It previously fell back to a default committed here.
+
+### Upgrading without losing credentials
+
+Ciphertext is versioned. New records carry a `v2.` prefix; unprefixed records
+are read with the legacy key, so an upgrade does not wipe every tenant's stored
+provider credentials. Nothing has to be migrated for the system to work.
+
+To retire the legacy key deliberately rather than by attrition:
+
+```bash
+AI_ENCRYPTION_KEY=<same secret> DATABASE_URL=... \
+  npx tsx scripts/reencrypt-provider-keys.ts --dry-run   # report only
+```
+
+Run with the **same** secret the legacy records were written under — this
+migrates the derivation, not the secret. It is idempotent, verifies each
+re-encrypted record reads back before writing it, and reports rather than
+overwrites anything it cannot decrypt.
+
+**Rotating the secret itself is a different operation** and the script cannot do
+it: old ciphertext becomes unreadable and the affected tenants must re-enter
+their keys in Settings → AI Providers.
 
 ## LLM API Key Security
 - Keys are configured in **AI Settings** by authenticated tenant users for their own tenant, or globally by `SUPER_ADMIN`. They are stored in Postgres encrypted at rest (AES-256-GCM via `AI_ENCRYPTION_KEY`) and can fall back to environment variables (see `docs/features/AI-BUILDER.md` §Security for the resolution order). Provider mutations are audit-logged without keys.

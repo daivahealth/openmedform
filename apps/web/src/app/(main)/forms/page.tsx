@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { Plus, Pencil, Eye, Archive, Copy, Download, FileUp } from 'lucide-react';
+import { Plus, Pencil, Eye, Archive, ArchiveRestore, Copy, Download, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   useForms,
   useArchiveForm,
+  useUnarchiveForm,
   useCloneForm,
   useExportForm,
 } from '@/hooks/use-forms';
@@ -25,8 +26,10 @@ import { PdfToFormDialog } from '@/components/forms/pdf-to-form-dialog';
 
 export default function FormsPage() {
   const router = useRouter();
-  const { data: forms, isLoading, isError, error, refetch } = useForms();
+  const [showArchived, setShowArchived] = useState(false);
+  const { data: forms, isLoading, isError, error, refetch } = useForms(showArchived);
   const archiveForm = useArchiveForm();
+  const unarchiveForm = useUnarchiveForm();
   const cloneForm = useCloneForm();
   const exportForm = useExportForm();
   const [promptOpen, setPromptOpen] = useState(false);
@@ -52,7 +55,16 @@ export default function FormsPage() {
             Create and manage clinical forms
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="h-4 w-4 rounded border-input"
+            />
+            Show archived
+          </label>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileUp className="mr-2 h-4 w-4" />
             From File
@@ -187,14 +199,26 @@ export default function FormsPage() {
                               <Download className="h-4 w-4" />
                             </Button>
                           )}
-                          {form.status !== 'ARCHIVED' && (
+                          {form.status !== 'ARCHIVED' ? (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => archiveForm.mutate(form.id)}
                               title="Archive"
+                              aria-label={`Archive ${form.name}`}
                             >
                               <Archive className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => unarchiveForm.mutate(form.id)}
+                              disabled={unarchiveForm.isPending}
+                              title="Restore this form to the status it had when archived"
+                              aria-label={`Unarchive ${form.name}`}
+                            >
+                              <ArchiveRestore className="h-4 w-4" />
                             </Button>
                           )}
                         </div>

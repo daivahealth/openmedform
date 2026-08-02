@@ -55,7 +55,9 @@ Multi-tenant isolation root.
 | category | VARCHAR(100) | e.g. "vte-assessment" |
 | tags | TEXT[] | |
 | form_type | ENUM | PATIENT, NON_PATIENT (default PATIENT) |
-| status | ENUM | DRAFT, PUBLISHED, ARCHIVED |
+| archived_at | TIMESTAMP? | When the form was archived. Hidden from the default list; the clock a retention policy would run off |
+| status_before_archive | form_status_enum? | Status to restore on unarchive. Recorded rather than derived — a form archived awaiting review must return to REVIEW |
+| status | ENUM | DRAFT, CONVERTING, REVIEW, PUBLISHED, ARCHIVED, RETIRED |
 | current_version_id | UUID FK | → form_version (nullable) |
 | created_by_id | UUID FK | → user |
 
@@ -174,3 +176,22 @@ always reconcile with the platform total.
 | output_tokens | INT | |
 | total_tokens | INT | |
 | created_at | TIMESTAMP | |
+
+## auth_exchange_code
+
+One-time codes that trade for an access token after Google SSO, so the JWT never
+travels in a redirect URL. See
+[security/AUTH-AND-RBAC](../security/AUTH-AND-RBAC.md#sso-redirect-does-not-carry-the-token).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | |
+| code_hash | VARCHAR(64) | SHA-256 of the code, unique. The plaintext exists only in the redirect URL |
+| user_id | UUID | Log-style scalar, no FK |
+| expires_at | TIMESTAMP | 60s after minting |
+| used_at | TIMESTAMP? | Set on first use; the `usedAt IS NULL` filter makes the claim atomic |
+| created_at | TIMESTAMP | |
+
+A table rather than in-process state because the redirect and the exchange are
+two requests that can be served by different instances. Swept opportunistically
+when new codes are minted.
