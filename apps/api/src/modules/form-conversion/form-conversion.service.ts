@@ -26,6 +26,7 @@ import {
   type LayoutSnapshot,
 } from '../../common/utils/layout-detect';
 import { JsonFormsAssemblerService, type AssembledJsonForms } from './jsonforms-assembler.service';
+import { FormQuotaService } from '../form/form-quota.service';
 import { getStructureProbePrompt } from '../ai-builder/prompts/structure-probe-prompt';
 import {
   hasRecordTable,
@@ -107,6 +108,7 @@ export class FormConversionService {
     private readonly providerRegistry: ProviderRegistry,
     private readonly aiUsage: AiUsageService,
     private readonly assembler: JsonFormsAssemblerService,
+    private readonly formQuota: FormQuotaService,
   ) {}
 
   /** Create the job and kick off conversion in the background. */
@@ -116,6 +118,12 @@ export class FormConversionService {
     input: ConversionInput,
     ipAddress?: string | null,
   ) {
+    // Before the job row and before any provider call: a user already at their
+    // limit should be refused without first spending tokens on a form they
+    // cannot keep. Conversion is the route the UI actually uses, so this is
+    // where the quota does most of its work.
+    await this.formQuota.assertFormLimit(userId);
+
     const job = await this.prisma.conversionJob.create({
       data: {
         tenantId,
@@ -503,6 +511,7 @@ export class FormConversionService {
     userId: string,
     input: { name: string; prompt: string; category?: string; providerName?: string },
   ) {
+    await this.formQuota.assertFormLimit(userId);
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
     const baseProvider = this.providerRegistry.getProvider(providerSet, input.providerName);
     if (!baseProvider) {

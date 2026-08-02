@@ -1,7 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
-import { FormService, FORM_LIMIT_CONTACT_EMAIL } from '../form/form.service';
+import {
+  FormQuotaService,
+  FORM_LIMIT_CONTACT_EMAIL,
+} from '../form/form-quota.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 
 /**
@@ -12,14 +15,14 @@ import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 @Controller('me')
 export class WorkspaceController {
   constructor(
-    private readonly formService: FormService,
+    private readonly formQuota: FormQuotaService,
     private readonly providerRegistry: ProviderRegistry,
   ) {}
 
   @Get('workspace-status')
   async getWorkspaceStatus(@CurrentUser() user: RequestUser) {
     const [quota, effectiveSource] = await Promise.all([
-      this.formService.getFormQuota(user.userId),
+      this.formQuota.getFormQuota(user.userId),
       this.providerRegistry.getEffectiveSource(user.tenantId),
     ]);
 
