@@ -174,3 +174,22 @@ always reconcile with the platform total.
 | output_tokens | INT | |
 | total_tokens | INT | |
 | created_at | TIMESTAMP | |
+
+## auth_exchange_code
+
+One-time codes that trade for an access token after Google SSO, so the JWT never
+travels in a redirect URL. See
+[security/AUTH-AND-RBAC](../security/AUTH-AND-RBAC.md#sso-redirect-does-not-carry-the-token).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | |
+| code_hash | VARCHAR(64) | SHA-256 of the code, unique. The plaintext exists only in the redirect URL |
+| user_id | UUID | Log-style scalar, no FK |
+| expires_at | TIMESTAMP | 60s after minting |
+| used_at | TIMESTAMP? | Set on first use; the `usedAt IS NULL` filter makes the claim atomic |
+| created_at | TIMESTAMP | |
+
+A table rather than in-process state because the redirect and the exchange are
+two requests that can be served by different instances. Swept opportunistically
+when new codes are minted.

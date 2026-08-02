@@ -24,6 +24,43 @@
 - The strategy registers only when `GOOGLE_CLIENT_ID` is configured; without it the SSO routes return 503 and password login is unaffected.
 - SSO failures redirect to `<FRONTEND_ORIGIN>/login?error=google_sso&message=...` — never raw JSON, since the browser is mid-redirect.
 
+## SSO Redirect Does Not Carry the Token
+
+The Google callback used to redirect to `/auth/callback?token=<jwt>`. That put a
+24-hour credential into browser history, `Referer` headers, and every access log
+between the load balancer and the browser — and with no token revocation, a
+leaked one stays valid for the full day. Server-side logs are the part that
+cannot be cleaned up afterwards.
+
+The redirect now carries a **one-time exchange code** (`?code=…`), which the
+callback page immediately POSTs to `POST /api/auth/exchange` for the real
+session. The code:
+
+- is 32 random bytes, stored only as a **SHA-256 hash**, so the plaintext exists
+  nowhere but the redirect URL;
+- is valid for **60 seconds** and **single-use**;
+- buys nothing but an exchange — it is useless against every other endpoint;
+- is **claimed atomically**: the `usedAt: null` filter lives inside the same
+  `updateMany` that marks it used, so two simultaneous requests cannot both win.
+  Verified with five parallel exchanges of one code — exactly one succeeded.
+
+Expired, already-spent and unknown codes return the **same** message. Telling
+them apart would say which codes are real.
+
+The callback page also strips the code from the address bar with
+`history.replaceState` before doing anything else.
+
+It is a database table (`auth_exchange_code`) rather than in-process state
+because the redirect and the exchange are two requests that can be served by
+different Cloud Run instances. Expired rows are swept opportunistically when new
+codes are minted; there is no scheduler.
+
+**This does not fix token storage.** The access token still lands in
+`localStorage`, so an XSS on the web origin can still read it — see the
+hardening backlog. Moving to an httpOnly cookie would fix both, but the API and
+the web app are on different registrable domains, which makes that a
+cross-site-cookie problem rather than a one-line change.
+
 ## Roles
 | Role | Permissions |
 |------|------------|
