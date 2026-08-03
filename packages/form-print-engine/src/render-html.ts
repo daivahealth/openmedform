@@ -18,6 +18,7 @@ import type {
 } from '@openmedform/form-schema-types';
 import {
   resolveSchemaAtScope,
+  resolveEnumOptions,
   scopeToDataPathSegments,
   getValueAtScope,
 } from '@openmedform/form-core';
@@ -129,15 +130,20 @@ function renderControl(el: UiControlLike, ctx: RenderCtx): string {
   const control = omf?.control;
   const print = omf?.print ?? {};
   const type = Array.isArray(fieldSchema?.type) ? fieldSchema?.type[0] : fieldSchema?.type;
-  const enumVals = (fieldSchema?.enum as string[] | undefined) ?? undefined;
+  // Same resolver the screen renderers use, so the printed sheet reads exactly
+  // like the form the clinician filled in — not the codes underneath it.
+  const enumOptions = resolveEnumOptions(fieldSchema, el);
 
   if (type === 'boolean') {
     return `<div class="omf-field"><span class="omf-check">${value ? '☑' : '☐'}</span>${esc(label)}</div>`;
   }
 
-  if (control === 'radio' && enumVals) {
-    const opts = enumVals
-      .map((o) => `<span><span class="omf-check">${value === o ? '☑' : '☐'}</span>${esc(o)}</span>`)
+  if (control === 'radio' && enumOptions.length > 0) {
+    const opts = enumOptions
+      .map(
+        (o) =>
+          `<span><span class="omf-check">${value === o.code ? '☑' : '☐'}</span>${esc(o.label)}</span>`,
+      )
       .join('');
     return `<div class="omf-field"><span class="omf-label">${esc(label)}</span><span class="omf-inline">${opts}</span></div>`;
   }

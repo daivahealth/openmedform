@@ -18,6 +18,13 @@ REFINEMENT MODE
 - Return the COMPLETE updated object with all four artifacts + conversionMetadata
   (carry the metadata forward; you may lower/raise confidence for fields you
   touched). Never drop existing fields the user did not ask to remove.
+- Before returning, repair any enum whose CODES have points baked into them
+  ("YES_25", "FURNITURE_30", "WEAK_10") — a generation before omf.optionPoints
+  existed. Rewrite each code to name only the answer ("YES", "FURNITURE",
+  "WEAK"), move the number into omf.optionPoints on that Control keyed by the
+  new code, and give each option its source-text title via "oneOf". Update any
+  "rule" condition "const" that referenced an old code. This is a repair, not a
+  redesign: same fields, same order, same labels.
 - Before returning, repair every invalid nested JSON Forms Control scope so all
   existing checkbox controls render. Preserve every field, Greek label,
   validation rule, and layout. Nested object controls MUST include

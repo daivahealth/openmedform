@@ -39,6 +39,40 @@ Scored sections also carry `omf.accentColor`, `omf.icon`, `omf.points` and
 `omf.pointLegend` to reproduce colour-coded paper domains. Scoring shown on
 screen is advisory: the server recalculates on submission and is authoritative.
 
+### Two shapes of scoring
+
+Which one a form uses is decided by the paper, not by preference:
+
+| Paper shows | Emit | Scores when |
+|---|---|---|
+| a tick-box row with a points column (`Acute MI …… 1`) | boolean Control + `omf.points: 1` | the box is ticked |
+| one dropdown or one set of mutually-exclusive radios whose **choice** carries the score | enum Control + `omf.optionPoints: { NO: 0, YES: 25 }` | that option is selected |
+
+`omf.optionPoints` is keyed by the stored code, so codes stay clean and
+language-independent — Morse Fall's ambulatory aid is
+`{ NONE_BEDREST_NURSE_ASSIST: 0, CRUTCHES_CANE_WALKER: 15, FURNITURE: 30 }`,
+never a code like `CRUTCHES_CANE_WALKER_15`. A code the map does not price
+contributes nothing rather than a guess, so a response saved against an older
+version of the form fails safe.
+
+### Enum option labels
+
+A stored code is language-independent and usually unreadable. Display text comes
+from the dataSchema's `oneOf`:
+
+```json
+{ "oneOf": [{ "const": "NO", "title": "No" }, { "const": "YES", "title": "Yes" }] }
+```
+
+or, for a schema that already carries a plain `enum`, from
+`omf.optionLabels: { "NO": "No" }`. Both renderers resolve options through
+`resolveEnumOptions` in `@openmedform/form-core`, so React and Angular cannot
+label the same schema differently. With neither, the renderer shows the bare
+code — visibly wrong on purpose, since an empty control would hide the mistake.
+
+Note that the `translations` bundle is **not** wired into either renderer today,
+so it cannot supply option labels.
+
 ## Removing Forms
 
 The forms list (`/forms`) offers two removal actions:

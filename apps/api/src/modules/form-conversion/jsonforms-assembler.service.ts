@@ -196,8 +196,9 @@ export class JsonFormsAssemblerService {
 
   /**
    * Derive the authoritative scoring rules from the UI schema, reading the same
-   * `options.omf.points` the renderer shows as badges (single source of truth,
-   * so the live client total and the stored score can't diverge). Produces:
+   * `options.omf.points` / `options.omf.optionPoints` the renderer scores from
+   * (single source of truth, so the live client total and the stored score
+   * can't diverge). Produces:
    *   - `totalScore` — a `sum` over every scored Control's data path;
    *   - `riskLevel` — a `threshold` mapping the total to a band, when a
    *     scoreSummary element declares `options.omf.bands`.
@@ -206,7 +207,11 @@ export class JsonFormsAssemblerService {
    */
   deriveScoringRules(uiSchema: Record<string, unknown>): Record<string, unknown> {
     const root = (uiSchema.layout as Record<string, unknown>) ?? uiSchema;
-    const items: Array<{ field: string; points: number }> = [];
+    const items: Array<{
+      field: string;
+      points?: number;
+      optionPoints?: Record<string, number>;
+    }> = [];
     let bands: Array<Record<string, unknown>> | undefined;
 
     const visit = (el: unknown): void => {
@@ -214,8 +219,15 @@ export class JsonFormsAssemblerService {
       const node = el as Record<string, unknown>;
       const omf = ((node.options as Record<string, unknown>)?.omf ?? {}) as Record<string, unknown>;
       const scope = node.scope;
-      if (typeof scope === 'string' && typeof omf.points === 'number') {
-        items.push({ field: this.scopeToDataPath(scope), points: omf.points });
+      if (typeof scope === 'string') {
+        // A scored single-select prices each option; a tick-box row has one
+        // number. Never both — optionPoints wins if a generator emits both.
+        const optionPoints = this.readOptionPoints(omf.optionPoints);
+        if (optionPoints) {
+          items.push({ field: this.scopeToDataPath(scope), optionPoints });
+        } else if (typeof omf.points === 'number') {
+          items.push({ field: this.scopeToDataPath(scope), points: omf.points });
+        }
       }
       if (omf.control === 'scoreSummary' && Array.isArray(omf.bands)) {
         bands = omf.bands as Array<Record<string, unknown>>;
@@ -242,6 +254,19 @@ export class JsonFormsAssemblerService {
       rules.riskLevel = { type: 'threshold', scoreField: 'totalScore', thresholds };
     }
     return rules;
+  }
+
+  /**
+   * A code→points map, keeping only numeric entries. A generator that emits
+   * `{ YES: "25" }` or an array gets no scoring rather than a NaN total.
+   */
+  private readOptionPoints(value: unknown): Record<string, number> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const out: Record<string, number> = {};
+    for (const [code, points] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof points === 'number' && Number.isFinite(points)) out[code] = points;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
   }
 
   /**

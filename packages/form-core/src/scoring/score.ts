@@ -1,9 +1,17 @@
 /**
  * Clinical scoring for the jsonforms engine — framework-independent.
  *
- * A scored form carries the point value of each tickable item on the UI element
- * under `options.omf.points`. This module is the SINGLE source of truth for
- * turning those points + the current response into a total:
+ * A scored form carries its point values on the UI element, in one of two
+ * shapes depending on what the paper does:
+ *
+ * - `options.omf.points` — one number for a tick-box row ("Acute MI …… 1").
+ *   Contributes when the box is ticked.
+ * - `options.omf.optionPoints` — a code→points map for a single-select whose
+ *   *choice* carries the score (Morse Fall's "Ambulatory aid": none 0,
+ *   crutches 15, furniture 30). Contributes the selected option's points.
+ *
+ * This module is the SINGLE source of truth for turning either shape + the
+ * current response into a total:
  *
  * - the React/Angular renderers call `computeScore` for the LIVE, on-screen
  *   running total and per-section subtotals (a clinician aid only), and
@@ -18,6 +26,7 @@
 
 import type { UiSchema, UiSchemaElement } from '@openmedform/form-schema-types';
 import { scopeToDataPath } from '../schema/pointer';
+import { elementOptionPoints } from '../schema/enum-options';
 import { getValueAtScope } from '../binding/data-path';
 
 /** A single scored control discovered in the UI schema. */
@@ -26,8 +35,14 @@ export interface ScoreItem {
   scope: string;
   /** Dotted data path, e.g. 'age.age75plus'. */
   path: string;
-  /** Points contributed when the control is ticked. */
+  /** Points contributed when the control is ticked. 0 for a scored select. */
   points: number;
+  /**
+   * For a scored single-select: what each enum code contributes. When present
+   * this takes precedence over `points`, and the contribution depends on which
+   * option is selected rather than on whether anything is.
+   */
+  optionPoints?: Record<string, number>;
   /** Nearest ancestor Group label, if any (used for per-section subtotals). */
   section?: string;
 }
@@ -73,7 +88,8 @@ function groupLabel(el: UiSchemaElement): string | undefined {
 
 /**
  * Walk a UI schema (root element or a `{ layout }` wrapper) and collect every
- * scored control (`options.omf.points`), tagged with its nearest Group section.
+ * scored control — `options.omf.points` or `options.omf.optionPoints` — tagged
+ * with its nearest Group section.
  */
 export function collectScoreItems(uiSchema: UiSchema | UiSchemaElement): ScoreItem[] {
   const root = (uiSchema as UiSchema).layout ?? (uiSchema as UiSchemaElement);
@@ -83,8 +99,15 @@ export function collectScoreItems(uiSchema: UiSchema | UiSchemaElement): ScoreIt
     const nextSection = groupLabel(el) ?? section;
     const scope = (el as { scope?: string }).scope;
     const points = elementPoints(el);
-    if (typeof scope === 'string' && typeof points === 'number') {
-      items.push({ scope, path: scopeToDataPath(scope), points, section: nextSection });
+    const optionPoints = elementOptionPoints(el);
+    if (typeof scope === 'string' && (typeof points === 'number' || optionPoints)) {
+      items.push({
+        scope,
+        path: scopeToDataPath(scope),
+        points: points ?? 0,
+        ...(optionPoints ? { optionPoints } : {}),
+        section: nextSection,
+      });
     }
     for (const child of children(el)) walk(child, nextSection);
   };
@@ -97,6 +120,22 @@ export function collectScoreItems(uiSchema: UiSchema | UiSchemaElement): ScoreIt
 function isPresent(value: unknown): boolean {
   return value === true || value === 1 || value === '1' || value === 'yes' ||
     (typeof value === 'number' && value > 0);
+}
+
+/**
+ * What one scored control contributes, or undefined when it contributes
+ * nothing at all (unticked box, unanswered select, code absent from the map).
+ *
+ * A select answered with a legitimately-zero option returns 0 rather than
+ * undefined: it has been answered, so its section counts as engaged.
+ */
+function contribution(item: ScoreItem, value: unknown): number | undefined {
+  if (item.optionPoints) {
+    if (value == null) return undefined;
+    const points = item.optionPoints[String(value)];
+    return typeof points === 'number' ? points : undefined;
+  }
+  return isPresent(value) ? item.points : undefined;
 }
 
 /** Resolve the risk band whose range contains `total`. */
@@ -121,10 +160,10 @@ export function computeScore(
   let total = 0;
   const bySection: Record<string, number> = {};
   for (const item of items) {
-    if (isPresent(getValueAtScope(data, item.scope))) {
-      total += item.points;
-      if (item.section) bySection[item.section] = (bySection[item.section] ?? 0) + item.points;
-    }
+    const points = contribution(item, getValueAtScope(data, item.scope));
+    if (points === undefined) continue;
+    total += points;
+    if (item.section) bySection[item.section] = (bySection[item.section] ?? 0) + points;
   }
   const band = stratify(total, bands);
   return { total, bySection, riskLabel: band?.label, riskColor: band?.color };
