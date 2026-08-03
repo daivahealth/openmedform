@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Avatar from '@radix-ui/react-avatar';
 import { useAuth } from '@/providers/auth-provider';
@@ -39,11 +39,8 @@ export function Topbar() {
               sideOffset={8}
               align="end"
             >
-              <DropdownMenu.Item className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent">
-                <User className="h-4 w-4" />
-                Profile
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className="my-1 h-px bg-border" />
+              {/* Logout is the menu's whole job: there is no profile page, and a
+                  dead "Profile" item sat here doing nothing when clicked. */}
               <DropdownMenu.Item
                 className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-accent"
                 onSelect={logout}
