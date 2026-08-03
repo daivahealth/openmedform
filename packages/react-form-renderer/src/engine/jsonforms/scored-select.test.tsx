@@ -127,3 +127,55 @@ describe('scored single-select', () => {
     expect(totalText()).toContain('High risk');
   });
 });
+
+describe('a oneOf enum with an explicit string type', () => {
+  /**
+   * What the generator actually emits: `type: "string"` alongside the `oneOf`.
+   * Both are true of the same schema, so the string-input tester and the
+   * select tester matched at the same rank — and the input, registered first,
+   * won. The field rendered as an empty text box with no options at all.
+   */
+  const typedOneOf = (): JsonFormsFormDefinition =>
+    ({
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          gait: {
+            type: 'string',
+            title: 'Gait',
+            oneOf: [
+              { const: 'NORMAL_BEDREST_WHEELCHAIR', title: 'Normal/bedrest/wheelchair' },
+              { const: 'WEAK', title: 'Weak' },
+              { const: 'IMPAIRED', title: 'Impaired' },
+            ],
+          },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/gait',
+              options: { omf: { optionPoints: { NORMAL_BEDREST_WHEELCHAIR: 0, WEAK: 10, IMPAIRED: 20 } } },
+            },
+          ],
+        },
+      },
+    }) as unknown as JsonFormsFormDefinition;
+
+  it('renders a select with its options, not a bare text input', () => {
+    const { container } = render(<JsonFormsRenderer definition={typedOneOf()} />);
+
+    const select = container.querySelector('select');
+    expect(select).toBeTruthy();
+    expect(container.querySelector('input[type="text"]')).toBeNull();
+
+    const optionText = Array.from(select?.querySelectorAll('option') ?? []).map((o) => o.textContent);
+    expect(optionText).toContain('Normal/bedrest/wheelchair');
+    expect(optionText).toContain('Impaired');
+  });
+});

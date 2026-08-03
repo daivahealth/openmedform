@@ -23,10 +23,8 @@ import {
 } from '@jsonforms/core';
 import { resolveEnumOptions, type EnumOption } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
-import { STANDARD_RANK } from '../testers';
+import { ENUM_DATE_RANK, STANDARD_RANK, enumControlTester, textControlTester } from '../testers';
 import { pointColor, readOmf } from '../point-value';
-
-const ENUM_DATE_RANK = STANDARD_RANK + 1;
 
 @Component({
   selector: 'omf-text-control',
@@ -50,7 +48,7 @@ const ENUM_DATE_RANK = STANDARD_RANK + 1;
   styles: [FIELD_STYLES],
 })
 export class TextControlComponent extends JsonFormsControl {}
-export const textControlTester = rankWith(STANDARD_RANK, isStringControl);
+export { textControlTester };
 
 @Component({
   selector: 'omf-number-control',
@@ -154,12 +152,7 @@ export class EnumControlComponent extends JsonFormsControl {
     return resolveEnumOptions(this.scopedSchema, this.uischema);
   }
 }
-// `isEnumControl` only matches a plain `enum`; a `oneOf` of consts says the same
-// thing and must reach this control too, or its labels are lost to the fallback.
-export const enumControlTester = rankWith(
-  ENUM_DATE_RANK,
-  or(isEnumControl, isOneOfEnumControl),
-);
+export { enumControlTester };
 
 @Component({
   selector: 'omf-date-control',

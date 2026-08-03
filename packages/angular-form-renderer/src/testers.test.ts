@@ -7,7 +7,10 @@ import {
   STANDARD_RANK,
   recordTableTester,
   omfTabsTester,
+  enumControlTester,
+  textControlTester,
 } from './testers';
+
 
 const withOmf = (control: string): UISchemaElement =>
   ({ type: 'Control', scope: '#/properties/x', options: { omf: { control } } } as unknown as UISchemaElement);
@@ -52,5 +55,36 @@ describe('Angular renderer testers (shared contract with React)', () => {
     const vertical = { type: 'VerticalLayout', elements: [] } as unknown as UISchemaElement;
     expect(omfTabsTester(tabs, {} as never, undefined as never)).toBe(STANDARD_RANK);
     expect(omfTabsTester(vertical, {} as never, undefined as never)).toBe(-1);
+  });
+});
+
+describe('a oneOf enum reaches the select, not the text input', () => {
+  /**
+   * React had this wrong: `{ type: 'string', oneOf: [...] }` matched the
+   * string-input tester and the select tester at the SAME rank, and the input
+   * won, so the field rendered as an empty text box. Angular is safe because
+   * its enum tester is ranked one above the text control — asserted here so it
+   * stays that way rather than being safe by accident.
+   */
+  const control = { type: 'Control', scope: '#/properties/gait' } as unknown as UISchemaElement;
+  const rootSchema = {
+    type: 'object',
+    properties: {
+      gait: {
+        type: 'string',
+        oneOf: [
+          { const: 'WEAK', title: 'Weak' },
+          { const: 'IMPAIRED', title: 'Impaired' },
+        ],
+      },
+    },
+  };
+
+  it('ranks the enum control above the text control for the same schema', () => {
+    const enumRank = enumControlTester(control, rootSchema, { rootSchema, config: {} } as never);
+    const textRank = textControlTester(control, rootSchema, { rootSchema, config: {} } as never);
+
+    expect(enumRank).toBeGreaterThan(-1);
+    expect(enumRank).toBeGreaterThan(textRank);
   });
 });
