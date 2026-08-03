@@ -7,11 +7,14 @@
 
 import {
   and,
+  isEnumControl,
+  isOneOfEnumControl,
+  isStringControl,
   or,
   rankWith,
   schemaMatches,
-  uiTypeIs,
   type UISchemaElement,
+  uiTypeIs,
 } from '@jsonforms/core';
 
 /** Rank for omf/clinical custom controls — must beat the standard controls. */
@@ -63,3 +66,27 @@ export const recordTableTester = rankWith(
 
 /** Selects the tab-strip layout used for a record's detail panel. */
 export const omfTabsTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTabsLayout'));
+
+/**
+ * Rank for the enum and date controls: ONE ABOVE the plain text control, and
+ * that ordering is load-bearing.
+ *
+ * `{ type: 'string', oneOf: [...] }` is simultaneously a string control and a
+ * single-select. At equal rank the registry keeps whichever was registered
+ * first, and the field renders as an empty text box with its options nowhere
+ * on screen — which is exactly what happened in the React renderer. Here the
+ * ordering settles it.
+ */
+export const ENUM_DATE_RANK = STANDARD_RANK + 1;
+
+/** Plain single-line text. Deliberately outranked by the enum tester. */
+export const textControlTester = rankWith(STANDARD_RANK, isStringControl);
+
+/**
+ * Any single-select: a plain `enum`, or a `oneOf` of consts. `isEnumControl`
+ * matches only the former, so both are needed or a titled oneOf falls through.
+ */
+export const enumControlTester = rankWith(
+  ENUM_DATE_RANK,
+  or(isEnumControl, isOneOfEnumControl),
+);

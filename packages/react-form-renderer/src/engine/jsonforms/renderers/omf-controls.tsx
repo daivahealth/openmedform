@@ -206,9 +206,18 @@ function OmfInput(props: ControlProps) {
   );
 }
 
+// A single-select must be excluded BOTH ways. `{ type: 'string', oneOf: [...] }`
+// is a string control by `isStringControl` and carries no `enum` keyword, so
+// without `not(isOneOfEnumControl)` this tester matches it at the same rank as
+// the select — and being registered first, wins. The field then renders as an
+// empty text box with the options nowhere in sight.
 export const omfInputTester = rankWith(
   OMF_INPUT_RANK,
-  and(or(isStringControl, isNumberControl, isIntegerControl, isDateControl), not(isEnumControl)),
+  and(
+    or(isStringControl, isNumberControl, isIntegerControl, isDateControl),
+    not(isEnumControl),
+    not(isOneOfEnumControl),
+  ),
 );
 export const OmfInputControl: ComponentType<any> = withJsonFormsControlProps(OmfInput);
 
