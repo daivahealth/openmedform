@@ -3,7 +3,6 @@
 "@openmedform/form-core": minor
 "@openmedform/react-form-renderer": minor
 "@openmedform/angular-form-renderer": minor
-"@openmedform/form-print-engine": minor
 ---
 
 Score single-selects, and stop showing enum codes to clinicians
@@ -22,4 +21,6 @@ The select/radio testers now also claim `oneOf`-style enums, which previously
 fell through to the vanilla renderer.
 
 The print engine resolves options the same way, so a printed sheet no longer
-shows codes where the paper form shows words.
+shows codes where the paper form shows words. It is not listed above because
+it is unpublished (`ignore` in .changeset/config.json), and a changeset may not
+mix ignored with published packages.
