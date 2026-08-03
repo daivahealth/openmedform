@@ -44,12 +44,12 @@
     "rxjs": "^7.4.0"
   },
   "devDependencies": {
-    "@angular/common": "20.3.26",
-    "@angular/compiler": "20.3.26",
-    "@angular/compiler-cli": "20.3.26",
-    "@angular/core": "20.3.26",
-    "@angular/forms": "20.3.26",
-    "@angular/platform-browser": "20.3.26",
+    "@angular/common": "20.3.27",
+    "@angular/compiler": "20.3.27",
+    "@angular/compiler-cli": "20.3.27",
+    "@angular/core": "20.3.27",
+    "@angular/forms": "20.3.27",
+    "@angular/platform-browser": "20.3.27",
     "ng-packagr": "^20.3.0",
     "rxjs": "^7.8.0",
     "tslib": "^2.7.0",
