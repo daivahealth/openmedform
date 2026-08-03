@@ -47,11 +47,11 @@ jobs:
       - name: Validate deploy workflow
         run: node scripts/check-deploy-workflow.mjs
 
-      # release.yml has the same after-merge-only problem. `changeset status`
-      # parses every changeset and rejects the ones the release would choke on
-      # — notably a changeset naming both a published and an ignored package.
+      # release.yml has the same after-merge-only problem. This reads the
+      # changeset files rather than shelling out to `changeset status`, which
+      # diffs against main and needs git history the shallow clone lacks.
       - name: Validate changesets
-        run: npx changeset status
+        run: node scripts/check-changesets.mjs
 
       # A public deployment should not silently accumulate known-exploitable
       # dependencies. Blocking at high+ because that backlog is currently zero
