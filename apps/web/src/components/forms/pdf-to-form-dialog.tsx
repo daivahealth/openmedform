@@ -13,9 +13,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateJsonFormsForm } from '@/hooks/use-conversions';
+import { useCreateJsonFormsForm, type ConversionJob } from '@/hooks/use-conversions';
+import { ConversionProgress } from './conversion-progress';
 import { useAiProviders } from '@/hooks/use-ai-builder';
-import { AlertCircle, FileUp, Loader2 } from 'lucide-react';
+import { AlertCircle, FileUp } from 'lucide-react';
 import axios from 'axios';
 
 interface PdfToFormDialogProps {
@@ -42,10 +43,13 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
    */
   const [readScriptConfig, setReadScriptConfig] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  /** Latest polled snapshot of the running job — drives the stage checklist. */
+  const [job, setJob] = useState<ConversionJob | null>(null);
 
 
   function reset() {
     setStep('upload');
+    setJob(null);
     setFile(null);
     setInstructions('');
     setProvider('');
@@ -87,6 +91,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
         provider: provider || undefined,
         instructions: instructions.trim() || undefined,
         extractScriptConfig: isHtml && readScriptConfig,
+        onJobUpdate: setJob,
       });
       handleClose(false);
       router.push(`/forms/${formId}/preview`);
@@ -211,18 +216,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
           </div>
         )}
 
-        {step === 'processing' && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium">Converting the form…</p>
-              <p className="text-sm text-muted-foreground">
-                Analyzing the source file and generating the data, layout and print
-                schemas. This can take up to a couple of minutes.
-              </p>
-            </div>
-          </div>
-        )}
+        {step === 'processing' && <ConversionProgress job={job} />}
 
         {step === 'error' && (
           <div className="grid gap-4 py-4">

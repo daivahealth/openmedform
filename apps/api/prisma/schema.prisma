@@ -255,6 +255,12 @@ model ConversionJob {
   sourceFileName  String?             @map("source_file_name") @db.VarChar(255)
   pageCount       Int?                @map("page_count")
   similarityScore Float?              @map("similarity_score")
+  // Where a RUNNING job actually is (READING_SOURCE/GENERATING/VALIDATING/
+  // SAVING) + a human detail line ("3 pages · claude"). Purely informational —
+  // the dialog polls it to draw a live stage checklist; status stays the only
+  // field control flow reads.
+  stage           String?             @db.VarChar(40)
+  stageDetail     String?             @map("stage_detail") @db.VarChar(255)
   error           String?             @db.Text
   createdById     String              @map("created_by_id") @db.Uuid
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamp(6)

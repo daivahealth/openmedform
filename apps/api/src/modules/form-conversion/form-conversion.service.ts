@@ -197,7 +197,7 @@ export class FormConversionService {
   ): Promise<void> {
     await this.prisma.conversionJob.update({
       where: { id: jobId },
-      data: { status: 'RUNNING' },
+      data: { status: 'RUNNING', stage: 'READING_SOURCE' },
     });
 
     try {
@@ -214,6 +214,8 @@ export class FormConversionService {
           status: 'REVIEW',
           formId,
           pageCount: pageCount ?? null,
+          stage: null,
+          stageDetail: null,
           completedAt: new Date(),
         },
       });
@@ -250,6 +252,22 @@ export class FormConversionService {
         resourceId: jobId,
         details: { error: message },
       });
+    }
+  }
+
+  /**
+   * Record where a RUNNING job is, for the dialog's live stage checklist.
+   * Purely informational: a failed write must never fail the conversion, so
+   * this swallows its own errors (logged at debug) instead of throwing.
+   */
+  private async setStage(jobId: string, stage: string, detail?: string): Promise<void> {
+    try {
+      await this.prisma.conversionJob.update({
+        where: { id: jobId },
+        data: { stage, stageDetail: detail ?? null },
+      });
+    } catch (err) {
+      this.logger.debug(`Could not record stage ${stage} for job ${jobId}: ${String(err)}`);
     }
   }
 
@@ -388,6 +406,7 @@ export class FormConversionService {
       userPrompt += `Cleaned HTML source:\n${extracted.cleanedHtml}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
 
+      await this.setStage(jobId, 'GENERATING', `HTML mock-up · ${provider.name}`);
       rawOutput = await provider.generate(userPrompt, systemPrompt, {
         temperature: 0.2,
         maxTokens: CONVERSION_MAX_TOKENS,
@@ -414,6 +433,11 @@ export class FormConversionService {
           mediaType: 'image/png',
           data,
         }));
+        await this.setStage(
+          jobId,
+          'GENERATING',
+          `${pages} page${pages === 1 ? '' : 's'} · ${provider.name}`,
+        );
         // A PDF has no markup to detect structure in, so ask the pages one
         // narrow question first and turn the answer into the same hints.
         structureProbe = await this.probePageStructure(provider, images);
@@ -425,6 +449,11 @@ export class FormConversionService {
         });
       } else {
         userPrompt += '\n\nNo page image is available. Preserve the extracted-text reading order in a conservative single-column layout unless the text itself provides unambiguous layout evidence; add an UNCERTAIN_SECTION_BOUNDARY warning for layout guesses.';
+        await this.setStage(
+          jobId,
+          'GENERATING',
+          `${pages} page${pages === 1 ? '' : 's'} · ${provider.name}`,
+        );
         rawOutput = await provider.generate(userPrompt, systemPrompt, {
           temperature: 0.2,
           maxTokens: CONVERSION_MAX_TOKENS,
@@ -442,6 +471,7 @@ export class FormConversionService {
           data: input.fileBuffer.toString('base64'),
         },
       ];
+      await this.setStage(jobId, 'GENERATING', `image · ${provider.name}`);
       structureProbe = await this.probePageStructure(provider, images);
       const userPrompt =
         'Convert this clinical form image into the jsonforms engine format.' +
@@ -454,10 +484,12 @@ export class FormConversionService {
       });
     }
 
+    await this.setStage(jobId, 'VALIDATING');
     assertConversionOutputComplete(rawOutput);
     const assembled = this.assembler.assemble(rawOutput);
     this.recordStructureProbe(assembled, structureProbe);
 
+    await this.setStage(jobId, 'SAVING');
     const form = await this.createDraftForm(tenantId, userId, input.fileName, {
       dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
       uiSchema: assembled.uiSchema as unknown as Prisma.InputJsonValue,
