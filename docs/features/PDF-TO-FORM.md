@@ -96,6 +96,12 @@ surfaced for review, never silently dropped.
 
 Jobs run in the background (lightweight fire-and-forget — no external queue) and
 transition PENDING → RUNNING → REVIEW \| FAILED; poll `GET /api/conversions/:id`.
+While RUNNING the job also reports `stage` — READING_SOURCE → GENERATING →
+VALIDATING → SAVING, with a human `stageDetail` such as `3 pages · claude` —
+which the upload dialog renders as a live checklist with an elapsed timer.
+Deliberately no percentage: most of the wall time is a single LLM call of
+unpredictable length, so a 0–100% bar would stall near the top and read as
+hung. Stage writes are best-effort; losing one never fails the conversion.
 A successful job creates a **draft form in REVIEW status**; `ai.convert` is
 audit-logged.
 

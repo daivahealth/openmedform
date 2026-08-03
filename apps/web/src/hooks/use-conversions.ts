@@ -17,9 +17,13 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-interface ConversionJob {
+export interface ConversionJob {
   id: string;
   status: 'PENDING' | 'RUNNING' | 'REVIEW' | 'COMPLETED' | 'FAILED';
+  /** Pipeline stage of a RUNNING job — drives the dialog's live checklist. */
+  stage?: string | null;
+  /** Human detail for the active stage, e.g. "3 pages · claude". */
+  stageDetail?: string | null;
   formId?: string | null;
   error?: string | null;
 }
@@ -30,6 +34,11 @@ export interface CreateJsonFormsInput {
   instructions?: string;
   /** Opt in to parsing an HTML mock-up's scripts for declarative config. */
   extractScriptConfig?: boolean;
+  /**
+   * Called with every polled snapshot of the job (including the first), so the
+   * dialog can show live stage progress while the mutation is in flight.
+   */
+  onJobUpdate?: (job: ConversionJob) => void;
 }
 
 export function useCreateJsonFormsForm() {
@@ -52,6 +61,7 @@ export function useCreateJsonFormsForm() {
       });
 
       let current = job;
+      input.onJobUpdate?.(current);
       for (
         let i = 0;
         i < MAX_POLLS && (current.status === 'PENDING' || current.status === 'RUNNING');
@@ -60,6 +70,7 @@ export function useCreateJsonFormsForm() {
         await delay(POLL_INTERVAL_MS);
         const { data } = await api.get<ConversionJob>(`/api/conversions/${job.id}`);
         current = data;
+        input.onJobUpdate?.(current);
       }
 
       if (current.status === 'FAILED') {
