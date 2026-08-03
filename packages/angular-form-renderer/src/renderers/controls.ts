@@ -16,9 +16,12 @@ import {
   isEnumControl,
   isIntegerControl,
   isNumberControl,
+  isOneOfEnumControl,
   isStringControl,
+  or,
   rankWith,
 } from '@jsonforms/core';
+import { resolveEnumOptions, type EnumOption } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
 import { STANDARD_RANK } from '../testers';
 import { pointColor, readOmf } from '../point-value';
@@ -135,8 +138,8 @@ export const booleanControlTester = rankWith(STANDARD_RANK, isBooleanControl);
           (change)="onChange({ value: $any($event.target).value || undefined })"
         >
           <option value="">—</option>
-          @for (option of enumOptions; track option) {
-            <option [value]="option" [selected]="data === option">{{ option }}</option>
+          @for (option of enumOptions; track option.code) {
+            <option [value]="option.code" [selected]="data === option.code">{{ option.label }}</option>
           }
         </select>
         @if (error) { <span class="omf-error">{{ error }}</span> }
@@ -146,11 +149,17 @@ export const booleanControlTester = rankWith(STANDARD_RANK, isBooleanControl);
   styles: [FIELD_STYLES],
 })
 export class EnumControlComponent extends JsonFormsControl {
-  get enumOptions(): string[] {
-    return (this.scopedSchema?.enum as string[] | undefined) ?? [];
+  /** Resolved in form-core, so React shows the same words for the same schema. */
+  get enumOptions(): EnumOption[] {
+    return resolveEnumOptions(this.scopedSchema, this.uischema);
   }
 }
-export const enumControlTester = rankWith(ENUM_DATE_RANK, isEnumControl);
+// `isEnumControl` only matches a plain `enum`; a `oneOf` of consts says the same
+// thing and must reach this control too, or its labels are lost to the fallback.
+export const enumControlTester = rankWith(
+  ENUM_DATE_RANK,
+  or(isEnumControl, isOneOfEnumControl),
+);
 
 @Component({
   selector: 'omf-date-control',

@@ -115,6 +115,27 @@ reproduces these faithfully:
   The renderer draws the checkbox on the left, the label, and a **colour-coded
   point badge** on the right (1→blue, 2→green, 3→amber, 5→red).
 
+### Scored single-selects (Morse, Braden, GCS)
+
+Bedside instruments usually score differently: one dropdown or one set of
+mutually-exclusive radios per item, where the **choice** carries the points.
+These convert to a single enum `Control` with the points in
+`options.omf.optionPoints`, keyed by the stored code, and the option text in the
+dataSchema's `oneOf` titles:
+
+```json
+{ "type": "Control", "scope": "#/properties/morse/properties/ambulatoryAid",
+  "options": { "omf": { "control": "radio", "optionPoints": {
+    "NONE_BEDREST_NURSE_ASSIST": 0, "CRUTCHES_CANE_WALKER": 15, "FURNITURE": 30 } } } }
+```
+
+The prompt forbids folding the number into the code (`FURNITURE_30`). Before
+`optionPoints` existed a generator had no other way to record it, which produced
+forms whose total never moved off zero and whose options read as `YES_25` on
+screen. An existing form in that state is repaired by a prompt-designer refine —
+the refine prompt rewrites such codes, moves the numbers into `optionPoints`, and
+adds the `oneOf` titles.
+
 Every row is extracted as its own field — the prompt explicitly forbids emitting
 an empty `scoringMatrix` (which would drop the risk factors). Saved data is a set
 of clean booleans. A **YES/NO (or question-then-answer) row** where the paper
@@ -166,7 +187,8 @@ so one bad reference no longer sinks an otherwise-complete conversion.
 
 Many scored forms sum the ticked points across every box into a grand total and
 map that total to a risk level. This is **data-driven and computed from a single
-source of truth** — the `options.omf.points` on each checkbox:
+source of truth** — the `options.omf.points` on each checkbox, and
+`options.omf.optionPoints` on each scored single-select:
 
 - **Live, on screen (clinician aid):** each domain box header shows a running
   section subtotal (`Σ N`), and a `omf.control: "scoreSummary"` element shows the
@@ -178,7 +200,8 @@ source of truth** — the `options.omf.points` on each checkbox:
   inclusive).
 - **Authoritative (stored):** at conversion (and again on every prompt-designer
   refine) the backend derives `form_version.scoring_rules` from the same
-  `omf.points` — a `sum` rule over each scored field's data path, plus a
+  `omf.points`/`omf.optionPoints` — a `sum` rule over each scored field's data
+  path (option-priced fields carry their map instead of a single number), plus a
   `threshold` rule from the bands. On `POST /submissions/:id/complete` the
   `ScoringService` recomputes the total and risk level from the **saved** data and
   stores `submission.scores` / `submission.risk_level`. **Client totals are never

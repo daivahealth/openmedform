@@ -2,7 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 
 export interface ScoringRuleSum {
   type: 'sum';
-  items: Array<{ field: string; points: number }>;
+  items: Array<{
+    field: string;
+    /** Points when the field is ticked. Omitted for an option-priced field. */
+    points?: number;
+    /**
+     * Points per stored code for a single-select whose choice carries the score
+     * (Morse Fall's ambulatory aid: none 0 / crutches 15 / furniture 30). Takes
+     * precedence over `points` when present.
+     */
+    optionPoints?: Record<string, number>;
+  }>;
 }
 
 export interface ScoringRuleWeightedSum {
@@ -78,6 +88,19 @@ export class ScoringService {
     let total = 0;
     for (const item of rule.items) {
       const value = this.resolveField(data, item.field);
+
+      // An option-priced field scores by WHICH option was chosen, not by
+      // whether anything was. A code absent from the map scores nothing rather
+      // than guessing — that is how a stale response saved against an older
+      // version of the form fails safe.
+      if (item.optionPoints) {
+        if (value == null) continue;
+        const points = item.optionPoints[String(value)];
+        if (typeof points === 'number') total += points;
+        continue;
+      }
+
+      if (typeof item.points !== 'number') continue;
       if (value === true || value === 1 || value === '1' || value === 'yes') {
         total += item.points;
       } else if (typeof value === 'number' && value > 0) {

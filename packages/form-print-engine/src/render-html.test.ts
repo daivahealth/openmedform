@@ -18,6 +18,47 @@ describe('renderPrintHtml (A4 reconstruction)', () => {
     expect(html).toContain('☐');
   });
 
+  it('prints option labels, not the stored codes', () => {
+    // The printed sheet is read by a clinician; `CRUTCHES_CANE_WALKER_15` on
+    // paper is as wrong as it is on screen.
+    const html = renderPrintHtml(
+      {
+        ...rrtSbarReference,
+        dataSchema: {
+          type: 'object',
+          properties: {
+            ambulatoryAid: {
+              title: 'Ambulatory aid',
+              oneOf: [
+                { const: 'NONE_BEDREST_NURSE_ASSIST', title: 'None/bedrest/nurse assist' },
+                { const: 'CRUTCHES_CANE_WALKER', title: 'Crutches/Cane/Walker' },
+              ],
+            },
+          },
+        },
+        uiSchema: {
+          schemaVersion: '1.0',
+          layout: {
+            type: 'VerticalLayout',
+            elements: [
+              {
+                type: 'Control',
+                scope: '#/properties/ambulatoryAid',
+                options: { omf: { control: 'radio' } },
+              },
+            ],
+          },
+        },
+      } as never,
+      { data: { ambulatoryAid: 'CRUTCHES_CANE_WALKER' } },
+    );
+
+    expect(html).toContain('Crutches/Cane/Walker');
+    expect(html).not.toContain('NONE_BEDREST_NURSE_ASSIST');
+    // …and the ticked box sits against the selected option.
+    expect(html).toMatch(/☑<\/span>Crutches\/Cane\/Walker/);
+  });
+
   it('renders the AVPU radio options inline from the enum', () => {
     expect(html).toContain('ALERT');
     expect(html).toContain('UNRESPONSIVE');

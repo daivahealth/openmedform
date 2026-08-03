@@ -84,6 +84,31 @@ export interface OmfOptions {
    */
   points?: number;
   /**
+   * Points per option for a SCORED SINGLE-SELECT, keyed by the enum code the
+   * control stores: `{ NO: 0, YES: 25 }`.
+   *
+   * `points` above cannot express this. It is one number for one control, which
+   * fits a tick-box row ("Acute MI …… 1 point") but not an instrument where the
+   * *choice* carries the score — Morse Fall (Ambulatory aid: none 0 / crutches
+   * 15 / furniture 30), Braden, GCS. Without somewhere to put them, a generator
+   * has only bad options: split one dropdown into several booleans, or smuggle
+   * the number into the code as `YES_25`, which scores nothing and shows the
+   * user `YES_25`.
+   *
+   * Codes stay clean and language-independent; the number lives here. Labels
+   * come from the dataSchema's `oneOf` titles or `optionLabels`.
+   */
+  optionPoints?: Record<string, number>;
+  /**
+   * Display labels for an enum's codes, keyed by code: `{ NO: 'No' }`.
+   *
+   * Prefer `oneOf` with `const` + `title` in the dataSchema — that is the JSON
+   * Forms-native way and keeps the label beside the value it names. Use this
+   * when the schema already carries a plain `enum` and rewriting it would be
+   * churn. Either way the renderer never shows a bare code when a label exists.
+   */
+  optionLabels?: Record<string, string>;
+  /**
    * Distinct point values present in a section, rendered as small chips in the
    * section header (e.g. [1, 2, 3]) mirroring a paper legend band.
    */

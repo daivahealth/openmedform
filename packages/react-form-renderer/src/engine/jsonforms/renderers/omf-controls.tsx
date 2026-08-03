@@ -20,6 +20,7 @@ import {
   isIntegerControl,
   isDateControl,
   isEnumControl,
+  isOneOfEnumControl,
 } from '@jsonforms/core';
 import {
   withJsonFormsControlProps,
@@ -27,7 +28,7 @@ import {
   JsonFormsDispatch,
   useJsonForms,
 } from '@jsonforms/react';
-import { collectScoreItems, computeScore } from '@openmedform/form-core';
+import { collectScoreItems, computeScore, resolveEnumOptions } from '@openmedform/form-core';
 import { FieldFrame, inputStyle } from './field-frame';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
@@ -99,7 +100,9 @@ export const OmfTextareaControl: ComponentType<any> = withJsonFormsControlProps(
 function OmfRadio(props: ControlProps) {
   const { id, label, data, enabled, visible, required, errors, path, handleChange, schema, uischema } = props;
   if (!visible) return null;
-  const options = (schema.enum ?? []) as string[];
+  // Codes are what we store; labels are what the clinician reads. Resolved in
+  // form-core so the Angular renderer shows the same words.
+  const options = resolveEnumOptions(schema, uischema);
   const screen = readOmf(uischema)?.screen as { inline?: boolean; labelPosition?: string } | undefined;
   // Label-left / options-right (paper YES–NO layout): explicit, or the default
   // for a two-option radio (overwhelmingly a YES/NO row on clinical forms).
@@ -109,16 +112,16 @@ function OmfRadio(props: ControlProps) {
   const inline = screen?.inline ?? labelLeft;
 
   const optionEls = options.map((option) => (
-    <label key={option} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'var(--omf-font-size-body, 14px)' }}>
+    <label key={option.code} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'var(--omf-font-size-body, 14px)' }}>
       <input
         type="radio"
         name={id}
-        value={option}
-        checked={data === option}
+        value={option.code}
+        checked={data === option.code}
         disabled={!enabled}
-        onChange={() => handleChange(path, option)}
+        onChange={() => handleChange(path, option.code)}
       />
-      {option}
+      {option.label}
     </label>
   ));
 
@@ -212,9 +215,9 @@ export const OmfInputControl: ComponentType<any> = withJsonFormsControlProps(Omf
 // --- default enum select (bordered box) -------------------------------------
 
 function OmfSelect(props: ControlProps) {
-  const { id, label, data, enabled, visible, required, errors, path, handleChange, schema } = props;
+  const { id, label, data, enabled, visible, required, errors, path, handleChange, schema, uischema } = props;
   if (!visible) return null;
-  const options = (schema.enum ?? []) as string[];
+  const options = resolveEnumOptions(schema, uischema);
   return (
     <FieldFrame id={id} label={label} required={required} errors={errors}>
       <select
@@ -226,8 +229,8 @@ function OmfSelect(props: ControlProps) {
       >
         <option value="">—</option>
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+          <option key={option.code} value={option.code}>
+            {option.label}
           </option>
         ))}
       </select>
@@ -235,7 +238,10 @@ function OmfSelect(props: ControlProps) {
   );
 }
 
-export const omfSelectTester = rankWith(OMF_INPUT_RANK, isEnumControl);
+// `isEnumControl` only matches a plain `enum`; a `oneOf` of consts is the other
+// half of the same idea and would otherwise fall through to the vanilla select,
+// which is exactly where labels get lost.
+export const omfSelectTester = rankWith(OMF_INPUT_RANK, or(isEnumControl, isOneOfEnumControl));
 export const OmfSelectControl: ComponentType<any> = withJsonFormsControlProps(OmfSelect);
 
 // --- checkbox (box on the LEFT, then label — matches paper forms) -----------

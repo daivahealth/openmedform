@@ -6,6 +6,7 @@
 import { Component } from '@angular/core';
 import { JsonFormsControl } from '@jsonforms/angular';
 import { rankWith } from '@jsonforms/core';
+import { resolveEnumOptions, type EnumOption } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
@@ -62,10 +63,10 @@ export const omfTextareaTester = rankWith(OMF_CONTROL_RANK, omfControlIs('textar
         <div class="omf-field">
           <label class="omf-label">{{ label }}</label>
           <div class="omf-radio-group" [class.stacked]="!inline">
-            @for (option of enumOptions; track option) {
+            @for (option of enumOptions; track option.code) {
               <label class="omf-radio-option">
-                <input type="radio" [name]="id" [value]="option" [checked]="data === option" [disabled]="!enabled" (change)="onChange({ value: option })" />
-                {{ option }}
+                <input type="radio" [name]="id" [value]="option.code" [checked]="data === option.code" [disabled]="!enabled" (change)="onChange({ value: option.code })" />
+                {{ option.label }}
               </label>
             }
           </div>
@@ -77,8 +78,9 @@ export const omfTextareaTester = rankWith(OMF_CONTROL_RANK, omfControlIs('textar
   styles: [FIELD_STYLES],
 })
 export class OmfRadioControlComponent extends JsonFormsControl {
-  get enumOptions(): string[] {
-    return (this.scopedSchema?.enum as string[] | undefined) ?? [];
+  /** Resolved in form-core, so React shows the same words for the same schema. */
+  get enumOptions(): EnumOption[] {
+    return resolveEnumOptions(this.scopedSchema, this.uischema);
   }
   private get screen(): { inline?: boolean; labelPosition?: string } | undefined {
     return readOmf(this.uischema)?.['screen'] as { inline?: boolean; labelPosition?: string } | undefined;
