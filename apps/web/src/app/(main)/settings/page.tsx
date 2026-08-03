@@ -3,13 +3,6 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/providers/auth-provider';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { AiProviderManager } from '@/components/settings/ai-provider-manager';
 
 /**
@@ -49,45 +42,16 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <AiProviderManager
-            scope="tenant"
-            title="AI Providers"
-            description="LLM providers for AI-powered form generation in your organization. Adding one also lifts the free-tier form limit."
-          />
-        </div>
-
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Platform Info</CardTitle>
-            <CardDescription>OpenMedForm system information</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Version</span>
-                <span className="font-mono">0.1.0</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Backend</span>
-                <span className="font-mono">NestJS 10</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Frontend</span>
-                <span className="font-mono">Next.js 14</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Form Engine</span>
-                <span className="font-mono">JSON Forms 3.8</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Database</span>
-                <span className="font-mono">PostgreSQL 16</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Full width now: the hardcoded "Platform Info" card that used to sit in
+          a right-hand column was removed — it advertised stack internals to
+          every user of a public deployment and was stale the moment versions
+          moved (it still said Next.js 14). */}
+      <div className="max-w-4xl space-y-6">
+        <AiProviderManager
+          scope="tenant"
+          title="AI Providers"
+          description="LLM providers for AI-powered form generation in your organization. Adding one also lifts the free-tier form limit."
+        />
       </div>
     </div>
   );
