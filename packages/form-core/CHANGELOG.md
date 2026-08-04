@@ -1,5 +1,12 @@
 # @openmedform/form-core
 
+## 1.3.0
+
+### Patch Changes
+
+- Updated dependencies [f211e42]
+  - @openmedform/form-schema-types@1.3.0
+
 ## 1.2.1
 
 ### Patch Changes
