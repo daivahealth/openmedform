@@ -288,6 +288,35 @@ model ConversionWarning {
   @@map("conversion_warning")
 }
 
+// ─── Form AI Message ─────────────────────────────────────────────────────────
+
+/// The refine conversation for a form — one row per chat bubble. The designer
+/// panel shows this as history, so a reviewer can see WHAT was asked of the AI
+/// and what came of it, across sessions and users. Failed refinements are
+/// recorded too (role ASSISTANT, status ERROR): an instruction that did not
+/// apply is part of the story, not noise.
+///
+/// Scoped to the FORM, not a version: refining a published form forks a new
+/// draft, and the conversation must survive that fork. Log-style scalar FKs,
+/// same as audit_log.
+model FormAiMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  formId      String   @map("form_id") @db.Uuid
+  /// USER (the instruction) or ASSISTANT (the outcome).
+  role        String   @db.VarChar(12)
+  content     String   @db.Text
+  /// OK, or ERROR on an assistant message reporting a failed refinement.
+  status      String   @default("OK") @db.VarChar(12)
+  /// The user message carried a reference image (the image itself is not kept).
+  hadImage    Boolean  @default(false) @map("had_image")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([tenantId, formId, createdAt])
+  @@map("form_ai_message")
+}
+
 // ─── Audit Log ───────────────────────────────────────────────────────────────
 
 model AuditLog {

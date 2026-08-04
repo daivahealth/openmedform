@@ -24,6 +24,27 @@ export function useAiProviders() {
   });
 }
 
+export interface FormAiMessage {
+  id: string;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  status: 'OK' | 'ERROR';
+  hadImage: boolean;
+  createdAt: string;
+}
+
+/** The refine conversation for a form — the chat panel's history. */
+export function useFormAiMessages(formId: string) {
+  return useQuery<FormAiMessage[]>({
+    queryKey: ['form-ai-messages', formId],
+    queryFn: async () => {
+      const { data } = await api.get<FormAiMessage[]>(`/api/forms/${formId}/ai/messages`);
+      return data;
+    },
+    enabled: !!formId,
+  });
+}
+
 export function useJsonFormsRefine() {
   const queryClient = useQueryClient();
 
@@ -68,6 +89,11 @@ export function useJsonFormsRefine() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['form', variables.formId] });
       queryClient.invalidateQueries({ queryKey: ['forms'] });
+    },
+    // Settled, not success: a failed refinement also lands in the transcript
+    // (as an ERROR bubble), so the history must refresh either way.
+    onSettled: (_result, _error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['form-ai-messages', variables.formId] });
     },
   });
 }

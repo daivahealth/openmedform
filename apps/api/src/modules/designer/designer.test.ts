@@ -84,6 +84,7 @@ describe('refine error reporting', () => {
     };
     const controller = new DesignerController({
       refine: vi.fn().mockRejectedValue(thrown),
+      recordFailure: vi.fn().mockResolvedValue(undefined),
     } as unknown as DesignerService);
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -36,6 +36,8 @@ const REFINE_MAX_TOKENS = 32768;
 
 @Injectable()
 export class DesignerService {
+  private readonly logger = new Logger(DesignerService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -66,6 +68,17 @@ export class DesignerService {
     if (!latest) {
       throw new BadRequestException('Form has no version to refine');
     }
+
+    // The user's side of the exchange, written as soon as ownership is
+    // established (never before — a NotFound above must leave no trace). The
+    // assistant's side lands when the outcome is known: recordOutcome below on
+    // success, or the controller's recordFailure with the user-safe error.
+    await this.recordMessage(tenantId, formId, {
+      role: 'USER',
+      content: instruction,
+      hadImage: !!image,
+      createdById: userId,
+    });
 
     progress('Loading provider and current form definition...');
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
@@ -178,6 +191,18 @@ export class DesignerService {
       details: { formId: form.id, version: savedVersion.version, forkedNewDraft: !!latest.publishedAt },
     });
 
+    await this.recordMessage(tenantId, formId, {
+      role: 'ASSISTANT',
+      content:
+        `Applied to draft version ${savedVersion.version}` +
+        (latest.publishedAt ? ' (forked from the published version)' : '') +
+        (assembled.warnings.length > 0
+          ? `, with ${assembled.warnings.length} warning${assembled.warnings.length === 1 ? '' : 's'} to review`
+          : '') +
+        '.',
+      createdById: userId,
+    });
+
     progress('Refinement complete');
     return {
       provider: provider.name,
@@ -189,5 +214,79 @@ export class DesignerService {
       conversionMetadata: assembled.conversionMetadata,
       warnings: assembled.warnings,
     };
+  }
+
+  /** The refine conversation for a form, oldest first, tenant-scoped. */
+  async listMessages(tenantId: string, formId: string) {
+    const form = await this.prisma.form.findFirst({
+      where: { id: formId, tenantId },
+      select: { id: true },
+    });
+    if (!form) throw new NotFoundException(`Form ${formId} not found`);
+
+    return this.prisma.formAiMessage.findMany({
+      where: { tenantId, formId },
+      orderBy: { createdAt: 'asc' },
+      // A bound, not pagination: at ~2 rows per refinement this is hundreds of
+      // refinements before anything is trimmed, and it is the OLDEST that drop.
+      take: -400,
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        status: true,
+        hadImage: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  /**
+   * Record a failed refinement against the conversation, with the SAME
+   * user-safe message the SSE stream sent — the transcript must tell the same
+   * story the user watched. Ownership is re-checked because the controller
+   * calls this from its error path, where nothing else vouches for the id.
+   */
+  async recordFailure(tenantId: string, formId: string, message: string, userId?: string) {
+    const form = await this.prisma.form.findFirst({
+      where: { id: formId, tenantId },
+      select: { id: true },
+    });
+    if (!form) return;
+    await this.recordMessage(tenantId, formId, {
+      role: 'ASSISTANT',
+      content: message,
+      status: 'ERROR',
+      createdById: userId,
+    });
+  }
+
+  /** Best-effort write: losing a chat row must never fail a refinement. */
+  private async recordMessage(
+    tenantId: string,
+    formId: string,
+    message: {
+      role: 'USER' | 'ASSISTANT';
+      content: string;
+      status?: 'OK' | 'ERROR';
+      hadImage?: boolean;
+      createdById?: string;
+    },
+  ): Promise<void> {
+    try {
+      await this.prisma.formAiMessage.create({
+        data: {
+          tenantId,
+          formId,
+          role: message.role,
+          content: message.content,
+          status: message.status ?? 'OK',
+          hadImage: message.hadImage ?? false,
+          createdById: message.createdById ?? null,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Could not record ${message.role} chat message: ${String(err)}`);
+    }
   }
 }

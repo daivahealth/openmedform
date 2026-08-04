@@ -128,6 +128,20 @@ source_file_name, page_count, similarity_score, error, created_by_id, created_at
 completed_at. `conversion_warning`: id, conversion_job_id FK, type, message,
 binding?, source_page?, confidence?, created_at.
 
+### form_ai_message
+The refine conversation for a form — one row per chat bubble in the preview
+page's Refine-with-AI panel. `role` USER carries the instruction; `role`
+ASSISTANT the outcome, with `status` ERROR when the refinement failed (an
+instruction that did not apply is part of the story). Scoped to the form, not a
+version, so history survives the draft fork a published-form refine makes.
+Log-style scalar FKs like `audit_log`; writes are best-effort and never fail
+the refinement. Columns: id, tenant_id, form_id, role, content, status,
+had_image (the image itself is not stored), created_by_id?, created_at.
+Bounded read: the panel loads the newest 400 rows.
+
+(Successor to the Form.io builder's table of the same name, dropped in
+migration 20260801190000 with the engine — see ADR-004.)
+
 ### audit_log
 Now actively written (closes issue #1) by `AuditService` on form create/publish/
 delete, submission complete/sign, and authentication (`auth.register`,

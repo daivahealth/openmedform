@@ -44,10 +44,17 @@ and the Responses API.
 ## Form-Scoped Agent Flow
 
 - `POST /api/conversions` accepts a PDF, image or HTML mock-up, generates the separated Data/UI/Print schemas, Ajv-compile-checks the Data Schema, and creates a draft form in REVIEW status. Poll `GET /api/conversions/:id`.
-- The form preview page exposes **Refine with AI**, which streams
-  `POST /api/forms/:id/jsonforms/refine` over SSE. It updates an unpublished
-  draft in place, or forks a new draft from a published version, then refreshes
-  the preview with the saved definition.
+- The form preview page shows **Refine with AI** as a chat panel BESIDE the
+  live preview (it was a modal dialog, which blocked the very preview being
+  adjusted). Sending an instruction streams
+  `POST /api/forms/:id/jsonforms/refine` over SSE, updates an unpublished
+  draft in place — or forks a new draft from a published version — and
+  refreshes the preview next to the conversation.
+- The conversation is persistent (`form_ai_message`, one row per bubble):
+  every instruction and its outcome, including failures, is recorded and
+  reloaded via `GET /api/forms/:id/ai/messages`. History is scoped to the
+  form, so it survives the draft fork a published-form refine makes. The
+  reference image itself is not stored — only the fact one was attached.
 - Refinement accepts an optional image upload (`multipart/form-data`, field
   `image`) so a visual reference can accompany the instruction.
 - Published versions remain immutable — refining one always forks a draft.
