@@ -4,6 +4,13 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /**
+   * Input tokens served from the provider's prompt cache — a subset of
+   * inputTokens, billed at a deep discount (Anthropic ~10%) or free-ish
+   * (OpenAI 50%). Zero when the provider does not report caching. Recorded so
+   * /admin/usage can show real vs effectively-billed input (issue #129).
+   */
+  cachedInputTokens: number;
 }
 
 export interface LlmOptions {

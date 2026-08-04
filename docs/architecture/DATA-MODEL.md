@@ -164,7 +164,11 @@ swallowed so it can never roll back the audited clinical operation.
 One row per LLM call (generate / refine / convert), written best-effort by
 `AiUsageService` via a metering wrapper around every provider. Aggregated by the
 SUPER_ADMIN analytics console (`GET /api/admin/stats`) and the usage console
-(`GET /api/admin/usage`, grouped by user / form / tenant / provider).
+(`GET /api/admin/usage`, grouped by user / form / tenant / provider /
+operation; the operation view adds output-token p50/p95 per call).
+`cached_input_tokens` records how much of the input the provider served from
+its prompt cache (issue #129) — a subset of `input_tokens`, billed at a deep
+discount, zero for providers that report no caching.
 Operational metering — not tenant-query-scoped for domain reads, but carries
 `tenant_id`/`user_id`/`form_id` for attribution.
 

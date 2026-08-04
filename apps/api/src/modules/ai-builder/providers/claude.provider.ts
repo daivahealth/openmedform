@@ -12,12 +12,24 @@ export class ClaudeProvider implements LlmProvider {
     this.model = model || 'claude-sonnet-4-6';
   }
 
+  /**
+   * The system prompt as a cacheable block. It is byte-identical across every
+   * conversion/refine call (~6.5k tokens), so Anthropic's prompt cache serves
+   * it at ~10% of the input price with faster time-to-first-token — but ONLY
+   * when explicitly marked; unmarked prompts are never cached (issue #129).
+   * Prompts under the model's cacheable minimum (1024 tokens) are simply not
+   * cached; the marker is harmless.
+   */
+  private cacheableSystem(systemPrompt: string): Anthropic.TextBlockParam[] {
+    return [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }];
+  }
+
   async generate(prompt: string, systemPrompt: string, options?: LlmOptions): Promise<string> {
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: options?.maxTokens ?? 8192,
       temperature: options?.temperature ?? 0.2,
-      system: systemPrompt,
+      system: this.cacheableSystem(systemPrompt),
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -54,7 +66,7 @@ export class ClaudeProvider implements LlmProvider {
       model: this.model,
       max_tokens: options?.maxTokens ?? 8192,
       temperature: options?.temperature ?? 0.2,
-      system: systemPrompt,
+      system: this.cacheableSystem(systemPrompt),
       messages: [{ role: 'user', content: contentBlocks }],
     });
 

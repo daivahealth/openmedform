@@ -27,6 +27,7 @@ interface UsageGroupRow {
   _sum: {
     totalTokens: number | null;
     inputTokens: number | null;
+    cachedInputTokens: number | null;
     outputTokens: number | null;
   };
   _max: { createdAt: Date | null };
@@ -38,6 +39,8 @@ export interface UsageRow {
   calls: number;
   totalTokens: number;
   inputTokens: number;
+  /** Of inputTokens, how many the provider served from its prompt cache. */
+  cachedInputTokens: number;
   outputTokens: number;
   lastUsedAt: Date | null;
   /**
@@ -221,7 +224,7 @@ export class AdminService {
       by: [groupByColumn(groupBy)],
       where,
       _count: { _all: true },
-      _sum: { totalTokens: true, inputTokens: true, outputTokens: true },
+      _sum: { totalTokens: true, inputTokens: true, cachedInputTokens: true, outputTokens: true },
       _max: { createdAt: true },
     });
 
@@ -229,7 +232,7 @@ export class AdminService {
       this.prisma.aiUsage.aggregate({
         where,
         _count: { _all: true },
-        _sum: { totalTokens: true, inputTokens: true, outputTokens: true },
+        _sum: { totalTokens: true, inputTokens: true, cachedInputTokens: true, outputTokens: true },
       }),
       groupByRows,
     ]);
@@ -247,6 +250,7 @@ export class AdminService {
         calls: totals._count._all,
         totalTokens: totals._sum.totalTokens ?? 0,
         inputTokens: totals._sum.inputTokens ?? 0,
+        cachedInputTokens: totals._sum.cachedInputTokens ?? 0,
         outputTokens: totals._sum.outputTokens ?? 0,
       },
       rows: labelled.sort((a, b) => b.totalTokens - a.totalTokens),
@@ -338,6 +342,7 @@ export class AdminService {
         calls: r._count._all,
         totalTokens: r._sum.totalTokens ?? 0,
         inputTokens: r._sum.inputTokens ?? 0,
+        cachedInputTokens: r._sum.cachedInputTokens ?? 0,
         outputTokens: r._sum.outputTokens ?? 0,
         lastUsedAt: r._max.createdAt ?? null,
       };
