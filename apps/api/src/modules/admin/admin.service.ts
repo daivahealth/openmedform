@@ -7,6 +7,7 @@ const USAGE_GROUP_COLUMNS = {
   form: 'formId',
   tenant: 'tenantId',
   provider: 'provider',
+  operation: 'operation',
 } as const;
 
 export type UsageGroupBy = keyof typeof USAGE_GROUP_COLUMNS;
@@ -21,6 +22,7 @@ interface UsageGroupRow {
   formId?: string | null;
   tenantId?: string | null;
   provider?: string | null;
+  operation?: string | null;
   _count: { _all: number };
   _sum: {
     totalTokens: number | null;
@@ -38,6 +40,14 @@ export interface UsageRow {
   inputTokens: number;
   outputTokens: number;
   lastUsedAt: Date | null;
+  /**
+   * Median and p95 of OUTPUT tokens per call — only on the `operation`
+   * dimension, where they answer the sizing questions the cost work needs
+   * (issue #128): how big is a typical refine's re-emission, and how bad is
+   * the tail? Output tokens because they are the expensive and slow ones.
+   */
+  outputP50?: number;
+  outputP95?: number;
 }
 
 /**
@@ -190,7 +200,7 @@ export class AdminService {
    * dropped, so the grouped totals always reconcile with the platform total.
    */
   async getUsage(params: {
-    groupBy: 'user' | 'form' | 'tenant' | 'provider';
+    groupBy: UsageGroupBy;
     from?: Date;
     to?: Date;
   }) {
@@ -224,7 +234,10 @@ export class AdminService {
       groupByRows,
     ]);
 
-    const labelled = await this.labelUsageRows(groupBy, rows);
+    let labelled = await this.labelUsageRows(groupBy, rows);
+    if (groupBy === 'operation') {
+      labelled = await this.attachOutputPercentiles(labelled, where);
+    }
 
     return {
       groupBy,
@@ -240,9 +253,49 @@ export class AdminService {
     };
   }
 
+  /**
+   * p50/p95 of output tokens per call for each operation. Computed in JS over
+   * the windowed rows rather than SQL percentile_cont — Prisma cannot express
+   * it and the repo rule is no raw SQL outside migrations. Volume makes this
+   * fine: each row is one small int, and even a busy month is a few thousand
+   * AI calls. `take` bounds the pathological case; if it is ever hit, the
+   * percentiles describe the most recent slice rather than exploding memory.
+   */
+  private async attachOutputPercentiles(
+    rows: UsageRow[],
+    where: Record<string, unknown>,
+  ): Promise<UsageRow[]> {
+    const samples = await this.prisma.aiUsage.findMany({
+      where,
+      select: { operation: true, outputTokens: true },
+      orderBy: { id: 'desc' },
+      take: 50_000,
+    });
+
+    const byOperation = new Map<string, number[]>();
+    for (const s of samples) {
+      const list = byOperation.get(s.operation) ?? [];
+      list.push(s.outputTokens);
+      byOperation.set(s.operation, list);
+    }
+
+    const percentile = (sorted: number[], p: number) =>
+      sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0;
+
+    return rows.map((row) => {
+      const values = (byOperation.get(row.key ?? '') ?? []).sort((a, b) => a - b);
+      if (values.length === 0) return row;
+      return {
+        ...row,
+        outputP50: percentile(values, 50),
+        outputP95: percentile(values, 95),
+      };
+    });
+  }
+
   /** Resolve each group key to a human-readable name in one batched query. */
   private async labelUsageRows(
-    groupBy: 'user' | 'form' | 'tenant' | 'provider',
+    groupBy: UsageGroupBy,
     rows: UsageGroupRow[],
   ): Promise<UsageRow[]> {
     const column = groupByColumn(groupBy);
@@ -279,7 +332,7 @@ export class AdminService {
         label:
           key === null
             ? 'Unattributed'
-            : groupBy === 'provider'
+            : groupBy === 'provider' || groupBy === 'operation'
               ? key
               : (names.get(key) ?? '(deleted)'),
         calls: r._count._all,

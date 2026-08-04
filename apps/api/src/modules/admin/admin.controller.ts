@@ -11,7 +11,7 @@ import {
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminService, type UsageGroupBy } from './admin.service';
 
-const USAGE_GROUP_BY: UsageGroupBy[] = ['user', 'form', 'tenant', 'provider'];
+const USAGE_GROUP_BY: UsageGroupBy[] = ['user', 'form', 'tenant', 'provider', 'operation'];
 
 /**
  * Operator console endpoints. Restricted to SUPER_ADMIN by the global
