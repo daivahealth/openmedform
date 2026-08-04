@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Logger,
   Ip,
   Param,
@@ -91,19 +92,31 @@ export class DesignerController {
       // the browser. Unreadable as an error, and it leaks server internals.
       if (err instanceof BadRequestException) {
         const response = err.getResponse() as { message?: string };
-        send('error', { message: response.message ?? err.message });
+        const message = response.message ?? err.message;
+        send('error', { message });
+        await this.designer.recordFailure(user.tenantId, id, message, user.userId);
       } else {
         this.logger.error(
           `Refine failed for form ${id}: ${err instanceof Error ? err.stack : String(err)}`,
         );
-        send('error', {
-          message:
-            'Refinement failed because of a problem on the server. Nothing was changed. ' +
-            'Please try again, and report this if it keeps happening.',
-        });
+        const message =
+          'Refinement failed because of a problem on the server. Nothing was changed. ' +
+          'Please try again, and report this if it keeps happening.';
+        send('error', { message });
+        await this.designer.recordFailure(user.tenantId, id, message, user.userId);
       }
     }
 
     res.end();
+  }
+
+  /**
+   * The refine conversation for a form — the chat panel's history. Read-only;
+   * rows are written by the refine flow itself, so the transcript can only
+   * ever say what actually happened.
+   */
+  @Get(':id/ai/messages')
+  listMessages(@CurrentUser() user: RequestUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.designer.listMessages(user.tenantId, id);
   }
 }
