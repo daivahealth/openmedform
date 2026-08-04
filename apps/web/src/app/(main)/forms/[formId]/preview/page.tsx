@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm, usePublishForm } from '@/hooks/use-forms';
 import { JsonFormsRendererWrapper } from '@/components/forms/jsonforms-renderer-wrapper';
@@ -9,6 +9,7 @@ import { RefineChatPanel } from '@/components/forms/refine-chat-panel';
 import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
+import { useSidebarStore } from '@/lib/stores/sidebar-store';
 import { ArrowLeft, CheckCircle2, Images, Loader2, PanelRightClose, Send, Sparkles } from 'lucide-react';
 
 export default function FormPreviewPage() {
@@ -22,6 +23,16 @@ export default function FormPreviewPage() {
 
   const { data: form, isLoading } = useForm(formId);
   const publish = usePublishForm(formId);
+  const setSidebarCollapsed = useSidebarStore((s) => s.setCollapsed);
+
+  // Focus mode: preview + chat want the width, so the sidebar collapses for
+  // the visit and goes back to whatever it was on the way out. Expanding it
+  // manually mid-visit is respected — this only runs on entry/exit.
+  useEffect(() => {
+    const wasCollapsed = useSidebarStore.getState().collapsed;
+    setSidebarCollapsed(true);
+    return () => setSidebarCollapsed(wasCollapsed);
+  }, [setSidebarCollapsed]);
   const [savedNote, setSavedNote] = useState('');
   const [publishError, setPublishError] = useState('');
 

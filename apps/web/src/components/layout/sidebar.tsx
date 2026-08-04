@@ -60,9 +60,8 @@ export function Sidebar() {
       <Link
         key={item.href}
         href={item.href}
-        title={collapsed ? item.label : undefined}
         className={cn(
-          'flex items-center rounded-md text-sm font-medium transition-colors',
+          'group relative flex items-center rounded-md text-sm font-medium transition-colors',
           collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
           isActive
             ? 'bg-primary/10 text-primary'
@@ -71,6 +70,17 @@ export function Sidebar() {
       >
         <item.icon className="h-4 w-4 shrink-0" />
         {!collapsed && item.label}
+        {collapsed && (
+          /* Instant styled tooltip — the native `title` this replaces appears
+             after a ~1s hover delay, which reads as "no label at all" to
+             anyone scanning the rail. Shown on keyboard focus too. */
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background opacity-0 shadow-md transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
+          >
+            {item.label}
+          </span>
+        )}
       </Link>
     );
   }
