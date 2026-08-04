@@ -8,13 +8,14 @@ import api from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import { cn } from '@/lib/utils';
 
-type GroupBy = 'user' | 'form' | 'tenant' | 'provider';
+type GroupBy = 'user' | 'form' | 'tenant' | 'provider' | 'operation';
 
 const TABS: { value: GroupBy; label: string }[] = [
   { value: 'user', label: 'By user' },
   { value: 'form', label: 'By form' },
   { value: 'tenant', label: 'By organization' },
   { value: 'provider', label: 'By provider' },
+  { value: 'operation', label: 'By operation' },
 ];
 
 interface UsageRow {
@@ -25,6 +26,9 @@ interface UsageRow {
   inputTokens: number;
   outputTokens: number;
   lastUsedAt: string | null;
+  /** Output-token percentiles per call — present only on the operation view. */
+  outputP50?: number;
+  outputP95?: number;
 }
 
 interface UsageResponse {
@@ -176,6 +180,16 @@ export default function AdminUsagePage() {
                   <th className="px-4 py-2 text-right font-medium">Calls</th>
                   <th className="px-4 py-2 text-right font-medium">Input</th>
                   <th className="px-4 py-2 text-right font-medium">Output</th>
+                  {groupBy === 'operation' && (
+                    <>
+                      <th className="px-4 py-2 text-right font-medium" title="Median output tokens per call">
+                        Out p50
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium" title="95th-percentile output tokens per call">
+                        Out p95
+                      </th>
+                    </>
+                  )}
                   <th className="px-4 py-2 text-right font-medium">Total tokens</th>
                   <th className="px-4 py-2 text-right font-medium">Last used</th>
                 </tr>
@@ -183,7 +197,10 @@ export default function AdminUsagePage() {
               <tbody>
                 {data.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={groupBy === 'operation' ? 8 : 6}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       No AI usage recorded{from || to ? ' in this period' : ''}.
                     </td>
                   </tr>
@@ -207,6 +224,16 @@ export default function AdminUsagePage() {
                       <td className="px-4 py-2 text-right">{nf(row.calls)}</td>
                       <td className="px-4 py-2 text-right">{nf(row.inputTokens)}</td>
                       <td className="px-4 py-2 text-right">{nf(row.outputTokens)}</td>
+                      {groupBy === 'operation' && (
+                        <>
+                          <td className="px-4 py-2 text-right text-muted-foreground">
+                            {row.outputP50 !== undefined ? nf(row.outputP50) : '—'}
+                          </td>
+                          <td className="px-4 py-2 text-right text-muted-foreground">
+                            {row.outputP95 !== undefined ? nf(row.outputP95) : '—'}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-2 text-right font-medium">
                         {nf(row.totalTokens)}
                       </td>

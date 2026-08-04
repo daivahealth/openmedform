@@ -13,6 +13,7 @@ function makeService(groupRows: unknown[], lookups: Record<string, unknown[]> = 
         _count: { _all: 3 },
         _sum: { totalTokens: 300, inputTokens: 200, outputTokens: 100 },
       }),
+      findMany: vi.fn().mockResolvedValue(lookups.usageSamples ?? []),
     },
     user: { findMany: vi.fn().mockResolvedValue(lookups.users ?? []) },
     form: { findMany: vi.fn().mockResolvedValue(lookups.forms ?? []) },
@@ -104,3 +105,57 @@ describe('AdminService.getUsage', () => {
     expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
   });
 });
+
+describe('AdminService.getUsage by operation (#128)', () => {
+  it('accepts the operation dimension and uses the raw key as the label', async () => {
+    const { service, groupBy } = makeService(
+      [row({ operation: 'designer.refine' }, 200), row({ operation: 'conversion.jsonforms' }, 100)],
+      {
+        usageSamples: [
+          { operation: 'designer.refine', outputTokens: 10 },
+          { operation: 'conversion.jsonforms', outputTokens: 5 },
+        ],
+      },
+    );
+
+    const result = await service.getUsage({ groupBy: 'operation' });
+
+    expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ['operation'] }));
+    expect(result.rows.map((r) => r.label)).toEqual([
+      'designer.refine',
+      'conversion.jsonforms',
+    ]);
+  });
+
+  it('attaches p50/p95 of OUTPUT tokens per operation', async () => {
+    // 1..20 for refine: p50 = 10, p95 = 19 (ceil(0.95*20)=19th of the sorted list).
+    const refineSamples = Array.from({ length: 20 }, (_, i) => ({
+      operation: 'designer.refine',
+      outputTokens: i + 1,
+    }));
+    const { service } = makeService(
+      [row({ operation: 'designer.refine' }, 210)],
+      { usageSamples: refineSamples },
+    );
+
+    const result = await service.getUsage({ groupBy: 'operation' });
+
+    expect(result.rows[0]).toMatchObject({ outputP50: 10, outputP95: 19 });
+  });
+
+  it('leaves percentiles off rows with no samples, and off other dimensions entirely', async () => {
+    const { service: opService } = makeService(
+      [row({ operation: 'designer.refine' }, 210)],
+      { usageSamples: [] },
+    );
+    const opResult = await opService.getUsage({ groupBy: 'operation' });
+    expect(opResult.rows[0].outputP50).toBeUndefined();
+
+    const { service: provService, prisma } = makeService([row({ provider: 'openai' }, 50)]);
+    const provResult = await provService.getUsage({ groupBy: 'provider' });
+    expect(provResult.rows[0].outputP50).toBeUndefined();
+    // No sample sweep for non-operation views: the fetch never happens.
+    expect(prisma.aiUsage.findMany).not.toHaveBeenCalled();
+  });
+});
+
