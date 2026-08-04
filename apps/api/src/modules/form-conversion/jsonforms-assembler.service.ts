@@ -34,6 +34,12 @@ export interface AssembledJsonForms {
   scoringRules: Record<string, unknown>;
   /** Flattened field + form warnings for persistence into conversion_warning. */
   warnings: ConversionWarningData[];
+  /**
+   * The model's own plain-language account of what it changed (refine flow
+   * asks for this; conversion does not). Optional — an older cached prompt or
+   * a terse model yields none, and callers fall back to a factual line.
+   */
+  changeSummary?: string;
 }
 
 const DEFAULT_PRINT_SCHEMA = {
@@ -95,6 +101,13 @@ export class JsonFormsAssemblerService {
       });
     }
 
+    // Free text destined for a chat bubble — bounded so a rambling model
+    // cannot turn the transcript into a wall.
+    const changeSummary =
+      typeof parsed.changeSummary === 'string' && parsed.changeSummary.trim()
+        ? parsed.changeSummary.trim().slice(0, 2000)
+        : undefined;
+
     return {
       dataSchema,
       uiSchema,
@@ -103,6 +116,7 @@ export class JsonFormsAssemblerService {
       conversionMetadata,
       scoringRules: this.deriveScoringRules(uiSchema),
       warnings,
+      ...(changeSummary ? { changeSummary } : {}),
     };
   }
 

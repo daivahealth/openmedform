@@ -250,3 +250,36 @@ describe('JsonFormsAssemblerService', () => {
     expect(() => service.assemble('the model refused')).toThrow(/not valid JSON/);
   });
 });
+
+describe('changeSummary passthrough', () => {
+  const base = {
+    dataSchema: { type: 'object', properties: { a: { type: 'string' } } },
+    uiSchema: { type: 'VerticalLayout', elements: [] },
+    printSchema: {},
+    translations: {},
+    conversionMetadata: {},
+  };
+
+  it('carries a non-empty summary through, trimmed and bounded', () => {
+    const out = makeService().assemble(
+      JSON.stringify({ ...base, changeSummary: '  Renamed a field.  ' }),
+    );
+    expect(out.changeSummary).toBe('Renamed a field.');
+
+    const long = makeService().assemble(
+      JSON.stringify({ ...base, changeSummary: 'x'.repeat(5000) }),
+    );
+    expect(long.changeSummary).toHaveLength(2000);
+  });
+
+  it('yields none for a missing, empty, or non-string summary', () => {
+    expect(makeService().assemble(JSON.stringify(base)).changeSummary).toBeUndefined();
+    expect(
+      makeService().assemble(JSON.stringify({ ...base, changeSummary: '   ' })).changeSummary,
+    ).toBeUndefined();
+    expect(
+      makeService().assemble(JSON.stringify({ ...base, changeSummary: 42 })).changeSummary,
+    ).toBeUndefined();
+  });
+});
+
