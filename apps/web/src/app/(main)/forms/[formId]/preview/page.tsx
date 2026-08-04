@@ -10,7 +10,7 @@ import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
 import { useSidebarStore } from '@/lib/stores/sidebar-store';
-import { ArrowLeft, CheckCircle2, Images, Loader2, PanelRightClose, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eraser, FlaskConical, Images, Loader2, PanelRightClose, Send, Sparkles } from 'lucide-react';
 
 export default function FormPreviewPage() {
   const params = useParams();
@@ -23,6 +23,21 @@ export default function FormPreviewPage() {
 
   const { data: form, isLoading } = useForm(formId);
   const publish = usePublishForm(formId);
+
+  /**
+   * Test-mode entries. They live only in this component — the preview never
+   * posts form data anywhere (records are written solely by the /fill page) —
+   * so "editable but never saved" is the page's natural behaviour, made
+   * official. The renderer seeds its internal state from `data` once, so
+   * clearing works by remounting it via the key below.
+   */
+  const [testData, setTestData] = useState<Record<string, unknown>>({});
+  const [testRun, setTestRun] = useState(0);
+
+  function clearTestData() {
+    setTestData({});
+    setTestRun((n) => n + 1);
+  }
   const setSidebarCollapsed = useSidebarStore((s) => s.setCollapsed);
 
   // Focus mode: preview + chat want the width, so the sidebar collapses for
@@ -133,15 +148,40 @@ export default function FormPreviewPage() {
       </div>
 
       <div className={refineOpen ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]' : ''}>
-        <div className="min-w-0 rounded-lg border bg-white p-6">
+        <div className="min-w-0 rounded-lg border bg-white">
+          <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-4 py-2">
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+              Test mode — try the form here; nothing you enter is saved.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 text-xs"
+              onClick={clearTestData}
+              disabled={Object.keys(testData).length === 0}
+            >
+              <Eraser className="mr-1.5 h-3.5 w-3.5" />
+              Clear test data
+            </Button>
+          </div>
+          <div className="p-6">
           {hasContent ? (
-            <JsonFormsRendererWrapper form={form as never} readOnly />
+            <JsonFormsRendererWrapper
+              /* A refine rewrites the definition under the tester's feet, so the
+                 form's updatedAt is part of the key: the try-out restarts clean
+                 against the new version instead of carrying half-stale entries. */
+              key={`${testRun}-${(form as { updatedAt?: string }).updatedAt ?? ''}`}
+              form={form as never}
+              onChange={setTestData}
+            />
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
               <p>This form has no content yet</p>
               <p className="text-sm">Use the chat to describe the fields you need</p>
             </div>
           )}
+          </div>
         </div>
 
         {refineOpen && (
