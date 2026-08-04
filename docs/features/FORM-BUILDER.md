@@ -36,8 +36,12 @@ Rendered by both the React and Angular renderers from `options.omf.control`:
 | `signatureDate` | Signature + printed name + auto-date |
 
 Scored sections also carry `omf.accentColor`, `omf.icon`, `omf.points` and
-`omf.pointLegend` to reproduce colour-coded paper domains. Scoring shown on
-screen is advisory: the server recalculates on submission and is authoritative.
+`omf.pointLegend` to reproduce colour-coded paper domains. A section with
+scored fields shows a live "Σ n" subtotal chip in its header automatically;
+`omf.hideSectionTotal: true` suppresses the chip on that one section without
+touching the scoring (the refine chat can set it — "remove the Σ 0 from that
+box"). Scoring shown on screen is advisory: the server recalculates on
+submission and is authoritative.
 
 ### Two shapes of scoring
 

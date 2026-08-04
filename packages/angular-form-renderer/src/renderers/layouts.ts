@@ -150,7 +150,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
                 }
               </span>
             }
-            @if (subtotal !== null) {
+            @if (subtotal !== null && !hideSectionTotal) {
               <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
             }
           </div>
@@ -190,6 +190,10 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
   get accentColor(): string | null {
     const c = readOmf(this.uischema)?.['accentColor'];
     return typeof c === 'string' ? c : null;
+  }
+  /** Author opted out of the automatic subtotal badge; scoring unaffected. */
+  get hideSectionTotal(): boolean {
+    return readOmf(this.uischema)?.['hideSectionTotal'] === true;
   }
   get icon(): string | null {
     const i = readOmf(this.uischema)?.['icon'];

@@ -114,6 +114,14 @@ export interface OmfOptions {
    */
   pointLegend?: number[];
   /**
+   * Suppress the live "Σ n" subtotal chip a section header gets automatically
+   * when the section contains scored fields. The scoring itself is untouched —
+   * items keep contributing to the grand total; only this section's badge is
+   * hidden. Exists so "remove the Σ 0 from that box" is expressible in the
+   * definition rather than impossible.
+   */
+  hideSectionTotal?: boolean;
+  /**
    * Risk-stratification bands for a scoreSummary element: the total maps to the
    * band whose [minScore, maxScore] range contains it (both bounds inclusive
    * and optional). Mirrors a paper "score → risk level" table.

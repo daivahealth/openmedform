@@ -179,3 +179,50 @@ describe('a oneOf enum with an explicit string type', () => {
     expect(optionText).toContain('Impaired');
   });
 });
+
+describe('omf.hideSectionTotal', () => {
+  /**
+   * The Σ chip is renderer-drawn, so "remove the Σ 0 from that box" was
+   * impossible to express in the definition — the AI silently no-opped on it.
+   * The flag makes it a normal schema edit. Scoring must be untouched: only
+   * the badge goes.
+   */
+  const scoredGroup = (omf: Record<string, unknown>): JsonFormsFormDefinition =>
+    ({
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: { historyOfFalling: { type: 'string', enum: ['NO', 'YES'] } },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'Group',
+          label: 'Morse Fall Score',
+          options: { omf },
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/historyOfFalling',
+              options: { omf: { optionPoints: { NO: 0, YES: 25 } } },
+            },
+          ],
+        },
+      },
+    }) as unknown as JsonFormsFormDefinition;
+
+  it('shows the subtotal chip by default on a scored section', () => {
+    render(<JsonFormsRenderer definition={scoredGroup({})} />);
+    expect(screen.getByTitle('Section subtotal')).toBeTruthy();
+  });
+
+  it('hides the chip when the section opts out — without touching the fields', () => {
+    const { container } = render(
+      <JsonFormsRenderer definition={scoredGroup({ hideSectionTotal: true })} />,
+    );
+
+    expect(screen.queryByTitle('Section subtotal')).toBeNull();
+    // The scored control itself is still there and still scored.
+    expect(container.querySelectorAll('select, input[type="radio"]').length).toBeGreaterThan(0);
+  });
+});
