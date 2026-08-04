@@ -41,6 +41,22 @@ pages as high-detail image inputs. For a balanced production default, configure
 **AI Settings**. GPT-5.6 Terra supports image input, structured output,
 and the Responses API.
 
+## Prompt caching
+
+The shared system prompt (~6.5k tokens) is byte-identical on every conversion
+and refine call, so it is served from the provider's prompt cache: the Claude
+provider marks it with an explicit `cache_control` block (cached reads bill at
+~10% of input price); OpenAI caches long identical prefixes automatically.
+Cache reads are recorded per call in `ai_usage.cached_input_tokens` and shown
+as the "Cached" column on `/admin/usage`, so real vs effectively-billed input
+is visible.
+
+**Rule for prompt edits:** caching keys on the byte-identical prefix. Keep the
+static system prompt static — anything call-specific (source text, hints,
+instructions) belongs in the user message, never interpolated into the system
+prompt. A "small" dynamic value in the system prompt silently destroys the
+cache for every call.
+
 ## Form-Scoped Agent Flow
 
 - `POST /api/conversions` accepts a PDF, image or HTML mock-up, generates the separated Data/UI/Print schemas, Ajv-compile-checks the Data Schema, and creates a draft form in REVIEW status. Poll `GET /api/conversions/:id`.

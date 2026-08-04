@@ -357,6 +357,9 @@ model AiUsage {
   model        String   @db.VarChar(100)
   operation    String   @db.VarChar(50)
   inputTokens  Int      @default(0) @map("input_tokens")
+  /// Of inputTokens, how many the provider served from its prompt cache
+  /// (billed at a deep discount). 0 when the provider reports no caching.
+  cachedInputTokens Int @default(0) @map("cached_input_tokens")
   outputTokens Int      @default(0) @map("output_tokens")
   totalTokens  Int      @default(0) @map("total_tokens")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)

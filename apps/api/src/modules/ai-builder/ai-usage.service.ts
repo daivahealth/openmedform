@@ -56,6 +56,7 @@ export class AiUsageService {
           model: usage.model,
           operation: ctx.operation,
           inputTokens: usage.inputTokens,
+          cachedInputTokens: usage.cachedInputTokens ?? 0,
           outputTokens: usage.outputTokens,
           totalTokens: usage.totalTokens,
         },

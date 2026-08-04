@@ -24,6 +24,8 @@ interface UsageRow {
   calls: number;
   totalTokens: number;
   inputTokens: number;
+  /** Of input, how many were served from the provider's prompt cache. */
+  cachedInputTokens: number;
   outputTokens: number;
   lastUsedAt: string | null;
   /** Output-token percentiles per call — present only on the operation view. */
@@ -37,6 +39,7 @@ interface UsageResponse {
     calls: number;
     totalTokens: number;
     inputTokens: number;
+    cachedInputTokens: number;
     outputTokens: number;
   };
   rows: UsageRow[];
@@ -159,6 +162,7 @@ export default function AdminUsagePage() {
               { label: 'AI calls', value: data.totals.calls },
               { label: 'Total tokens', value: data.totals.totalTokens },
               { label: 'Input tokens', value: data.totals.inputTokens },
+              { label: 'Cached input', value: data.totals.cachedInputTokens },
               { label: 'Output tokens', value: data.totals.outputTokens },
             ].map((stat) => (
               <div key={stat.label} className="rounded-lg border p-4">
@@ -179,6 +183,12 @@ export default function AdminUsagePage() {
                   </th>
                   <th className="px-4 py-2 text-right font-medium">Calls</th>
                   <th className="px-4 py-2 text-right font-medium">Input</th>
+                  <th
+                    className="px-4 py-2 text-right font-medium"
+                    title="Of input, tokens served from the provider's prompt cache (billed at a deep discount)"
+                  >
+                    Cached
+                  </th>
                   <th className="px-4 py-2 text-right font-medium">Output</th>
                   {groupBy === 'operation' && (
                     <>
@@ -198,7 +208,7 @@ export default function AdminUsagePage() {
                 {data.rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={groupBy === 'operation' ? 8 : 6}
+                      colSpan={groupBy === 'operation' ? 9 : 7}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
                       No AI usage recorded{from || to ? ' in this period' : ''}.
@@ -223,6 +233,9 @@ export default function AdminUsagePage() {
                       </td>
                       <td className="px-4 py-2 text-right">{nf(row.calls)}</td>
                       <td className="px-4 py-2 text-right">{nf(row.inputTokens)}</td>
+                      <td className="px-4 py-2 text-right text-muted-foreground">
+                        {nf(row.cachedInputTokens)}
+                      </td>
                       <td className="px-4 py-2 text-right">{nf(row.outputTokens)}</td>
                       {groupBy === 'operation' && (
                         <>
