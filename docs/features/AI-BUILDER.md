@@ -73,7 +73,18 @@ cache for every call.
   refine prompt requires a truthful `changeSummary`; a terse model falls back
   to a factual line), then states which draft version was saved and whether it
   forked, then lists the warnings THEMSELVES (up to five, then a count) —
-  warnings are read in the chat, not hunted for elsewhere. History is scoped to the
+  warnings are read in the chat, not hunted for elsewhere.
+- Refinement is **diff-based by default** (issue #130): for a targeted change
+  the model returns an RFC 6902 edit script rather than re-emitting the whole
+  definition — a rename is ~50 output tokens instead of thousands, which is
+  the difference between seconds and half a minute. The server applies the
+  patch to the same document the prompt showed the model, then pushes the
+  result through the assembler, so a patched definition passes exactly the
+  checks a re-emitted one passes. Any patch failure (bad pointer, missing
+  target, invalid result) automatically retries the same instruction once in
+  full-rewrite mode — the worst case equals the old behaviour, and the user
+  only ever sees a progress line. Genuine restructures go straight to full
+  mode at the model's discretion. History is scoped to the
   form, so it survives the draft fork a published-form refine makes. The
   reference image itself is not stored — only the fact one was attached.
 - Refinement accepts an optional image upload (`multipart/form-data`, field

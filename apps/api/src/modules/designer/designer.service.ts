@@ -10,7 +10,13 @@ import { assertConversionOutputComplete } from '../../common/utils/llm-output';
 import {
   getJsonFormsRefineSystemPrompt,
   buildJsonFormsRefineUserPrompt,
+  buildRefineDocument,
 } from '../ai-builder/prompts/jsonforms-refine-prompt';
+import {
+  applyJsonPatch,
+  JsonPatchError,
+  type JsonPatchOperation,
+} from '../../common/utils/json-patch';
 
 export type ProgressCallback = (message: string) => void;
 
@@ -105,7 +111,7 @@ export class DesignerService {
     };
 
     progress(
-      `Sending ${image ? 'image-guided ' : ''}refinement to ${provider.name} — this may take 30–60 seconds...`,
+      `Sending ${image ? 'image-guided ' : ''}refinement to ${provider.name} — quick edits land in seconds, full rewrites can take up to a minute...`,
     );
     const userPrompt =
       buildJsonFormsRefineUserPrompt(current, instruction) +
@@ -123,32 +129,30 @@ export class DesignerService {
       maxTokens: REFINE_MAX_TOKENS,
       jsonMode: true,
     };
-    const raw = image
-      ? await provider.generateWithImages!(
-          userPrompt,
-          [
-            {
-              type: 'image',
-              mediaType: image.mimeType,
-              data: image.buffer.toString('base64'),
-            },
-          ],
-          getJsonFormsRefineSystemPrompt(),
-          generationOptions,
-        )
-      : await provider.generate(
-          userPrompt,
-          getJsonFormsRefineSystemPrompt(),
-          generationOptions,
-        );
+    const generateOnce = (extraInstruction = '') =>
+      image
+        ? provider.generateWithImages!(
+            userPrompt + extraInstruction,
+            [
+              {
+                type: 'image',
+                mediaType: image.mimeType,
+                data: image.buffer.toString('base64'),
+              },
+            ],
+            getJsonFormsRefineSystemPrompt(),
+            generationOptions,
+          )
+        : provider.generate(
+            userPrompt + extraInstruction,
+            getJsonFormsRefineSystemPrompt(),
+            generationOptions,
+          );
+
+    const raw = await generateOnce();
 
     progress('Parsing and validating the refined definition...');
-    // Conversion has always run this; refine never did, so a model that ran out
-    // of room mid-object reached the parser as mangled JSON and produced "AI
-    // output was not valid JSON" — true, but it names neither the cause nor
-    // anything the author can act on.
-    assertConversionOutputComplete(raw);
-    const assembled = this.assembler.assemble(raw);
+    const assembled = await this.assembleRefinement(raw, current, progress, generateOnce);
 
     // NOTE: no `engine` field. It was dropped from FormVersion with the Form.io
     // removal (ADR-004) — JSON Forms is the only engine — and passing it here
@@ -208,6 +212,98 @@ export class DesignerService {
       conversionMetadata: assembled.conversionMetadata,
       warnings: assembled.warnings,
     };
+  }
+
+  /**
+   * Turn the model's response into validated artifacts, whichever mode it
+   * chose (#130).
+   *
+   * PATCH mode: apply the RFC 6902 operations to the SAME document the prompt
+   * showed the model (buildRefineDocument keeps the two aligned by
+   * construction), then push the patched result through the assembler — so a
+   * patched definition passes exactly the checks a re-emitted one passes:
+   * Ajv compile, scope resolution, scoring re-derivation, warning extraction.
+   * A patch is all-or-nothing; a half-applied edit cannot reach the database.
+   *
+   * FALLBACK: any patch failure — bad pointer, missing target, or a patched
+   * result the assembler rejects — retries the SAME instruction once in FULL
+   * mode before anything is reported. Worst case equals the old behaviour;
+   * the user sees a progress line, never an error caused by patch shape.
+   */
+  private async assembleRefinement(
+    raw: string,
+    current: {
+      dataSchema: unknown;
+      uiSchema: unknown;
+      printSchema: unknown;
+      translations: unknown;
+      conversionMetadata?: unknown;
+    },
+    progress: ProgressCallback,
+    generateOnce: (extraInstruction: string) => Promise<string>,
+  ): Promise<AssembledJsonForms> {
+    const envelope = this.tryParsePatchEnvelope(raw);
+    if (!envelope) {
+      // FULL mode (or legacy shape). Truncation gets its specific message
+      // before the assembler's generic invalid-JSON one.
+      assertConversionOutputComplete(raw);
+      return this.assembler.assemble(raw);
+    }
+
+    try {
+      progress(`Applying ${envelope.operations.length} edit${envelope.operations.length === 1 ? '' : 's'}...`);
+      const patched = applyJsonPatch(buildRefineDocument(current), envelope.operations) as Record<
+        string,
+        unknown
+      >;
+      return this.assembler.assemble(
+        JSON.stringify({ ...patched, changeSummary: envelope.changeSummary }),
+      );
+    } catch (err) {
+      // The fallback is an implementation detail: log the why, tell the user
+      // only that we are taking the slower path.
+      this.logger.warn(
+        `Patch-mode refinement did not apply (${err instanceof JsonPatchError ? err.message : String(err)}); retrying in full mode`,
+      );
+      progress('The quick edit did not apply cleanly — redoing it as a full rewrite (slower)...');
+      const rawRetry = await generateOnce(
+        '\n\nIMPORTANT: Respond in FULL mode only — return the complete updated object with every artifact. Do NOT return an edit script.',
+      );
+      assertConversionOutputComplete(rawRetry);
+      return this.assembler.assemble(rawRetry);
+    }
+  }
+
+  /**
+   * The patch envelope, or null for anything else — a full document, a legacy
+   * response, or JSON too broken to parse (the full-mode path owns reporting
+   * that properly).
+   */
+  private tryParsePatchEnvelope(
+    raw: string,
+  ): { operations: JsonPatchOperation[]; changeSummary?: string } | null {
+    const trimmed = raw
+      .replace(/```(?:json|JSON)?\s*/g, '')
+      .replace(/```\s*$/g, '')
+      .trim();
+    if (!trimmed.startsWith('{')) return null;
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        mode?: unknown;
+        operations?: unknown;
+        changeSummary?: unknown;
+      };
+      if (parsed.mode !== 'patch' || !Array.isArray(parsed.operations)) return null;
+      return {
+        operations: parsed.operations as JsonPatchOperation[],
+        changeSummary:
+          typeof parsed.changeSummary === 'string' && parsed.changeSummary.trim()
+            ? parsed.changeSummary
+            : undefined,
+      };
+    } catch {
+      return null;
+    }
   }
 
   /**

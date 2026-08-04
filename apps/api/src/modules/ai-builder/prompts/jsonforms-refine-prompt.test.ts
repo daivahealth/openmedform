@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { getJsonFormsRefineSystemPrompt } from './jsonforms-refine-prompt';
 
 describe('getJsonFormsRefineSystemPrompt', () => {
+  it('offers PATCH mode with a strict contract, defaulting full mode to rewrites', () => {
+    const prompt = getJsonFormsRefineSystemPrompt();
+
+    expect(prompt).toContain('"mode": "patch"');
+    expect(prompt).toContain('RFC 6902');
+    expect(prompt).toContain('Allowed ops: add, replace, remove, move, copy');
+    expect(prompt).toContain('use "-" to append');
+    // The escape rules are where model patches most often go wrong.
+    expect(prompt).toContain('"/" in a key is "~1"');
+    expect(prompt).toContain('If unsure, use FULL mode');
+  });
+
   it('asks the model to narrate what it changed, truthfully', () => {
     const prompt = getJsonFormsRefineSystemPrompt();
 
