@@ -72,12 +72,34 @@ describe('refine chat transcript', () => {
       tenantId: TENANT,
       formId: FORM_ID,
     });
-    expect(chatRows[1].content).toBe('Applied to draft version 1.');
+    // No changeSummary in the stubbed output -> the factual fallback.
+    expect(chatRows[1].content).toBe(
+      'Applied your change to the draft.\n\nSaved to draft version 1.',
+    );
   });
 
-  it('says when the refinement forked a published version and carries warnings', async () => {
+  it('leads with the model\'s own account of the change when it gives one', async () => {
+    const { svc, chatRows } = harness();
+    (assembled as Record<string, unknown>).changeSummary =
+      "Renamed 'ID Band On' to 'ID Band Verified'. Everything else is unchanged.";
+
+    try {
+      await svc.refine(TENANT, FORM_ID, 'rename it', undefined, () => {}, null, USER);
+    } finally {
+      delete (assembled as Record<string, unknown>).changeSummary;
+    }
+
+    expect(chatRows[1].content).toBe(
+      "Renamed 'ID Band On' to 'ID Band Verified'. Everything else is unchanged." +
+        '\n\nSaved to draft version 1.',
+    );
+  });
+
+  it('shows the warnings themselves, not a count, and notes a fork', async () => {
     const { svc, chatRows } = harness({ publishedAt: new Date() });
-    assembled.warnings = [{ type: 'W' }];
+    assembled.warnings = [
+      { type: 'W', message: 'Check the required list on vitals', binding: 'vitals' },
+    ];
 
     try {
       await svc.refine(TENANT, FORM_ID, 'x', undefined, () => {}, null, USER);
@@ -86,8 +108,29 @@ describe('refine chat transcript', () => {
     }
 
     expect(chatRows[1].content).toBe(
-      'Applied to draft version 2 (forked from the published version), with 1 warning to review.',
+      'Applied your change to the draft.' +
+        '\n\nSaved to draft version 2 (forked from the published version).' +
+        '\n\n⚠ Check the required list on vitals (vitals)',
     );
+  });
+
+  it('caps the listed warnings at five and counts the rest', async () => {
+    const { svc, chatRows } = harness();
+    assembled.warnings = Array.from({ length: 8 }, (_, i) => ({
+      type: 'W',
+      message: `warning ${i + 1}`,
+    }));
+
+    try {
+      await svc.refine(TENANT, FORM_ID, 'x', undefined, () => {}, null, USER);
+    } finally {
+      assembled.warnings = [];
+    }
+
+    const content = chatRows[1].content as string;
+    expect(content).toContain('⚠ warning 5');
+    expect(content).not.toContain('⚠ warning 6');
+    expect(content).toContain('…and 3 more.');
   });
 
   it('writes nothing at all for a form the tenant does not own', async () => {

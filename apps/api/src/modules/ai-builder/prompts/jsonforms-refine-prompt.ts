@@ -15,6 +15,12 @@ REFINEMENT MODE
 - You are editing an EXISTING jsonforms definition, not creating one from scratch.
 - Apply ONLY the change the user requests. Preserve every other field, scope,
   option, translation, and layout exactly as-is.
+- Include a top-level "changeSummary" string alongside the artifacts: 1-4
+  plain sentences addressed to the user describing exactly what you changed,
+  past tense, naming the fields/sections touched (e.g. "Renamed 'ID Band On'
+  to 'ID Band Verified'. Everything else is unchanged."). If part of the
+  request could not be applied, say which part and why. Describe only edits
+  you actually made — never claim more. No greetings, no marketing tone.
 - Return the COMPLETE updated object with all four artifacts + conversionMetadata
   (carry the metadata forward; you may lower/raise confidence for fields you
   touched). Never drop existing fields the user did not ask to remove.

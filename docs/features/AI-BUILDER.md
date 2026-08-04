@@ -52,7 +52,12 @@ and the Responses API.
   refreshes the preview next to the conversation.
 - The conversation is persistent (`form_ai_message`, one row per bubble):
   every instruction and its outcome, including failures, is recorded and
-  reloaded via `GET /api/forms/:id/ai/messages`. History is scoped to the
+  reloaded via `GET /api/forms/:id/ai/messages`.
+- The assistant's reply narrates the change in the model's own words (the
+  refine prompt requires a truthful `changeSummary`; a terse model falls back
+  to a factual line), then states which draft version was saved and whether it
+  forked, then lists the warnings THEMSELVES (up to five, then a count) —
+  warnings are read in the chat, not hunted for elsewhere. History is scoped to the
   form, so it survives the draft fork a published-form refine makes. The
   reference image itself is not stored — only the fact one was attached.
 - Refinement accepts an optional image upload (`multipart/form-data`, field

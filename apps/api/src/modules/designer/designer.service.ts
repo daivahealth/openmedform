@@ -5,7 +5,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { ProviderRegistry } from '../ai-builder/providers/provider-registry';
 import { AiUsageService } from '../ai-builder/ai-usage.service';
 import type { ImageContent } from '../ai-builder/providers/llm-provider.interface';
-import { JsonFormsAssemblerService } from '../form-conversion/jsonforms-assembler.service';
+import { JsonFormsAssemblerService, type AssembledJsonForms } from '../form-conversion/jsonforms-assembler.service';
 import { assertConversionOutputComplete } from '../../common/utils/llm-output';
 import {
   getJsonFormsRefineSystemPrompt,
@@ -193,13 +193,7 @@ export class DesignerService {
 
     await this.recordMessage(tenantId, formId, {
       role: 'ASSISTANT',
-      content:
-        `Applied to draft version ${savedVersion.version}` +
-        (latest.publishedAt ? ' (forked from the published version)' : '') +
-        (assembled.warnings.length > 0
-          ? `, with ${assembled.warnings.length} warning${assembled.warnings.length === 1 ? '' : 's'} to review`
-          : '') +
-        '.',
+      content: this.describeOutcome(assembled, savedVersion.version, !!latest.publishedAt),
       createdById: userId,
     });
 
@@ -214,6 +208,41 @@ export class DesignerService {
       conversionMetadata: assembled.conversionMetadata,
       warnings: assembled.warnings,
     };
+  }
+
+  /**
+   * The assistant's side of the exchange: the model's own account of what it
+   * changed (it is asked for a changeSummary), then the factual state — which
+   * draft version, whether it forked — and the warnings THEMSELVES rather
+   * than a count. "2 warnings to review" with no way to read them was worse
+   * than saying nothing.
+   */
+  private describeOutcome(
+    assembled: AssembledJsonForms,
+    version: number,
+    forked: boolean,
+  ): string {
+    const parts: string[] = [];
+
+    parts.push(
+      assembled.changeSummary ??
+        // Terse model or older cached prompt: fall back to a factual line.
+        'Applied your change to the draft.',
+    );
+
+    parts.push(`Saved to draft version ${version}${forked ? ' (forked from the published version)' : ''}.`);
+
+    if (assembled.warnings.length > 0) {
+      const MAX_SHOWN = 5;
+      const shown = assembled.warnings
+        .slice(0, MAX_SHOWN)
+        .map((w) => `⚠ ${w.message}${w.binding ? ` (${w.binding})` : ''}`);
+      const more = assembled.warnings.length - shown.length;
+      if (more > 0) shown.push(`…and ${more} more.`);
+      parts.push(shown.join('\n'));
+    }
+
+    return parts.join('\n\n');
   }
 
   /** The refine conversation for a form, oldest first, tenant-scoped. */
