@@ -314,6 +314,9 @@ function OmfGroup(props: LayoutProps) {
   const accent = typeof omf?.accentColor === 'string' ? (omf.accentColor as string) : undefined;
   const rawIcon = typeof omf?.icon === 'string' ? (omf.icon as string) : undefined;
   const legend = Array.isArray(omf?.pointLegend) ? (omf!.pointLegend as number[]) : undefined;
+  // The author opted this section out of its automatic subtotal badge.
+  // Scoring is unaffected — the items still feed the grand total.
+  const hideTotal = omf?.hideSectionTotal === true;
   const borderColor = accent ?? 'var(--omf-color-border, #c8cdd4)';
   // Avoid a double glyph when the AI also embedded the icon in the label text.
   const labelText = typeof group.label === 'string' ? group.label : '';
@@ -393,7 +396,7 @@ function OmfGroup(props: LayoutProps) {
               ))}
             </span>
           ) : null}
-          {subtotal !== undefined ? (
+          {subtotal !== undefined && !hideTotal ? (
             <span
               style={{
                 flex: '0 0 auto',
