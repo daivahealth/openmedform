@@ -37,9 +37,29 @@ shows), grouped by section, with per-option rows under enum controls:
   to verified (green). Provenance is kept: an approved AI suggestion stays
   `source: 'ai', verified: true`.
 - **Remove** — deletes a binding.
-- **Add code** — manual binding (system + code + display), stored as
-  `source: 'human', verified: true`. P2 (#135) replaces manual entry with
-  LOINC search + AI suggestions.
+- **Add code** — manual binding. For LOINC, a search box offers real codes
+  from the loaded table (name, synonym, or exact-code lookup); picking one
+  fills code + display. Stored as `source: 'human', verified: true`.
+- **Suggest codes** — the retrieve-then-select AI pass (#135): for every
+  uncoded field, the local LOINC table produces candidates and the model may
+  only choose among them or decline — it can never invent a code; anything it
+  returns that was not offered is dropped. Suggestions land as amber
+  unverified chips (with confidence) for approval, never overwrite existing
+  bindings, and are skipped below a 0.5 confidence floor. Audited
+  `form.coding.suggest`, metered `coding.suggest`.
+
+## Loading LOINC
+
+The seed ships ~10 ubiquitous vital-sign codes so the feature works out of the
+box. For real coverage, download the official "LOINC Table File (CSV)" from
+https://loinc.org (free account; the license — which also bars redistributing
+the table — is accepted there) and load it:
+
+    cd apps/api && npx tsx scripts/import-loinc.ts /path/to/Loinc.csv
+
+Re-running upserts, so new LOINC releases load over old ones. This material
+contains content from LOINC (https://loinc.org), © Regenstrief Institute,
+Inc. and the LOINC Committee, under https://loinc.org/license.
 
 ## Write path
 

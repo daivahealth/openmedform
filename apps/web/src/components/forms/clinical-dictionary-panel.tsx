@@ -21,7 +21,8 @@ import { collectCodedItems, type CodedItemRow } from '@openmedform/form-core';
 import type { OmfCoding } from '@openmedform/form-schema-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { BookMarked, Check, Loader2, Plus, X } from 'lucide-react';
+import { BookMarked, Check, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 /** The systems offered for manual binding; P2/P3 add search over them. */
 const SYSTEMS = [
@@ -44,6 +45,44 @@ interface CodingTarget {
   scope: string;
   optionCode?: string;
   current: OmfCoding[];
+}
+
+interface LoincSearchCandidate {
+  code: string;
+  display: string;
+}
+
+/** LOINC lookup for the add-code form — real codes from the loaded table. */
+function useLoincSearch(query: string) {
+  return useQuery<{ candidates: LoincSearchCandidate[]; loaded: number }>({
+    queryKey: ['loinc-search', query],
+    queryFn: async () => {
+      const { data } = await api.get('/api/terminology/loinc', { params: { q: query } });
+      return data;
+    },
+    enabled: query.trim().length >= 2,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * The retrieve-then-select suggestion pass: AI picks codes for unmapped fields
+ * from the loaded LOINC table only — it cannot invent one. Results arrive as
+ * amber unverified chips for approval.
+ */
+function useSuggestCodes(formId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ suggested: number; considered: number; skipped: string }>(
+        `/api/forms/${formId}/coding/suggest`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['form', formId] });
+    },
+  });
 }
 
 function useUpdateCoding(formId: string) {
@@ -127,9 +166,45 @@ function AddCodeForm({
   const [system, setSystem] = useState<string>(SYSTEMS[0].uri);
   const [code, setCode] = useState('');
   const [display, setDisplay] = useState('');
+  const [search, setSearch] = useState('');
+  const loinc = useLoincSearch(system === 'http://loinc.org' ? search : '');
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+    <div className="mt-1 space-y-1.5">
+      {system === 'http://loinc.org' && (
+        <div>
+          <Input
+            className="h-7 w-full text-xs"
+            placeholder="Search LOINC by name… (e.g. heart rate)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search.trim().length >= 2 && (
+            <div className="mt-1 max-h-32 overflow-y-auto rounded-md border bg-background text-xs">
+              {(loinc.data?.candidates ?? []).map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  className="block w-full truncate px-2 py-1 text-left hover:bg-muted"
+                  onClick={() => {
+                    setCode(c.code);
+                    setDisplay(c.display);
+                    setSearch('');
+                  }}
+                >
+                  <span className="font-mono">{c.code}</span> {c.display}
+                </button>
+              ))}
+              {loinc.data && loinc.data.candidates.length === 0 && (
+                <p className="px-2 py-1 italic text-muted-foreground">
+                  No matches{loinc.data.loaded === 0 ? ' — no LOINC table loaded on this server' : ''}.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-1.5">
       <select
         className="h-7 rounded-md border bg-background px-1.5 text-xs"
         value={system}
@@ -174,6 +249,7 @@ function AddCodeForm({
       <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
         Cancel
       </Button>
+      </div>
     </div>
   );
 }
@@ -235,6 +311,7 @@ function BindingList({
 
 export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: DictionaryPanelProps) {
   const update = useUpdateCoding(formId);
+  const suggest = useSuggestCodes(formId);
   const [openAdd, setOpenAdd] = useState<string | null>(null);
 
   const rows: CodedItemRow[] = useMemo(
@@ -250,12 +327,43 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b px-4 py-2 text-xs text-muted-foreground">
-        {rows.length} field{rows.length === 1 ? '' : 's'} · {mapped} mapped ·{' '}
-        <span title="Codes are stored inside the form definition and travel with every submission.">
-          SNOMED / LOINC / ICD
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+        <span>
+          {rows.length} field{rows.length === 1 ? '' : 's'} · {mapped} mapped ·{' '}
+          <span title="Codes are stored inside the form definition and travel with every submission.">
+            SNOMED / LOINC / ICD
+          </span>
         </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 text-xs"
+          onClick={() => suggest.mutate()}
+          disabled={suggest.isPending}
+          title="AI picks LOINC codes for unmapped fields — only from the loaded LOINC table, never invented. Suggestions appear unverified for your approval."
+        >
+          {suggest.isPending ? (
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          ) : (
+            <Sparkles className="mr-1 h-3 w-3" />
+          )}
+          Suggest codes
+        </Button>
       </div>
+      {suggest.isSuccess && (
+        <p className="border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+          {suggest.data.suggested > 0
+            ? `${suggest.data.suggested} suggestion${suggest.data.suggested === 1 ? '' : 's'} added (of ${suggest.data.considered} fields considered) — review the amber chips and approve.`
+            : suggest.data.skipped || 'No confident suggestions found.'}
+        </p>
+      )}
+      {suggest.isError && (
+        <p className="border-b bg-red-50 px-4 py-1.5 text-xs text-red-900">
+          {(suggest.error as { response?: { data?: { message?: string } } })?.response?.data
+            ?.message ?? 'Suggestion failed.'}
+        </p>
+      )}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {rows.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
