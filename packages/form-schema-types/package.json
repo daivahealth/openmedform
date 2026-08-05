@@ -1,6 +1,6 @@
 {
   "name": "@openmedform/form-schema-types",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": false,
   "license": "MIT",
   "description": "Framework-independent contract types for OpenMedForm (Data / UI / Print schema, FormDefinition, FormInstance).",

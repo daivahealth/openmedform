@@ -1,5 +1,22 @@
 # @openmedform/form-schema-types
 
+## 1.4.0
+
+### Minor Changes
+
+- 4865b2b: Clinical terminology bindings (P1 of the terminology epic)
+
+  `OmfCoding` — FHIR `Coding` shape plus provenance (`source: 'ai'|'human'`,
+  `confidence`, `verified`) — attachable to a field via `options.omf.coding` and
+  to individual answer options via `options.omf.optionCoding`, keyed by the
+  stored enum code. Bindings live inside the definition so every submission
+  (pinned to its form version) is codified data.
+
+  form-core gains `collectCodedItems(uiSchema, dataSchema)`: every Control as a
+  dictionary row with resolved labels, section grouping, per-option rows, and
+  whatever bindings it carries — the shared data source for the web dictionary
+  panel, EMR embeddings, and the future codified export.
+
 ## 1.3.0
 
 ### Minor Changes
