@@ -48,7 +48,8 @@ function terminologyHarness(rows = LOINC_ROWS) {
       findMany: vi.fn().mockResolvedValue(rows),
     },
   };
-  return { svc: new TerminologyService(prisma as never), prisma };
+  const config = { get: vi.fn().mockReturnValue(undefined) };
+  return { svc: new TerminologyService(prisma as never, config as never), prisma };
 }
 
 describe('TerminologyService.searchLoinc', () => {
@@ -137,7 +138,12 @@ function suggestHarness(options?: {
         }),
     );
   const provider = { name: 'p', generate };
-  const terminology = new TerminologyService(prisma as never);
+  (prisma as Record<string, unknown>).icd10Code = { count: vi.fn().mockResolvedValue(0) };
+  (prisma as Record<string, unknown>).tenant = {
+    findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+  };
+  const config = { get: vi.fn().mockReturnValue(undefined) };
+  const terminology = new TerminologyService(prisma as never, config as never);
 
   const svc = new CodingSuggestService(
     prisma as never,

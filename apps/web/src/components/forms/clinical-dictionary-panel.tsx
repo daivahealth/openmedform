@@ -52,18 +52,40 @@ interface LoincSearchCandidate {
   display: string;
 }
 
-/** LOINC lookup for the add-code form — real codes from the loaded table. */
-function useLoincSearch(query: string) {
-  return useQuery<{ candidates: LoincSearchCandidate[]; loaded: number }>({
-    queryKey: ['loinc-search', query],
+interface SystemAvailability {
+  system: 'loinc' | 'icd10' | 'snomed';
+  available: boolean;
+  reason?: string;
+  loaded?: number;
+}
+
+/** Which terminology systems this tenant can use — the SNOMED licensing gate. */
+function useTerminologySystems() {
+  return useQuery<SystemAvailability[]>({
+    queryKey: ['terminology-systems'],
+    queryFn: async () => (await api.get('/api/terminology/systems')).data,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Code lookup for the add-code form — real codes from the chosen system. */
+function useCodeSearch(system: string, query: string) {
+  return useQuery<{ candidates: LoincSearchCandidate[] }>({
+    queryKey: ['terminology-search', system, query],
     queryFn: async () => {
-      const { data } = await api.get('/api/terminology/loinc', { params: { q: query } });
+      const { data } = await api.get('/api/terminology/search', { params: { system, q: query } });
       return data;
     },
-    enabled: query.trim().length >= 2,
+    enabled: query.trim().length >= 2 && !!system,
     staleTime: 60_000,
   });
 }
+
+const SYSTEM_KEY: Record<string, 'loinc' | 'icd10' | 'snomed'> = {
+  'http://loinc.org': 'loinc',
+  'http://hl7.org/fhir/sid/icd-10': 'icd10',
+  'http://snomed.info/sct': 'snomed',
+};
 
 /**
  * The retrieve-then-select suggestion pass: AI picks codes for unmapped fields
@@ -158,30 +180,35 @@ function AddCodeForm({
   onSubmit,
   onCancel,
   busy,
+  systems,
 }: {
   onSubmit: (coding: OmfCoding) => void;
   onCancel: () => void;
   busy: boolean;
+  systems: SystemAvailability[];
 }) {
   const [system, setSystem] = useState<string>(SYSTEMS[0].uri);
   const [code, setCode] = useState('');
   const [display, setDisplay] = useState('');
   const [search, setSearch] = useState('');
-  const loinc = useLoincSearch(system === 'http://loinc.org' ? search : '');
+  const systemKey = SYSTEM_KEY[system];
+  const availability = systems.find((s) => s.system === systemKey);
+  const searchable = availability?.available === true;
+  const results = useCodeSearch(searchable ? systemKey : '', search);
 
   return (
     <div className="mt-1 space-y-1.5">
-      {system === 'http://loinc.org' && (
+      {searchable ? (
         <div>
           <Input
             className="h-7 w-full text-xs"
-            placeholder="Search LOINC by name… (e.g. heart rate)"
+            placeholder={`Search ${systemLabel(system)} by name…`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {search.trim().length >= 2 && (
             <div className="mt-1 max-h-32 overflow-y-auto rounded-md border bg-background text-xs">
-              {(loinc.data?.candidates ?? []).map((c) => (
+              {(results.data?.candidates ?? []).map((c) => (
                 <button
                   key={c.code}
                   type="button"
@@ -195,14 +222,19 @@ function AddCodeForm({
                   <span className="font-mono">{c.code}</span> {c.display}
                 </button>
               ))}
-              {loinc.data && loinc.data.candidates.length === 0 && (
-                <p className="px-2 py-1 italic text-muted-foreground">
-                  No matches{loinc.data.loaded === 0 ? ' — no LOINC table loaded on this server' : ''}.
-                </p>
+              {results.data && results.data.candidates.length === 0 && (
+                <p className="px-2 py-1 italic text-muted-foreground">No matches.</p>
               )}
             </div>
           )}
         </div>
+      ) : (
+        /* The gate, verbatim from the server: why this system cannot be
+           searched here (unloaded table, or SNOMED licensing). Manual code
+           entry below still works — the operator may know a code offline. */
+        availability?.reason && (
+          <p className="text-xs italic text-muted-foreground">{availability.reason}</p>
+        )
       )}
       <div className="flex flex-wrap items-center gap-1.5">
       <select
@@ -260,12 +292,14 @@ function BindingList({
   addKey,
   openAdd,
   setOpenAdd,
+  systems,
 }: {
   target: CodingTarget;
   update: ReturnType<typeof useUpdateCoding>;
   addKey: string;
   openAdd: string | null;
   setOpenAdd: (key: string | null) => void;
+  systems: SystemAvailability[];
 }) {
   const busy = update.isPending;
   const write = (coding: OmfCoding[]) =>
@@ -290,6 +324,7 @@ function BindingList({
       {openAdd === addKey ? (
         <AddCodeForm
           busy={busy}
+          systems={systems}
           onCancel={() => setOpenAdd(null)}
           onSubmit={(coding) => {
             write([...target.current, coding]);
@@ -312,6 +347,7 @@ function BindingList({
 export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: DictionaryPanelProps) {
   const update = useUpdateCoding(formId);
   const suggest = useSuggestCodes(formId);
+  const { data: systems = [] } = useTerminologySystems();
   const [openAdd, setOpenAdd] = useState<string | null>(null);
 
   const rows: CodedItemRow[] = useMemo(
@@ -389,6 +425,7 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
                   addKey={row.scope}
                   openAdd={openAdd}
                   setOpenAdd={setOpenAdd}
+                  systems={systems}
                 />
                 {row.options && (
                   <div className="mt-2 space-y-1.5 border-l pl-3">
@@ -405,6 +442,7 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
                           addKey={`${row.scope}::${option.code}`}
                           openAdd={openAdd}
                           setOpenAdd={setOpenAdd}
+                          systems={systems}
                         />
                       </div>
                     ))}
