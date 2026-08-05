@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { RendererErrorBoundary } from '@/components/forms/renderer-error-boundary';
 import { useSubmission } from '@/hooks/use-submissions';
 import dynamic from 'next/dynamic';
 
@@ -136,6 +137,7 @@ export default function SubmissionDetailPage() {
       )}
 
       <div className="rounded-lg border bg-white p-6">
+        <RendererErrorBoundary surface="submitted record">
         <JsonFormsRendererWrapper
           form={{
             id: submission.form?.id ?? submission.formId,
@@ -146,6 +148,7 @@ export default function SubmissionDetailPage() {
           data={submission.data}
           readOnly
         />
+        </RendererErrorBoundary>
       </div>
     </div>
   );
