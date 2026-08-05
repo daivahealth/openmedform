@@ -9,6 +9,7 @@ import {
   useCompleteSubmission,
 } from '@/hooks/use-submissions';
 import { JsonFormsRendererWrapper } from '@/components/forms/jsonforms-renderer-wrapper';
+import { RendererErrorBoundary } from '@/components/forms/renderer-error-boundary';
 import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -265,6 +266,7 @@ export default function FormFillPage() {
       {isPatientForm && <PatientHeaderBar context={patientContext} />}
 
       <div className="rounded-lg border bg-white p-6">
+        <RendererErrorBoundary surface="form">
         <JsonFormsRendererWrapper
           form={form}
           onChange={(data) => {
@@ -272,6 +274,7 @@ export default function FormFillPage() {
             handleChange(data);
           }}
         />
+        </RendererErrorBoundary>
         <div className="mt-6 flex justify-end">
           <Button
             onClick={() => handleSubmit(jsonFormsData)}

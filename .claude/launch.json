@@ -54,6 +54,15 @@
         "cd /Users/sajithchandran/daiva-health/openmedform/apps/react-demo && npx vite --port 5177 --strictPort"
       ],
       "port": 5177
+    },
+    {
+      "name": "web-dev-3000",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/sajithchandran/daiva-health/openmedform/apps/web && npx next dev -p 3000"
+      ],
+      "port": 3000
     }
   ]
 }

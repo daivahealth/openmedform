@@ -1,0 +1,447 @@
+{
+ "dataSchema": {
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+   "cannulas": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "side": {
+       "enum": [
+        "Left",
+        "Right"
+       ],
+       "type": "string",
+       "title": "Side"
+      },
+      "site": {
+       "enum": [
+        "Dorsum of Hand",
+        "Forearm",
+        "Antecubital Fossa",
+        "Wrist",
+        "Upper Arm",
+        "Foot (Paediatric)",
+        "Scalp (Neonate)",
+        "Other"
+       ],
+       "type": "string",
+       "title": "Site"
+      },
+      "insertedAt": {
+       "enum": [
+        "Internal (This Facility)",
+        "External"
+       ],
+       "type": "string",
+       "title": "Inserted At"
+      },
+      "dateOfRemoval": {
+       "type": "string",
+       "title": "Date of Removal",
+       "format": "date"
+      },
+      "timeOfRemoval": {
+       "type": "string",
+       "title": "Time of Removal",
+       "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      },
+      "insertedByName": {
+       "type": "string",
+       "title": "Inserted By \u2014 Name"
+      },
+      "dateOfInsertion": {
+       "type": "string",
+       "title": "Date of Insertion",
+       "format": "date"
+      },
+      "inspectedByName": {
+       "type": "string",
+       "title": "Inspected By \u2014 Name"
+      },
+      "timeOfInsertion": {
+       "type": "string",
+       "title": "Time of Insertion",
+       "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      },
+      "dailyAssessments": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "timeMen": {
+          "enum": [
+           "Morning",
+           "Evening",
+           "Night"
+          ],
+          "type": "string",
+          "title": "Time (M/E/N)"
+         },
+         "dayAndDate": {
+          "type": "string",
+          "title": "Day & Date",
+          "format": "date"
+         },
+         "interventionAuto": {
+          "type": "string",
+          "title": "Intervention (auto)",
+          "readOnly": true
+         },
+         "interventionDoneYn": {
+          "enum": [
+           "Yes",
+           "No"
+          ],
+          "type": "string",
+          "title": "Intervention Done (Y/N)"
+         },
+         "vipScoreStageDescription": {
+          "type": "string",
+          "oneOf": [
+           {
+            "const": "0",
+            "title": "0 \u2014 No sign of Phlebitis \u2014 IV site appears healthy"
+           },
+           {
+            "const": "1",
+            "title": "1 \u2014 Possible first sign \u2014 Slight pain at IV site OR redness near IV site"
+           },
+           {
+            "const": "2",
+            "title": "2 \u2014 Early stage of phlebitis \u2014 Two of: Pain, Erythema, Swelling"
+           },
+           {
+            "const": "3",
+            "title": "3 \u2014 Medium stage of phlebitis \u2014 All of: Pain along path, Erythema, Induration"
+           },
+           {
+            "const": "4",
+            "title": "4 \u2014 Advanced / Thrombophlebitis \u2014 All of above + Palpable venous cord"
+           },
+           {
+            "const": "5",
+            "title": "5 \u2014 Advanced Thrombophlebitis \u2014 All of above + Pyrexia"
+           }
+          ],
+          "title": "VIP Score / Stage / Description"
+         }
+        },
+        "additionalProperties": false
+       },
+       "title": "Daily assessments"
+      },
+      "insertedByEcCode": {
+       "type": "string",
+       "title": "Inserted By \u2014 EC Code"
+      },
+      "reasonForRemoval": {
+       "enum": [
+        "Course completed",
+        "Phlebitis / infection signs",
+        "Blocked / not patent",
+        "Accidental dislodgement",
+        "Infiltration / extravasation",
+        "No longer required",
+        "Other"
+       ],
+       "type": "string",
+       "title": "Reason for Removal"
+      },
+      "inspectedByEcCode": {
+       "type": "string",
+       "title": "Inspected By \u2014 EC Code"
+      },
+      "nurseTeamLeadName": {
+       "type": "string",
+       "title": "Nurse Team Lead \u2014 Name"
+      },
+      "sitePleaseSpecify": {
+       "type": "string",
+       "title": "Please specify\u2026"
+      },
+      "sizeOfCannulaGauge": {
+       "enum": [
+        "14G",
+        "16G",
+        "18G",
+        "20G",
+        "22G",
+        "24G",
+        "26G"
+       ],
+       "type": "string",
+       "title": "Size of Cannula (Gauge)"
+      },
+      "nurseTeamLeadEcCode": {
+       "type": "string",
+       "title": "Nurse Team Lead \u2014 EC Code"
+      },
+      "inspectedBySignature": {
+       "type": "string",
+       "title": "Inspected By \u2014 Signature"
+      },
+      "removedByNameAndEcCode": {
+       "type": "string",
+       "title": "Removed By \u2014 Name & EC Code"
+      },
+      "reasonForRemovalPleaseSpecify": {
+       "type": "string",
+       "title": "Please specify\u2026"
+      }
+     },
+     "additionalProperties": false
+    },
+    "title": "Cannulae"
+   }
+  },
+  "additionalProperties": false
+ },
+ "uiSchema": {
+  "layout": {
+   "type": "VerticalLayout",
+   "elements": [
+    {
+     "type": "Control",
+     "label": "Cannulae",
+     "scope": "#/properties/cannulas",
+     "options": {
+      "omf": {
+       "detail": {
+        "type": "OmfTabsLayout",
+        "elements": [
+         {
+          "type": "Group",
+          "label": "Insertion details",
+          "elements": [
+           {
+            "type": "Control",
+            "scope": "#/properties/dateOfInsertion"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/timeOfInsertion"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/insertedAt"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/insertedByName"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/insertedByEcCode"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/site"
+           },
+           {
+            "rule": {
+             "effect": "SHOW",
+             "condition": {
+              "scope": "#/properties/site",
+              "schema": {
+               "const": "Other"
+              }
+             }
+            },
+            "type": "Control",
+            "scope": "#/properties/sitePleaseSpecify"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/side"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/sizeOfCannulaGauge"
+           }
+          ]
+         },
+         {
+          "type": "Group",
+          "label": "Daily assessment",
+          "elements": [
+           {
+            "type": "Control",
+            "label": "Daily assessment",
+            "scope": "#/properties/dailyAssessments",
+            "options": {
+             "omf": {
+              "detail": {
+               "type": "Group",
+               "label": "Day",
+               "elements": [
+                {
+                 "type": "Control",
+                 "scope": "#/properties/dayAndDate"
+                },
+                {
+                 "type": "Control",
+                 "scope": "#/properties/timeMen"
+                },
+                {
+                 "type": "Control",
+                 "scope": "#/properties/vipScoreStageDescription"
+                },
+                {
+                 "type": "Control",
+                 "scope": "#/properties/interventionAuto"
+                },
+                {
+                 "type": "Control",
+                 "scope": "#/properties/interventionDoneYn"
+                }
+               ]
+              },
+              "control": "recordTable",
+              "recordTable": {
+               "columns": [
+                {
+                 "path": "dayAndDate",
+                 "label": "Day & Date"
+                },
+                {
+                 "path": "timeMen",
+                 "label": "Time (M/E/N)"
+                },
+                {
+                 "path": "vipScoreStageDescription",
+                 "label": "VIP Score / Stage / Description"
+                },
+                {
+                 "path": "interventionDoneYn",
+                 "label": "Intervention Done (Y/N)"
+                }
+               ],
+               "addLabel": "+ Day",
+               "countLabel": "{n} day{s} recorded",
+               "emptyLabel": "No daily assessments recorded"
+              }
+             }
+            }
+           }
+          ]
+         },
+         {
+          "type": "Group",
+          "label": "Removal details",
+          "elements": [
+           {
+            "type": "Control",
+            "scope": "#/properties/dateOfRemoval"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/timeOfRemoval"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/reasonForRemoval"
+           },
+           {
+            "rule": {
+             "effect": "SHOW",
+             "condition": {
+              "scope": "#/properties/reasonForRemoval",
+              "schema": {
+               "const": "Other"
+              }
+             }
+            },
+            "type": "Control",
+            "scope": "#/properties/reasonForRemovalPleaseSpecify"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/removedByNameAndEcCode"
+           }
+          ]
+         },
+         {
+          "type": "Group",
+          "label": "Inspection and team lead",
+          "elements": [
+           {
+            "type": "Control",
+            "scope": "#/properties/inspectedByName"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/inspectedByEcCode"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/inspectedBySignature"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/nurseTeamLeadName"
+           },
+           {
+            "type": "Control",
+            "scope": "#/properties/nurseTeamLeadEcCode"
+           }
+          ]
+         }
+        ]
+       },
+       "control": "recordTable",
+       "recordTable": {
+        "columns": [
+         {
+          "path": "dateOfInsertion",
+          "label": "Date of Insertion"
+         },
+         {
+          "path": "insertedAt",
+          "label": "Inserted At"
+         },
+         {
+          "path": "site",
+          "label": "Site"
+         },
+         {
+          "path": "side",
+          "label": "Side"
+         },
+         {
+          "path": "sizeOfCannulaGauge",
+          "label": "Size of Cannula (Gauge)"
+         }
+        ],
+        "addLabel": "+ Add Cannula",
+        "countLabel": "{n} cannula{s} recorded",
+        "emptyLabel": "No cannulae recorded"
+       }
+      }
+     }
+    }
+   ]
+  },
+  "schemaVersion": "1.0"
+ },
+ "printSchema": {
+  "pageSize": "A4",
+  "marginsMm": {
+   "top": 12,
+   "left": 12,
+   "right": 12,
+   "bottom": 12
+  },
+  "orientation": "portrait",
+  "schemaVersion": "1.0"
+ },
+ "translations": {
+  "entries": {},
+  "languages": [
+   "en"
+  ],
+  "defaultLanguage": "en"
+ }
+}

@@ -6,6 +6,7 @@ import { useForm, usePublishForm } from '@/hooks/use-forms';
 import { JsonFormsRendererWrapper } from '@/components/forms/jsonforms-renderer-wrapper';
 import { AssetsDialog } from '@/components/forms/assets-dialog';
 import { RefineChatPanel } from '@/components/forms/refine-chat-panel';
+import { RendererErrorBoundary } from '@/components/forms/renderer-error-boundary';
 import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
@@ -167,6 +168,7 @@ export default function FormPreviewPage() {
           </div>
           <div className="p-6">
           {hasContent ? (
+            <RendererErrorBoundary surface="form preview">
             <JsonFormsRendererWrapper
               /* A refine rewrites the definition under the tester's feet, so the
                  form's updatedAt is part of the key: the try-out restarts clean
@@ -175,6 +177,7 @@ export default function FormPreviewPage() {
               form={form as never}
               onChange={setTestData}
             />
+            </RendererErrorBoundary>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
               <p>This form has no content yet</p>
