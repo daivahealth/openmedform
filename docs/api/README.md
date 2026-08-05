@@ -72,6 +72,8 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 | GET | /api/forms/:id/export | Export an OpenMedForm template bundle for re-import |
 | POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language; accepts JSON or multipart `image` visual reference (SSE stream; edits a draft or forks one if published) |
 | PATCH | /api/forms/:id/coding | Set/replace/clear the clinical terminology bindings of one field or answer option (`{ scope, optionCode?, coding[] }`; empty list clears). Draft edited in place, published forks — audited as `form.coding.update`. See docs/features/CLINICAL-TERMINOLOGY.md |
+| GET | /api/terminology/loinc | Top LOINC candidates for `?q=` (name, synonym, or exact code) from the locally loaded table; also reports how many codes are loaded |
+| POST | /api/forms/:id/coding/suggest | Retrieve-then-select AI pass: for every uncoded field, search the local LOINC table for candidates and let the model choose among them or decline (it can never invent a code). Writes `source: 'ai', verified: false` suggestions to the draft for dictionary approval; never overwrites existing bindings. Audited `form.coding.suggest`; metered `coding.suggest` |
 | GET | /api/forms/:id/ai/messages | The form's refine conversation (chat history), oldest first — one row per instruction/outcome, failures included |
 
 ### Submissions
