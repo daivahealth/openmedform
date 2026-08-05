@@ -22,6 +22,7 @@ AI-powered clinical form builder platform.
 - [Data Model](architecture/DATA-MODEL.md)
 - [API Reference](api/README.md)
 - [Form Builder](features/FORM-BUILDER.md)
+- [Clinical Terminology](features/CLINICAL-TERMINOLOGY.md)
 - [AI Builder](features/AI-BUILDER.md)
 - [Developer Onboarding](development/DEVELOPER-ONBOARDING.md)
 - [Local Deployment Guide](deployment/LOCAL-DEPLOYMENT.md)

@@ -20,6 +20,7 @@
 export * from './validation/validate-data';
 export * from './schema/pointer';
 export * from './schema/enum-options';
+export * from './terminology/coded-items';
 export * from './binding/data-path';
 export * from './rules/evaluate-rule';
 export * from './i18n/translate';
