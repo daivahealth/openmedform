@@ -341,6 +341,122 @@ export class DesignerService {
     return parts.join('\n\n');
   }
 
+  /**
+   * Set, replace, or clear the terminology bindings on one Control (or one of
+   * its answer options) — the dictionary panel's approve / remove / manual-add
+   * write path (#134).
+   *
+   * Same immutability rule as refine: a draft is edited in place, a published
+   * version forks a new draft. Deliberately NOT an LLM call — approval is a
+   * click, and the audit row names the human who clicked it.
+   */
+  async updateCoding(
+    tenantId: string,
+    formId: string,
+    input: {
+      scope: string;
+      /** Present -> bind the enum option with this stored code, not the field. */
+      optionCode?: string;
+      /** The complete new binding list; empty clears. */
+      coding: Array<{
+        system: string;
+        code: string;
+        display?: string;
+        source: 'ai' | 'human';
+        confidence?: number;
+        verified: boolean;
+      }>;
+    },
+    ipAddress?: string | null,
+    userId?: string,
+  ) {
+    const form = await this.prisma.form.findFirst({
+      where: { id: formId, tenantId },
+      include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
+    });
+    if (!form) throw new NotFoundException(`Form ${formId} not found`);
+    const latest = form.versions[0];
+    if (!latest?.uiSchema) throw new BadRequestException('Form has no definition to code');
+
+    const uiSchema = structuredClone(latest.uiSchema) as Record<string, unknown>;
+    const control = this.findControlByScope(
+      (uiSchema.layout ?? uiSchema) as Record<string, unknown>,
+      input.scope,
+    );
+    if (!control) {
+      throw new BadRequestException(`No control with scope "${input.scope}" exists on this form`);
+    }
+
+    const options = (control.options ??= {}) as Record<string, unknown>;
+    const omf = (options.omf ??= {}) as Record<string, unknown>;
+    if (input.optionCode !== undefined) {
+      const optionCoding = (omf.optionCoding ??= {}) as Record<string, unknown>;
+      if (input.coding.length === 0) delete optionCoding[input.optionCode];
+      else optionCoding[input.optionCode] = input.coding;
+      if (Object.keys(optionCoding).length === 0) delete omf.optionCoding;
+    } else {
+      if (input.coding.length === 0) delete omf.coding;
+      else omf.coding = input.coding;
+    }
+
+    const versionData = { uiSchema: uiSchema as unknown as Prisma.InputJsonValue };
+    const savedVersion = latest.publishedAt
+      ? await this.prisma.formVersion.create({
+          data: {
+            formId: form.id,
+            version: latest.version + 1,
+            dataSchema: latest.dataSchema as Prisma.InputJsonValue,
+            printSchema: latest.printSchema as Prisma.InputJsonValue,
+            translations: latest.translations as Prisma.InputJsonValue,
+            conversionMetadata: latest.conversionMetadata as Prisma.InputJsonValue,
+            scoringRules: latest.scoringRules as Prisma.InputJsonValue,
+            ...versionData,
+          },
+        })
+      : await this.prisma.formVersion.update({ where: { id: latest.id }, data: versionData });
+
+    await this.prisma.form.update({
+      where: { id: form.id },
+      data: { currentVersionId: savedVersion.id },
+    });
+
+    await this.audit.record({
+      tenantId,
+      userId,
+      ipAddress,
+      action: 'form.coding.update',
+      resourceType: 'form_version',
+      resourceId: savedVersion.id,
+      details: {
+        formId: form.id,
+        scope: input.scope,
+        optionCode: input.optionCode ?? null,
+        codes: input.coding.map((c) => `${c.system}|${c.code}|${c.verified ? 'verified' : 'unverified'}`),
+        forkedNewDraft: !!latest.publishedAt,
+      },
+    });
+
+    return { version: savedVersion.version, uiSchema };
+  }
+
+  /** Depth-first search for the Control carrying a scope. */
+  private findControlByScope(
+    node: Record<string, unknown>,
+    scope: string,
+  ): Record<string, unknown> | null {
+    if (node.type === 'Control' && node.scope === scope) return node;
+    const children = node.elements;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child && typeof child === 'object') {
+          const found = this.findControlByScope(child as Record<string, unknown>, scope);
+          if (found) return found;
+        }
+      }
+    }
+    return null;
+  }
+
   /** The refine conversation for a form, oldest first, tenant-scoped. */
   async listMessages(tenantId: string, formId: string) {
     const form = await this.prisma.form.findFirst({

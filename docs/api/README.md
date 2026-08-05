@@ -71,6 +71,7 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 | POST | /api/forms/:id/clone | Clone form |
 | GET | /api/forms/:id/export | Export an OpenMedForm template bundle for re-import |
 | POST | /api/forms/:id/jsonforms/refine | Prompt-based designer: refine a jsonforms form's Data/UI/Print schemas via natural language; accepts JSON or multipart `image` visual reference (SSE stream; edits a draft or forks one if published) |
+| PATCH | /api/forms/:id/coding | Set/replace/clear the clinical terminology bindings of one field or answer option (`{ scope, optionCode?, coding[] }`; empty list clears). Draft edited in place, published forks — audited as `form.coding.update`. See docs/features/CLINICAL-TERMINOLOGY.md |
 | GET | /api/forms/:id/ai/messages | The form's refine conversation (chat history), oldest first — one row per instruction/outcome, failures included |
 
 ### Submissions
