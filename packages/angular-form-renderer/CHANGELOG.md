@@ -1,5 +1,14 @@
 # @openmedform/angular-form-renderer
 
+## 1.4.1
+
+### Patch Changes
+
+- Updated dependencies [4865b2b]
+  - @openmedform/form-schema-types@1.4.0
+  - @openmedform/form-core@1.4.0
+  - @openmedform/form-design-tokens@1.4.0
+
 ## 1.4.0
 
 ### Minor Changes
