@@ -288,6 +288,31 @@ model ConversionWarning {
   @@map("conversion_warning")
 }
 
+// ─── LOINC Codes ─────────────────────────────────────────────────────────────
+
+/// A local slice of the LOINC table, used by the terminology suggestion pass
+/// and the dictionary search (#135). Loaded by the operator from the official
+/// LOINC release (scripts/import-loinc.ts) — LOINC is free to use with
+/// attribution but its full table is not redistributable, so the repo ships
+/// only a tiny starter subset of ubiquitous vital-sign codes (see seed).
+/// Global, not tenant-scoped: terminology is reference data, not domain data.
+model LoincCode {
+  /// The LOINC code itself, e.g. '8867-4'.
+  code           String  @id @db.VarChar(20)
+  component      String  @db.VarChar(255)
+  /// The fully-specified human name, the primary display string.
+  longCommonName String  @map("long_common_name") @db.VarChar(500)
+  shortName      String? @map("short_name") @db.VarChar(255)
+  /// Space-separated synonyms/abbreviations from RELATEDNAMES2 — this is what
+  /// lets a field labelled "SpO2" find "Oxygen saturation". Truncated on
+  /// import; search-only, never displayed.
+  relatedNames   String? @map("related_names") @db.Text
+  /// LOINC class, e.g. 'BP.VENOUS', useful for future filtering.
+  class          String? @db.VarChar(100)
+
+  @@map("loinc_code")
+}
+
 // ─── Form AI Message ─────────────────────────────────────────────────────────
 
 /// The refine conversation for a form — one row per chat bubble. The designer

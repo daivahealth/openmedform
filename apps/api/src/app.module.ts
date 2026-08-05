@@ -13,6 +13,7 @@ import { ScoringModule } from './modules/scoring/scoring.module';
 import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
 import { FormConversionModule } from './modules/form-conversion/form-conversion.module';
 import { DesignerModule } from './modules/designer/designer.module';
+import { TerminologyModule } from './modules/terminology/terminology.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
@@ -32,6 +33,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     AiBuilderModule,
     FormConversionModule,
     DesignerModule,
+    TerminologyModule,
     SettingsModule,
     AdminModule,
     WorkspaceModule,

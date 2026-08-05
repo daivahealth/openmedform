@@ -199,6 +199,29 @@ async function main() {
     console.log(`VTE Risk Assessment form seeded (${vteForm.id})`);
   }
 
+  // Starter LOINC subset — a dozen ubiquitous vital-sign codes so terminology
+  // suggestions work out of the box. The real table is operator-loaded via
+  // scripts/import-loinc.ts (LOINC's license bars redistributing the full
+  // release). Verify any starter code against loinc.org before relying on it
+  // clinically. Content from LOINC (https://loinc.org), © Regenstrief
+  // Institute, Inc. and the LOINC Committee, under https://loinc.org/license.
+  const starterLoinc = [
+    { code: '8867-4', component: 'Heart rate', longCommonName: 'Heart rate', shortName: 'Heart rate', relatedNames: 'HR pulse rate beats per minute bpm' },
+    { code: '9279-1', component: 'Respiratory rate', longCommonName: 'Respiratory rate', shortName: 'Resp rate', relatedNames: 'RR breaths respiration breathing rate' },
+    { code: '8310-5', component: 'Body temperature', longCommonName: 'Body temperature', shortName: 'Body temperature', relatedNames: 'temp fever celsius fahrenheit' },
+    { code: '8480-6', component: 'Systolic blood pressure', longCommonName: 'Systolic blood pressure', shortName: 'BP sys', relatedNames: 'SBP systolic BP blood pressure' },
+    { code: '8462-4', component: 'Diastolic blood pressure', longCommonName: 'Diastolic blood pressure', shortName: 'BP dias', relatedNames: 'DBP diastolic BP blood pressure' },
+    { code: '59408-5', component: 'Oxygen saturation', longCommonName: 'Oxygen saturation in Arterial blood by Pulse oximetry', shortName: 'SaO2 % BldA PulseOx', relatedNames: 'SpO2 O2 sat oxygen saturation pulse oximetry' },
+    { code: '29463-7', component: 'Body weight', longCommonName: 'Body weight', shortName: 'Weight', relatedNames: 'weight wt kg' },
+    { code: '8302-2', component: 'Body height', longCommonName: 'Body height', shortName: 'Body height', relatedNames: 'height ht cm stature' },
+    { code: '72514-3', component: 'Pain severity', longCommonName: 'Pain severity - 0-10 verbal numeric rating [Score] - Reported', shortName: 'Pain severity 0-10 Score', relatedNames: 'pain score NRS numeric rating scale 0-10' },
+    { code: '882-1', component: 'ABO+Rh group', longCommonName: 'ABO and Rh group [Type] in Blood', shortName: 'ABO+Rh Bld', relatedNames: 'blood group blood type ABO Rh' },
+  ];
+  for (const row of starterLoinc) {
+    await prisma.loincCode.upsert({ where: { code: row.code }, create: row, update: row });
+  }
+  console.log(`${starterLoinc.length} starter LOINC codes seeded (load the full table with scripts/import-loinc.ts)`);
+
   console.log('Seed complete. Login with admin@openmedform.local / admin123');
 }
 
