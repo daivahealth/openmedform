@@ -7,6 +7,7 @@ import { JsonFormsRendererWrapper } from '@/components/forms/jsonforms-renderer-
 import { AssetsDialog } from '@/components/forms/assets-dialog';
 import { RefineChatPanel } from '@/components/forms/refine-chat-panel';
 import { RendererErrorBoundary } from '@/components/forms/renderer-error-boundary';
+import { ClinicalDictionaryPanel } from '@/components/forms/clinical-dictionary-panel';
 import { PrintPreviewButton } from '@/components/forms/print-preview-button';
 import { FormStatusBadge } from '@/components/forms/form-status-badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ export default function FormPreviewPage() {
   // Open by default: refining is this screen's main activity, and the chat is
   // beside the preview rather than over it, so it costs nothing to show.
   const [refineOpen, setRefineOpen] = useState(true);
+  /** Which tool the side panel shows: the refine chat or the clinical dictionary. */
+  const [panelTab, setPanelTab] = useState<'chat' | 'dictionary'>('chat');
   const [assetsOpen, setAssetsOpen] = useState(false);
 
   const { data: form, isLoading } = useForm(formId);
@@ -188,8 +191,42 @@ export default function FormPreviewPage() {
         </div>
 
         {refineOpen && (
-          <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
-            <RefineChatPanel formId={formId} onApplied={() => setSavedNote('All changes saved')} />
+          <div className="flex flex-col lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
+            <div className="mb-2 flex gap-1 rounded-lg border bg-muted/40 p-1">
+              {(
+                [
+                  { value: 'chat', label: 'Refine with AI' },
+                  { value: 'dictionary', label: 'Dictionary' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setPanelTab(tab.value)}
+                  className={
+                    'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ' +
+                    (panelTab === tab.value
+                      ? 'bg-background shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground')
+                  }
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1">
+              {panelTab === 'chat' ? (
+                <RefineChatPanel formId={formId} onApplied={() => setSavedNote('All changes saved')} />
+              ) : (
+                <div className="flex h-full min-h-0 flex-col rounded-lg border bg-background">
+                  <ClinicalDictionaryPanel
+                    formId={formId}
+                    dataSchema={(version as { dataSchema?: unknown } | undefined)?.dataSchema}
+                    uiSchema={(version as { uiSchema?: unknown } | undefined)?.uiSchema}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

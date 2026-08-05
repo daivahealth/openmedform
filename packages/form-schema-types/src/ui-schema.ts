@@ -52,6 +52,30 @@ export interface OmfPrintOptions {
   align?: 'left' | 'center' | 'right';
 }
 
+/**
+ * One clinical terminology binding, in FHIR `Coding` shape plus provenance.
+ *
+ * Bindings ride INSIDE the form definition (not a side table) so that every
+ * submission — already pinned to its exact form version — is codified data
+ * retroactively and forever: cross-form queries by LOINC/SNOMED code, FHIR
+ * export, registry reporting. `verified` is the clinical gate: an AI
+ * suggestion (`source: 'ai'`) is visibly not the same thing as a binding a
+ * clinician approved in the dictionary.
+ */
+export interface OmfCoding {
+  /** Terminology system URI, e.g. 'http://loinc.org', 'http://snomed.info/sct'. */
+  system: string;
+  code: string;
+  /** The system's own display text for the code. */
+  display?: string;
+  /** Who bound it: an AI suggestion pass, or a human in the dictionary. */
+  source: 'ai' | 'human';
+  /** Suggestion confidence 0..1; meaningless for human bindings. */
+  confidence?: number;
+  /** Approved by a clinician in the dictionary. */
+  verified: boolean;
+}
+
 /** Vendor-namespaced extension bag carried on any element under `options.omf`. */
 export interface OmfOptions {
   /** Custom control/layout type resolved via the renderer's registry (e.g. 'scoringMatrix'). */
@@ -121,6 +145,20 @@ export interface OmfOptions {
    * definition rather than impossible.
    */
   hideSectionTotal?: boolean;
+  /**
+   * Clinical terminology bindings for THIS field (the question). Lives on the
+   * UI element rather than as a dataSchema keyword because Ajv runs strict in
+   * every engine — the omf bag already passes through assembly, refine and
+   * both renderers untouched, and the renderers simply ignore it (codes never
+   * render on the form; the dictionary panel is their UI).
+   */
+  coding?: OmfCoding[];
+  /**
+   * Terminology bindings per ANSWER OPTION of an enum control, keyed by the
+   * stored code (the same key space as `optionPoints`/`optionLabels`):
+   * `{ "YES": [{ system: "http://snomed.info/sct", code: "373066001", ... }] }`.
+   */
+  optionCoding?: Record<string, OmfCoding[]>;
   /**
    * Risk-stratification bands for a scoreSummary element: the total maps to the
    * band whose [minScore, maxScore] range contains it (both bounds inclusive

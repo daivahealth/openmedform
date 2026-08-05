@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Logger,
   Ip,
   Param,
@@ -108,6 +109,68 @@ export class DesignerController {
     }
 
     res.end();
+  }
+
+  /**
+   * The dictionary panel's write path: set/replace/clear the terminology
+   * bindings of one field or one answer option. Validation is deliberate and
+   * boring — this is clinical metadata written by a click.
+   */
+  @Patch(':id/coding')
+  async updateCoding(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      scope?: string;
+      optionCode?: string;
+      coding?: Array<{
+        system?: string;
+        code?: string;
+        display?: string;
+        source?: string;
+        confidence?: number;
+        verified?: boolean;
+      }>;
+    },
+    @Ip() ip: string,
+  ) {
+    if (!body?.scope || typeof body.scope !== 'string') {
+      throw new BadRequestException('scope is required');
+    }
+    if (!Array.isArray(body.coding)) {
+      throw new BadRequestException('coding must be an array (empty clears the binding)');
+    }
+    if (body.coding.length > 10) {
+      throw new BadRequestException('a field carries at most 10 bindings');
+    }
+    const coding = body.coding.map((c, i) => {
+      if (!c?.system || typeof c.system !== 'string' || !c.code || typeof c.code !== 'string') {
+        throw new BadRequestException(`coding[${i}] needs a string system and code`);
+      }
+      if (c.system.length > 200 || c.code.length > 100 || (c.display ?? '').length > 500) {
+        throw new BadRequestException(`coding[${i}] has an over-long value`);
+      }
+      if (c.source !== 'ai' && c.source !== 'human') {
+        throw new BadRequestException(`coding[${i}].source must be 'ai' or 'human'`);
+      }
+      return {
+        system: c.system,
+        code: c.code,
+        ...(c.display ? { display: c.display } : {}),
+        source: c.source as 'ai' | 'human',
+        ...(typeof c.confidence === 'number' ? { confidence: c.confidence } : {}),
+        verified: c.verified === true,
+      };
+    });
+
+    return this.designer.updateCoding(
+      user.tenantId,
+      id,
+      { scope: body.scope, optionCode: body.optionCode, coding },
+      ip,
+      user.userId,
+    );
   }
 
   /**
