@@ -313,6 +313,24 @@ model LoincCode {
   @@map("loinc_code")
 }
 
+// ─── ICD-10 Codes ────────────────────────────────────────────────────────────
+
+/// Local ICD-10 slice for diagnosis-shaped fields (#136). Loaded by the
+/// operator (scripts/import-icd10.ts) from the CMS ICD-10-CM order file,
+/// which is public domain — unlike SNOMED, no licensing gate needed.
+/// Reference data, not tenant-scoped.
+model Icd10Code {
+  /// The ICD-10 code, e.g. 'E11' or 'E11.9' (dot restored on import).
+  code      String  @id @db.VarChar(10)
+  title     String  @db.VarChar(500)
+  /// Short description, search-assist only.
+  shortName String? @map("short_name") @db.VarChar(255)
+  /// True when the code is billable/leaf in the source file.
+  billable  Boolean @default(false)
+
+  @@map("icd10_code")
+}
+
 // ─── Form AI Message ─────────────────────────────────────────────────────────
 
 /// The refine conversation for a form — one row per chat bubble. The designer

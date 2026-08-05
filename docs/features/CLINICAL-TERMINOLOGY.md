@@ -61,6 +61,46 @@ Re-running upserts, so new LOINC releases load over old ones. This material
 contains content from LOINC (https://loinc.org), © Regenstrief Institute,
 Inc. and the LOINC Committee, under https://loinc.org/license.
 
+## ICD-10 (#136)
+
+Same pattern as LOINC with a public-domain source: download the CMS
+"ICD-10-CM Order File" from https://www.cms.gov/medicare/coding-billing/icd-10-codes
+and load it:
+
+    cd apps/api && npx tsx scripts/import-icd10.ts /path/to/icd10cm_order_2026.txt
+
+The seed ships a handful of common category codes (diabetes, hypertension,
+asthma, CKD, IHD, COPD) as a starter. ICD-10 search is available to every
+tenant once loaded — no licensing gate.
+
+## SNOMED CT and the licensing gate (#136)
+
+SNOMED CT is member-country licensed, so it is DOUBLY gated, server-side:
+
+1. **Operator**: configure `SNOMED_FHIR_URL` — a FHIR terminology server that
+   hosts SNOMED (Snowstorm or Ontoserver, self-hosted with your national
+   release, or a licensed hosted endpoint). Search uses
+   `ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&filter=...`, which all
+   of them support. A down server degrades to empty results, never errors.
+2. **Per tenant**: set `snomedEnabled: true` in the tenant's `settings` JSON
+   for organizations whose country/affiliate license covers them (India is a
+   member country — the national license is free). Without it, SNOMED search
+   and suggestions refuse for that tenant and the dictionary shows why.
+
+`GET /api/terminology/systems` reports each system's availability + reason;
+the dictionary's search UI reflects it verbatim.
+
+## What the suggestion pass codes with what
+
+- **Fields** (questions) get **LOINC** candidates — observations, vitals,
+  scores are LOINC's home turf.
+- **Enum answer options** get **SNOMED** candidates (qualitative concepts) —
+  only when the tenant's SNOMED gate is open. Option suggestions write
+  `optionCoding[<code>]` and appear nested in the dictionary like any other
+  option binding.
+- **ICD-10** is manual-search only for now: diagnosis-shaped fields are a
+  judgment call the reviewer makes with the search box.
+
 ## Write path
 
 `PATCH /api/forms/:id/coding` with `{ scope, optionCode?, coding[] }` replaces

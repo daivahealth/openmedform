@@ -222,6 +222,23 @@ async function main() {
   }
   console.log(`${starterLoinc.length} starter LOINC codes seeded (load the full table with scripts/import-loinc.ts)`);
 
+  // Starter ICD-10 subset — same idea as the LOINC starter: a handful of
+  // ubiquitous category codes so ICD search works before the operator loads
+  // the CMS order file (scripts/import-icd10.ts, public domain). Verify
+  // against icd10data.com / WHO before clinical reliance.
+  const starterIcd10 = [
+    { code: 'E11', title: 'Type 2 diabetes mellitus', shortName: 'Type 2 diabetes' },
+    { code: 'I10', title: 'Essential (primary) hypertension', shortName: 'Hypertension' },
+    { code: 'J45', title: 'Asthma', shortName: 'Asthma' },
+    { code: 'N18', title: 'Chronic kidney disease (CKD)', shortName: 'CKD' },
+    { code: 'I25', title: 'Chronic ischemic heart disease', shortName: 'Ischemic heart disease' },
+    { code: 'J44', title: 'Other chronic obstructive pulmonary disease', shortName: 'COPD' },
+  ];
+  for (const row of starterIcd10) {
+    await prisma.icd10Code.upsert({ where: { code: row.code }, create: row, update: row });
+  }
+  console.log(`${starterIcd10.length} starter ICD-10 codes seeded (load the full set with scripts/import-icd10.ts)`);
+
   console.log('Seed complete. Login with admin@openmedform.local / admin123');
 }
 
