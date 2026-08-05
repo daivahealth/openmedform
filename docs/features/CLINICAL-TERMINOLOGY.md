@@ -50,8 +50,13 @@ shows), grouped by section, with per-option rows under enum controls:
 
 ## Loading LOINC
 
-The seed ships ~10 ubiquitous vital-sign codes so the feature works out of the
-box. For real coverage, download the official "LOINC Table File (CSV)" from
+A starter set of ~10 ubiquitous vital-sign codes ships as a data migration
+(`20260805110000_seed_terminology_starters`, idempotent `ON CONFLICT DO
+NOTHING`), so every environment — including production, where migrations run
+on API boot — has working search and suggestions out of the box. The dev seed
+carries the same rows for fresh local databases.
+
+For real coverage, download the official "LOINC Table File (CSV)" from
 https://loinc.org (free account; the license — which also bars redistributing
 the table — is accepted there) and load it:
 
@@ -61,6 +66,15 @@ Re-running upserts, so new LOINC releases load over old ones. This material
 contains content from LOINC (https://loinc.org), © Regenstrief Institute,
 Inc. and the LOINC Committee, under https://loinc.org/license.
 
+**Against production**: Cloud Run has no shell, but the database is directly
+reachable (see docs/deployment/GCP-CLOUD-RUN.md). Run the import from a
+workstation, pointing `DATABASE_URL` at the production connection string:
+
+    cd apps/api && DATABASE_URL='<production connection string>' \
+      npx tsx scripts/import-loinc.ts /path/to/Loinc.csv
+
+The same pattern works for `scripts/import-icd10.ts`.
+
 ## ICD-10 (#136)
 
 Same pattern as LOINC with a public-domain source: download the CMS
@@ -69,9 +83,9 @@ and load it:
 
     cd apps/api && npx tsx scripts/import-icd10.ts /path/to/icd10cm_order_2026.txt
 
-The seed ships a handful of common category codes (diabetes, hypertension,
-asthma, CKD, IHD, COPD) as a starter. ICD-10 search is available to every
-tenant once loaded — no licensing gate.
+A handful of common category codes (diabetes, hypertension, asthma, CKD, IHD,
+COPD) ship as starters via the same data migration as LOINC. ICD-10 search is
+available to every tenant once loaded — no licensing gate.
 
 ## SNOMED CT and the licensing gate (#136)
 
