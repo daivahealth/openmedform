@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="OpenMedForm">
+  <rect width="32" height="32" rx="7" fill="#2563eb"/>
+  <path d="M9 4.5h9.2L26 12.3V26a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 8 26V6a1.5 1.5 0 0 1 1.5-1.5Z" fill="#fff"/>
+  <path d="M18 5v6a1.2 1.2 0 0 0 1.2 1.2h6" fill="none" stroke="#2563eb" stroke-width="1.6"/>
+  <path d="M17 15.5v8M13 19.5h8" stroke="#2563eb" stroke-width="3.1" stroke-linecap="round"/>
+</svg>
