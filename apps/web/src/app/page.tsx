@@ -16,6 +16,7 @@ import {
   Github,
   Plug,
   Printer,
+  Tags,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
@@ -72,8 +73,8 @@ export default function LandingPage() {
           EMRs and EHRs need endless forms — for compliance, assessments, and daily care.
           Building them by hand is slow, and every region needs different ones, so the static
           forms baked into an EHR never keep up. OpenMedForm lets you generate dynamic forms
-          with AI, drop them into your product with React or Angular renderers, and store every
-          response as JSON in your own database.
+          with AI, coded to SNOMED CT, LOINC and ICD-10, drop them into your product with
+          native renderers, and store every response as JSON in your own database.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild>
@@ -87,6 +88,28 @@ export default function LandingPage() {
               Integrate in 3 steps
             </a>
           </Button>
+        </div>
+        {/* Framework support, visible above the fold by design. */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm">
+          <span className="text-muted-foreground">Renders natively in</span>
+          <a
+            href="#integrate"
+            className="rounded-full border bg-card px-3 py-1 font-medium transition-colors hover:border-primary/50"
+          >
+            React
+          </a>
+          <a
+            href="#integrate"
+            className="rounded-full border bg-card px-3 py-1 font-medium transition-colors hover:border-primary/50"
+          >
+            Angular
+          </a>
+          <a
+            href="#integrate"
+            className="rounded-full border bg-card px-3 py-1 font-medium transition-colors hover:border-primary/50"
+          >
+            Flutter
+          </a>
         </div>
       </section>
 
@@ -127,8 +150,8 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 text-muted-foreground">
             OpenMedForm sits alongside your EMR. Describe a form or upload a PDF, and AI generates
-            a versioned JSON schema. Embed it with our React or Angular renderer, and every
-            submission is scored server-side and stored as JSON — in your database, not ours.
+            a versioned JSON schema. Embed it with our React, Angular or Flutter renderer, and
+            every submission is scored server-side and stored as JSON — in your database, not ours.
           </p>
         </div>
 
@@ -139,7 +162,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="border-t bg-muted/30">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-2 lg:grid-cols-5">
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 md:grid-cols-2 lg:grid-cols-3">
           {[
             {
               icon: Sparkles,
@@ -148,8 +171,13 @@ export default function LandingPage() {
             },
             {
               icon: Boxes,
-              title: 'React & Angular renderers',
-              body: 'Drop-in renderers for both frameworks share one schema, so your EMR integration is trivial.',
+              title: 'React, Angular & Flutter renderers',
+              body: 'Drop-in renderers for web and mobile share one schema, so the same form runs in your EMR and on the ward tablet.',
+            },
+            {
+              icon: Tags,
+              title: 'Clinical code dictionary',
+              body: 'AI maps fields and answers to SNOMED CT, LOINC and ICD-10 codes; clinicians review and approve them in a built-in dictionary, and the codes live in the form schema itself.',
             },
             {
               icon: Database,

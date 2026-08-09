@@ -17,7 +17,7 @@ const STEPS = [
     icon: Code2,
     step: '3',
     title: 'Render it in your EMR',
-    body: 'Install the React or Angular renderer, load the JSON, and the form appears natively in your product. Submissions are plain JSON for your own database.',
+    body: 'Install the React, Angular or Flutter renderer, load the JSON, and the form appears natively in your product — web or mobile. Submissions are plain JSON for your own database.',
   },
 ];
 
@@ -77,16 +77,43 @@ function EncounterForm({ formJson }) {
 })
 export class EncounterFormComponent {}`,
   },
+  {
+    label: 'Flutter',
+    labelLink: 'https://github.com/daivahealth/openmedform-flutter',
+    install: `# pubspec.yaml
+dependencies:
+  openmedform_flutter_renderer:
+    git:
+      url: https://github.com/daivahealth/openmedform-flutter.git
+      path: packages/openmedform_flutter_renderer`,
+    code: `import 'package:openmedform_flutter_renderer/openmedform_flutter_renderer.dart';
+
+OmfFormRenderer(
+  definition: definition,  // the JSON you downloaded
+  onChange: (data) => saveToYourDb(data),
+)`,
+  },
 ];
 
-/** npm install + usage snippets for both renderer packages. */
+/** Install + usage snippets, one card per renderer package. */
 export function RendererInstall() {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {SNIPPETS.map((s) => (
         <div key={s.label} className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <div className="border-b bg-muted/50 px-4 py-2 text-sm font-semibold">
-            {s.label}
+            {'labelLink' in s && s.labelLink ? (
+              <a
+                href={s.labelLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-primary"
+              >
+                {s.label} ↗
+              </a>
+            ) : (
+              s.label
+            )}
           </div>
           <div className="space-y-3 p-4">
             <pre className="overflow-x-auto rounded-md bg-muted px-3 py-2 text-xs">
