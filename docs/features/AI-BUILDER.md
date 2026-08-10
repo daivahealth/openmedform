@@ -8,6 +8,10 @@ The AI builder generates JSON Forms definitions — separated Data / UI / Print 
    words and get a draft
 2. **Convert → Form** — `POST /api/conversions`: upload a PDF, image or HTML
    mock-up and the structure is extracted from it
+
+Both modes collect and persist the same form metadata (`category`, `formType`),
+so which door the author came through is not visible in the resulting form — see
+[PDF-TO-FORM](PDF-TO-FORM.md#form-metadata-is-the-same-on-both-routes).
 3. **Refine** — `POST /api/forms/:id/jsonforms/refine`: iterate on a draft in
    natural language, optionally with a reference image attached
 

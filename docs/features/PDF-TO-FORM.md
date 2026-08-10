@@ -32,14 +32,39 @@ covers the mapping, the security model, and the size limits).
 | `file` | PDF / image / HTML | Yes | PDF, PNG, JPEG, WebP, GIF (max 10 MB) or HTML (max 2 MB) |
 | `provider` | string | No | AI provider name (uses the tenant default if omitted) |
 | `instructions` | string | No | Extra instructions for the conversion |
+| `category` | string | No | Clinical category for the created form (max 100 chars). Absent leaves it null |
+| `formType` | `PATIENT` \| `NON_PATIENT` | No | Absent leaves the schema default (`PATIENT`) |
+
+Multipart carries no JSON types, so every field arrives as text and the DTO
+parses accordingly. The body is validated with `forbidNonWhitelisted`: a field
+that is not in the table above is a **400**.
 
 Returns the created `conversion_job`; poll `GET /api/conversions/:id` for
 `PENDING → RUNNING → REVIEW | FAILED`. On success the job carries the `formId`
 of the draft. `POST /api/conversions/:id/accept` promotes it `REVIEW → DRAFT`.
 
 To create a form with **no source document**, describe it instead:
-`POST /api/forms/from-prompt` with `{ name, prompt, category? }`. It runs the
-same generator and assembler, synchronously, and returns the draft form.
+`POST /api/forms/from-prompt` with `{ name, prompt, category?, formType? }`. It
+runs the same generator and assembler, synchronously, and returns the draft form.
+
+### Form metadata is the same on both routes
+
+`category` and `formType` are properties of the **form**, not of the source
+document, so both entry points collect and persist them identically — a form
+must not end up with thinner metadata for having been uploaded rather than
+described. The web dialogs make both required in practice: the Patient /
+Non-Patient picker (shared component, defaulting to `PATIENT`) and the category
+dropdown are shown on the file dialog as well as the describe dialog, and
+`Generate Form` stays disabled until a category is chosen.
+
+They are **optional on the wire** so a direct API client can still convert with
+nothing but a file. When either is omitted the column keeps its null / schema
+default rather than being overwritten with an empty choice.
+
+Note that there is currently **no post-creation UI for editing category or form
+type** — the forms list and the preview page do not surface them, only
+`PUT /api/forms/:id` does. That is why the dialog asks up front instead of
+letting the author adjust after review.
 
 ## Vision Support
 
@@ -83,6 +108,13 @@ The forms list has **From File** (upload a PDF/image/HTML) and **From Prompt**
 "Refine with AI" edits it and "Publish" makes it available for data entry. There
 is no drag-and-drop builder — see
 [ADR-004](../ADR/004-remove-formio-engine.md).
+
+Both dialogs ask for **Form Type** (shared `FormTypeSelect`, defaulting to
+Patient) and **Category** (shared `CategorySelect`) so the two doors produce the
+same entity — see [Form metadata is the same on both
+routes](#form-metadata-is-the-same-on-both-routes). The file dialog additionally
+takes the form **name from the file name**, which is the one field the two
+routes still collect differently; it is renameable after review.
 
 ## Conversion Pipeline
 
