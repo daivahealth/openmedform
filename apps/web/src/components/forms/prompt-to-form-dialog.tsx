@@ -72,7 +72,11 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
         provider: provider || undefined,
       });
       handleClose(false);
-      router.push(`/forms/${result.form.id}/builder`);
+      // /builder does not exist — the drag-and-drop builder route went away
+      // with the Form.io engine, so a successful generation landed the user on
+      // a 404. Review-and-refine lives on the preview page, which is also
+      // where the file dialog and the list's own edit action go.
+      router.push(`/forms/${result.form.id}/preview`);
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
       setStep('error');
@@ -86,10 +90,12 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Form from a Prompt</DialogTitle>
+          {/* Titled exactly like the button that opens it, so there is no
+              moment of "is this the thing I clicked?". */}
+          <DialogTitle>New Form from Description</DialogTitle>
           <DialogDescription>
-            Describe the clinical form you need and the AI generates a draft,
-            then opens it in the drag-and-drop builder.
+            Describe the clinical form you need and the AI drafts it, then opens
+            the draft for review.
           </DialogDescription>
         </DialogHeader>
 
@@ -183,7 +189,9 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
             <div className="text-center">
               <p className="font-medium">Generating your form…</p>
               <p className="text-sm text-muted-foreground">
-                Building a Form.io schema from your prompt, validating it, and saving a draft. This can take up to a minute.
+                Drafting the data, layout and print schemas from your
+                description, validating them, and saving a draft. This can take
+                up to a minute.
               </p>
             </div>
           </div>
