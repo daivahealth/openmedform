@@ -17,6 +17,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { decodeUploadFilename } from '../../common/utils/filename';
 import { FormConversionService } from './form-conversion.service';
+import { StartFromPromptDto } from './dto/start-from-prompt.dto';
 
 const SUPPORTED = [
   'application/pdf',
@@ -89,6 +90,37 @@ export class FormConversionController {
         // Multipart carries no JSON types, so the opt-in arrives as text.
         // Anything that is not an explicit yes leaves scripts untouched.
         extractScriptConfig: extractScriptConfig === 'true' || extractScriptConfig === '1',
+      },
+      ip,
+    );
+  }
+
+  /**
+   * Start a described-form conversion as a job.
+   *
+   * The same generation as `POST /api/forms/from-prompt`, but returning a job
+   * to poll rather than holding the request open for the whole LLM call. It
+   * lives here, beside the file route, because it reuses this controller's
+   * `GET :id` and `:id/accept` unchanged — the client polls and accepts a
+   * prompt job exactly as it does a file one.
+   *
+   * Declared before `:id/accept` so "from-prompt" is never parsed as an id.
+   */
+  @Post('from-prompt')
+  @Throttle(AI_THROTTLE)
+  startFromPrompt(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: StartFromPromptDto,
+    @Ip() ip: string,
+  ) {
+    return this.conversion.startFromPrompt(
+      user.tenantId,
+      user.userId,
+      {
+        name: dto.name.trim(),
+        prompt: dto.prompt.trim(),
+        category: dto.category?.trim() || undefined,
+        providerName: dto.provider,
       },
       ip,
     );

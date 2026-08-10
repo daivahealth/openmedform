@@ -16,13 +16,29 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import type { ConversionJob } from '@/hooks/use-conversions';
 
+export interface ConversionStage {
+  key: string;
+  label: string;
+}
+
 /** Ordered to match the server's pipeline (form-conversion.service.ts). */
-const STAGES = [
+export const FILE_STAGES: ConversionStage[] = [
   { key: 'READING_SOURCE', label: 'Reading the source file' },
   { key: 'GENERATING', label: 'Generating the form with AI' },
   { key: 'VALIDATING', label: 'Validating & assembling schemas' },
   { key: 'SAVING', label: 'Saving the draft' },
-] as const;
+];
+
+/**
+ * The described-form pipeline, which has no upload to read — its job starts at
+ * GENERATING. Listing a "Reading the source file" step it will never report
+ * would leave the checklist stuck on a stage that cannot complete.
+ */
+export const PROMPT_STAGES: ConversionStage[] = [
+  { key: 'GENERATING', label: 'Generating the form with AI' },
+  { key: 'VALIDATING', label: 'Validating & assembling schemas' },
+  { key: 'SAVING', label: 'Saving the draft' },
+];
 
 /**
  * Client-side flavour for the AI stage, which dominates the wall time. These
@@ -47,7 +63,13 @@ function formatElapsed(totalSeconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function ConversionProgress({ job }: { job: ConversionJob | null }) {
+export function ConversionProgress({
+  job,
+  stages = FILE_STAGES,
+}: {
+  job: ConversionJob | null;
+  stages?: ConversionStage[];
+}) {
   const [elapsed, setElapsed] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -66,16 +88,18 @@ export function ConversionProgress({ job }: { job: ConversionJob | null }) {
   }, []);
 
   // Before the first poll lands, the job is PENDING with no stage — treat that
-  // as the first stage so the checklist never renders fully inert.
+  // as the first stage so the checklist never renders fully inert. Same if the
+  // server reports a stage this list does not carry: findIndex returns -1, and
+  // showing the first step beats showing none.
   const activeIndex = Math.max(
     0,
-    STAGES.findIndex((s) => s.key === (job?.stage ?? 'READING_SOURCE')),
+    stages.findIndex((s) => s.key === (job?.stage ?? stages[0]?.key)),
   );
 
   return (
     <div className="flex flex-col gap-4 py-6">
       <ol className="mx-auto flex w-full max-w-sm flex-col gap-3">
-        {STAGES.map((stage, i) => {
+        {stages.map((stage, i) => {
           const done = i < activeIndex;
           const active = i === activeIndex;
           return (

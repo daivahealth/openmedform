@@ -89,6 +89,14 @@ export interface ConversionInput {
   extractScriptConfig?: boolean;
 }
 
+/** What a described-form job needs. No file, so no mime type or buffer. */
+export interface PromptConversionInput {
+  name: string;
+  prompt: string;
+  category?: string;
+  providerName?: string;
+}
+
 /**
  * AI PDF/image/HTML → JSON Forms conversion pipeline.
  *
@@ -186,6 +194,106 @@ export class FormConversionService {
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { warnings: true } } },
     });
+  }
+
+  /**
+   * Describe-a-form, as a background job.
+   *
+   * Same generation as {@link createFromPrompt}; the difference is that the
+   * HTTP request returns a job row immediately and the work reports where it
+   * is. The synchronous route cannot do that — it holds one request open for
+   * the whole LLM call, so the client has nothing to show but a spinner, and
+   * a user who clicks away has no way back to find out whether their form was
+   * built. Polling a job gives the same live stage checklist the file route
+   * has, and survives the dialog being closed.
+   *
+   * There is no source file to read, so this run starts at GENERATING rather
+   * than READING_SOURCE.
+   */
+  async startFromPrompt(
+    tenantId: string,
+    userId: string,
+    input: PromptConversionInput,
+    ipAddress?: string | null,
+  ) {
+    // Same order as startConversion: refuse a user already at their limit
+    // before spending any tokens.
+    await this.formQuota.assertFormLimit(userId);
+
+    const job = await this.prisma.conversionJob.create({
+      data: {
+        tenantId,
+        status: 'PENDING',
+        provider: input.providerName ?? null,
+        // No upload, so this column carries what the form is called instead —
+        // it is what the jobs list has to identify the row by.
+        sourceFileName: input.name,
+        createdById: userId,
+      },
+    });
+
+    void this.runFromPrompt(job.id, tenantId, userId, input, ipAddress);
+
+    return job;
+  }
+
+  private async runFromPrompt(
+    jobId: string,
+    tenantId: string,
+    userId: string,
+    input: PromptConversionInput,
+    ipAddress?: string | null,
+  ): Promise<void> {
+    await this.prisma.conversionJob.update({
+      where: { id: jobId },
+      data: { status: 'RUNNING', stage: 'GENERATING' },
+    });
+
+    try {
+      const { form, warnings } = await this.createFromPrompt(
+        tenantId,
+        userId,
+        input,
+        (stage, detail) => this.setStage(jobId, stage, detail),
+      );
+
+      await this.prisma.conversionJob.update({
+        where: { id: jobId },
+        data: {
+          status: 'REVIEW',
+          formId: form.id,
+          stage: null,
+          stageDetail: null,
+          completedAt: new Date(),
+        },
+      });
+
+      await this.audit.record({
+        tenantId,
+        userId,
+        ipAddress,
+        action: 'ai.convert',
+        resourceType: 'conversion_job',
+        resourceId: jobId,
+        details: { formId: form.id, source: 'prompt', warnings: warnings.length },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Prompt conversion job ${jobId} failed: ${message}`);
+      await this.prisma.conversionJob.update({
+        where: { id: jobId },
+        data: { status: 'FAILED', error: message, completedAt: new Date() },
+      });
+      await this.audit.record({
+        tenantId,
+        userId,
+        ipAddress,
+        action: 'ai.convert.failed',
+        resourceType: 'conversion_job',
+        resourceId: jobId,
+        details: { error: message, source: 'prompt' },
+      });
+    }
   }
 
   private async run(
@@ -535,14 +643,23 @@ export class FormConversionService {
    * ("build a pre-anaesthesia checkup form").
    *
    * Shares the conversion system prompt and assembler with the file path, so a
-   * described form and a converted one land in exactly the same shape. Runs
-   * synchronously rather than as a conversion_job: there is no upload to poll
-   * behind, and the caller shows the draft immediately.
+   * described form and a converted one land in exactly the same shape.
+   *
+   * Runs synchronously: one request, one form, no job row. Kept because
+   * `POST /api/forms/from-prompt` is a documented endpoint (ADR-004) and this
+   * is its contract. The UI uses {@link startFromPrompt} instead, because a
+   * synchronous call can only ever show a spinner — see that method.
    */
   async createFromPrompt(
     tenantId: string,
     userId: string,
     input: { name: string; prompt: string; category?: string; providerName?: string },
+    /**
+     * Called as the run moves between stages, so the job-backed route can
+     * record progress. Absent for the synchronous route, which has no job row
+     * to write to and no client polling for one.
+     */
+    onStage?: (stage: string, detail?: string) => Promise<void>,
   ) {
     await this.formQuota.assertFormLimit(userId);
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
@@ -567,15 +684,18 @@ export class FormConversionService {
     if (input.category) userPrompt += `Category: ${input.category}\n`;
     userPrompt += `\nDescription:\n${input.prompt}`;
 
+    await onStage?.('GENERATING', baseProvider.name);
     const rawOutput = await provider.generate(userPrompt, getPdfToJsonFormsPrompt(), {
       temperature: 0.2,
       maxTokens: CONVERSION_MAX_TOKENS,
       jsonMode: true,
     });
 
+    await onStage?.('VALIDATING');
     assertConversionOutputComplete(rawOutput);
     const assembled = this.assembler.assemble(rawOutput);
 
+    await onStage?.('SAVING');
     const form = await this.createDraftForm(tenantId, userId, input.name, {
       dataSchema: assembled.dataSchema as unknown as Prisma.InputJsonValue,
       uiSchema: assembled.uiSchema as unknown as Prisma.InputJsonValue,

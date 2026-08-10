@@ -59,6 +59,9 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   }
 
   function handleClose(isOpen: boolean) {
+    // The conversion keeps running server-side whatever the dialog does, so
+    // dismissing mid-run just hides the only report of it.
+    if (!isOpen && step === 'processing') return;
     if (!isOpen) reset();
     onOpenChange(isOpen);
   }
@@ -107,7 +110,12 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className="sm:max-w-lg"
+        hideClose={step === 'processing'}
+        onInteractOutside={(event) => step === 'processing' && event.preventDefault()}
+        onEscapeKeyDown={(event) => step === 'processing' && event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>New Form from File</DialogTitle>
           <DialogDescription>
