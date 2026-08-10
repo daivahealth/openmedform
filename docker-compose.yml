@@ -21,6 +21,11 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    # The image no longer migrates on boot — Cloud Run does it once per deploy
+    # as a separate job. A self-hosted stack has no such deploy step, so the
+    # old migrate-then-serve behaviour is kept here explicitly. Without it a
+    # fresh `docker compose up` would start the API against an empty schema.
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-openmedform}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-openmedform}?schema=public
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}

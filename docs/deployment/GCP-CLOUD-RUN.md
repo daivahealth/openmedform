@@ -23,8 +23,10 @@ Production deployment: **API + Web on Cloud Run**, **Supabase Postgres**,
    Dashboard → Connect (port 6543, IPv4-reachable). `DATABASE_URL` in Secret
    Manager keeps the direct string.
 3. Store it as the `DATABASE_URL` secret (step below). Migrations run
-   automatically on API boot: the Dockerfile CMD is
-   `prisma migrate deploy && node dist/main.js`.
+   automatically on deploy: `deploy.yml` runs `prisma migrate deploy` as a
+   Cloud Run Job (`openmedform-migrate`) built from the image being shipped,
+   before the new API revision rolls out. Nothing to run by hand, and a failed
+   migration stops the deploy rather than shipping a revision that crash-loops.
 
 ## 2. GCP one-time setup (scripted)
 
@@ -180,11 +182,19 @@ Setup notes:
 
 ## Caveats
 
-- **Cold starts**: Cloud Run free tier scales to zero. Set
-  `min-instances=1` on the API later if latency matters.
-- **Migration race**: boot-time `prisma migrate deploy` can race across
-  instances. Fine at min/max 1 instance; if scaling the API beyond one
-  instance, move migrations to a Cloud Run Job or a deploy step.
+- **Cold starts**: the API runs with `--min-instances=1` so it never scales to
+  zero. This was measured, not guessed: warm, the whole sign-in path is
+  100–200 ms (a Supabase round trip is ~85 ms of that), but a cold start put
+  seconds of image pull and Nest boot in front of a user who had just clicked
+  "Sign in with Google" and had nothing to look at meanwhile. One always-on
+  instance is billed continuously — that is the trade being made. **Web still
+  scales to zero**; it is a lighter image and is already warm by the time the
+  callback lands, but give it the same flag if a first page load feels slow.
+- **Migration race**: fixed. Migrations no longer run in the container CMD;
+  `deploy.yml` runs them once per deploy as the `openmedform-migrate` Cloud Run
+  Job, so `--max-instances=4` cannot make instances queue behind each other's
+  advisory lock. Self-hosted `docker-compose` keeps migrate-on-boot via an
+  explicit `command:` override, since it has no deploy step to hang this on.
 - **AI provider costs**: Claude/OpenAI tokens are pay-per-use (keys stored
   per-tenant, encrypted in Postgres via `AI_ENCRYPTION_KEY`).
 - **`--no-cpu-throttling` is required, not optional.** Conversion runs

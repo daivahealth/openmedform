@@ -127,8 +127,10 @@ cat <<EOF
      openssl rand -hex 32
 
 3. Create the Supabase project and set DATABASE_URL to the direct :5432
-   connection string. Migrations run automatically on API boot
-   (prisma migrate deploy in apps/api/Dockerfile CMD).
+   connection string. Migrations run automatically once per deploy, as the
+   openmedform-migrate Cloud Run Job (.github/workflows/deploy.yml). No extra
+   IAM is needed: the deploy SA already has run.admin, and the job runs as the
+   runtime SA, which already has secretAccessor on DATABASE_URL.
 
 4. Set up whichever SSO providers you want (see docs/deployment/GCP-CLOUD-RUN.md
    §3). Google: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_CALLBACK_URL.

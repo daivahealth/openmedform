@@ -56,4 +56,15 @@ ENV NODE_ENV=production
 ENV PORT=3100
 EXPOSE 3100
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
+# Serve immediately; do not migrate here.
+#
+# Migrating in the CMD put a Prisma CLI resolution, a database connection, an
+# advisory lock and a _prisma_migrations read in front of every cold start,
+# before the server could bind its port. It also let several instances race the
+# same migration on a scale-up.
+#
+# Cloud Run runs migrations once per deploy as a Cloud Run Job, before the new
+# revision rolls out (.github/workflows/deploy.yml). docker-compose keeps the
+# old migrate-then-serve behaviour by overriding this command, so a
+# self-hosted stack still comes up against an empty database unattended.
+CMD ["node", "dist/src/main.js"]
