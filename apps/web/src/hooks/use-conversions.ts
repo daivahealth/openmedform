@@ -41,6 +41,46 @@ export interface CreateJsonFormsInput {
   onJobUpdate?: (job: ConversionJob) => void;
 }
 
+/**
+ * Poll a started job to completion, then accept it.
+ *
+ * Shared by both creation routes: once a job exists, a described form and an
+ * uploaded one are watched identically, so this knows nothing about how the
+ * job began.
+ */
+async function awaitJob(
+  job: ConversionJob,
+  onJobUpdate?: (job: ConversionJob) => void,
+): Promise<{ formId: string }> {
+  let current = job;
+  onJobUpdate?.(current);
+
+  for (
+    let i = 0;
+    i < MAX_POLLS && (current.status === 'PENDING' || current.status === 'RUNNING');
+    i++
+  ) {
+    await delay(POLL_INTERVAL_MS);
+    const { data } = await api.get<ConversionJob>(`/api/conversions/${job.id}`);
+    current = data;
+    onJobUpdate?.(current);
+  }
+
+  if (current.status === 'FAILED') {
+    throw new Error(current.error || 'The AI conversion failed. Please try again.');
+  }
+  if (current.status !== 'REVIEW' || !current.formId) {
+    throw new Error(
+      'The conversion is taking longer than expected. Check the conversion job and try again.',
+    );
+  }
+
+  const { data: accepted } = await api.post<{ formId: string }>(
+    `/api/conversions/${job.id}/accept`,
+  );
+  return { formId: accepted.formId };
+}
+
 export function useCreateJsonFormsForm() {
   const queryClient = useQueryClient();
 
@@ -60,32 +100,44 @@ export function useCreateJsonFormsForm() {
         timeout: 120000,
       });
 
-      let current = job;
-      input.onJobUpdate?.(current);
-      for (
-        let i = 0;
-        i < MAX_POLLS && (current.status === 'PENDING' || current.status === 'RUNNING');
-        i++
-      ) {
-        await delay(POLL_INTERVAL_MS);
-        const { data } = await api.get<ConversionJob>(`/api/conversions/${job.id}`);
-        current = data;
-        input.onJobUpdate?.(current);
-      }
+      return awaitJob(job, input.onJobUpdate);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['forms'] });
+    },
+  });
+}
 
-      if (current.status === 'FAILED') {
-        throw new Error(current.error || 'The AI conversion failed. Please try again.');
-      }
-      if (current.status !== 'REVIEW' || !current.formId) {
-        throw new Error(
-          'The conversion is taking longer than expected. Check the conversion job and try again.',
-        );
-      }
+export interface CreateFromPromptInput {
+  name: string;
+  prompt: string;
+  category?: string;
+  provider?: string;
+  onJobUpdate?: (job: ConversionJob) => void;
+}
 
-      const { data: accepted } = await api.post<{ formId: string }>(
-        `/api/conversions/${job.id}/accept`,
-      );
-      return { formId: accepted.formId };
+/**
+ * Create a form from a description, via the job pipeline.
+ *
+ * Deliberately not `POST /api/forms/from-prompt`, which does the same work
+ * synchronously: that call holds one request open for the entire LLM run, so
+ * the dialog can only show a spinner and has no way to report where the work
+ * has got to. Going through a job gives the same live stage checklist the file
+ * route has, and the run survives the dialog being closed.
+ */
+export function useCreateFormFromPromptJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateFromPromptInput): Promise<{ formId: string }> => {
+      const { data: job } = await api.post<ConversionJob>('/api/conversions/from-prompt', {
+        name: input.name,
+        prompt: input.prompt,
+        ...(input.category ? { category: input.category } : {}),
+        ...(input.provider ? { provider: input.provider } : {}),
+      });
+
+      return awaitJob(job, input.onJobUpdate);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['forms'] });

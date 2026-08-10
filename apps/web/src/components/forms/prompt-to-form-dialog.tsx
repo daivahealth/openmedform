@@ -14,11 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateFormFromPrompt } from '@/hooks/use-forms';
+import {
+  useCreateFormFromPromptJob,
+  type ConversionJob,
+} from '@/hooks/use-conversions';
 import { useAiProviders } from '@/hooks/use-ai-builder';
 import { CategorySelect } from '@/components/forms/category-select';
+import { ConversionProgress, PROMPT_STAGES } from './conversion-progress';
 import { cn } from '@/lib/utils';
-import { AlertCircle, Loader2, UserRound, ClipboardList } from 'lucide-react';
+import { AlertCircle, UserRound, ClipboardList } from 'lucide-react';
 import axios from 'axios';
 
 interface PromptToFormDialogProps {
@@ -33,7 +37,7 @@ const EXAMPLE_PROMPT =
 
 export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogProps) {
   const router = useRouter();
-  const createFromPrompt = useCreateFormFromPrompt();
+  const createFromPrompt = useCreateFormFromPromptJob();
   const { data: providerData } = useAiProviders();
 
   const [step, setStep] = useState<Step>('compose');
@@ -43,6 +47,10 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
   const [formType, setFormType] = useState<'PATIENT' | 'NON_PATIENT'>('PATIENT');
   const [provider, setProvider] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  /** Latest polled snapshot of the running job — drives the stage checklist. */
+  const [job, setJob] = useState<ConversionJob | null>(null);
+
+  const busy = step === 'processing';
 
   function reset() {
     setStep('compose');
@@ -52,9 +60,15 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
     setFormType('PATIENT');
     setProvider('');
     setErrorMsg('');
+    setJob(null);
   }
 
   function handleClose(isOpen: boolean) {
+    // A click on the backdrop used to close this mid-generation. The work kept
+    // running server-side, so the form appeared in the list minutes later with
+    // nothing having told the user it was coming — they could not tell a
+    // running job from a failed one.
+    if (!isOpen && busy) return;
     if (!isOpen) reset();
     onOpenChange(isOpen);
   }
@@ -63,20 +77,22 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
     if (!name.trim() || !prompt.trim() || !category.trim()) return;
     setStep('processing');
     setErrorMsg('');
+    setJob(null);
     try {
       const result = await createFromPrompt.mutateAsync({
         name: name.trim(),
         prompt: prompt.trim(),
         category: category.trim(),
-        formType,
         provider: provider || undefined,
+        onJobUpdate: setJob,
       });
-      handleClose(false);
+      reset();
+      onOpenChange(false);
       // /builder does not exist — the drag-and-drop builder route went away
       // with the Form.io engine, so a successful generation landed the user on
       // a 404. Review-and-refine lives on the preview page, which is also
       // where the file dialog and the list's own edit action go.
-      router.push(`/forms/${result.form.id}/preview`);
+      router.push(`/forms/${result.formId}/preview`);
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
       setStep('error');
@@ -88,7 +104,16 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      {/* While a job is running there is nowhere useful to dismiss to: the work
+          continues server-side either way, and closing would leave the user
+          with no way to find out how it went. Radix closes on backdrop click
+          and Escape by default, so both are refused explicitly. */}
+      <DialogContent
+        className="sm:max-w-lg"
+        hideClose={busy}
+        onInteractOutside={(event) => busy && event.preventDefault()}
+        onEscapeKeyDown={(event) => busy && event.preventDefault()}
+      >
         <DialogHeader>
           {/* Titled exactly like the button that opens it, so there is no
               moment of "is this the thing I clicked?". */}
@@ -184,17 +209,7 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
         )}
 
         {step === 'processing' && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium">Generating your form…</p>
-              <p className="text-sm text-muted-foreground">
-                Drafting the data, layout and print schemas from your
-                description, validating them, and saving a draft. This can take
-                up to a minute.
-              </p>
-            </div>
-          </div>
+          <ConversionProgress job={job} stages={PROMPT_STAGES} />
         )}
 
         {step === 'error' && (
