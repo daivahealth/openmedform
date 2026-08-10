@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type FormType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AiUsageService } from '../ai-builder/ai-usage.service';
@@ -82,11 +82,24 @@ export interface ConversionInput {
   providerName?: string;
   instructions?: string;
   /**
+   * Author-chosen list metadata, the same pair the describe-a-form route
+   * collects. Absent leaves the column null / the schema default in place, so
+   * an API client that does not send them behaves exactly as before.
+   */
+  category?: string;
+  formType?: FormType;
+  /**
    * Opt in to reading declarative config out of an HTML mock-up's scripts.
    * Off by default — it narrows the strip-scripts posture, so it is the
    * uploader's decision, per upload. Scripts are parsed, never executed.
    */
   extractScriptConfig?: boolean;
+}
+
+/** Author-chosen form-row metadata, shared by both creation routes. */
+export interface FormMetadataInput {
+  category?: string;
+  formType?: FormType;
 }
 
 /**
@@ -497,7 +510,7 @@ export class FormConversionService {
       translations: assembled.translations as unknown as Prisma.InputJsonValue,
       conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
       scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
-    });
+    }, { category: input.category, formType: input.formType });
 
     // Attribute the tokens this conversion spent to the form it produced.
     await this.aiUsage.attachFormId(usageRowIds, form.id);
@@ -542,7 +555,13 @@ export class FormConversionService {
   async createFromPrompt(
     tenantId: string,
     userId: string,
-    input: { name: string; prompt: string; category?: string; providerName?: string },
+    input: {
+      name: string;
+      prompt: string;
+      category?: string;
+      formType?: FormType;
+      providerName?: string;
+    },
   ) {
     await this.formQuota.assertFormLimit(userId);
     const providerSet = await this.providerRegistry.getProvidersForTenant(tenantId);
@@ -583,7 +602,7 @@ export class FormConversionService {
       translations: assembled.translations as unknown as Prisma.InputJsonValue,
       conversionMetadata: assembled.conversionMetadata as unknown as Prisma.InputJsonValue,
       scoringRules: assembled.scoringRules as unknown as Prisma.InputJsonValue,
-    });
+    }, { category: input.category, formType: input.formType });
 
     await this.aiUsage.attachFormId(usageRowIds, form.id);
     return { form, warnings: assembled.warnings };
@@ -912,11 +931,18 @@ export class FormConversionService {
     return { ...result, ...found };
   }
 
+  /**
+   * The author's choices for the form row itself, as opposed to the schema the
+   * model produced. Both entry points collect them, and both persist them here
+   * — a form is the same entity whichever door it came through, so it must not
+   * end up with thinner metadata for having been uploaded rather than described.
+   */
   private async createDraftForm(
     tenantId: string,
     userId: string,
     fileName: string,
     versionData: Prisma.FormVersionUncheckedCreateWithoutFormInput,
+    meta: FormMetadataInput = {},
   ) {
     const baseName = fileName.replace(/\.[^.]+$/, '') || 'Converted form';
     const slug = `${this.toSlug(baseName)}-${Date.now()}`;
@@ -929,6 +955,10 @@ export class FormConversionService {
           slug,
           status: 'REVIEW',
           createdById: userId,
+          // Left out entirely when not supplied, so the column keeps its null /
+          // schema default rather than being overwritten with an empty choice.
+          ...(meta.category ? { category: meta.category } : {}),
+          ...(meta.formType ? { formType: meta.formType } : {}),
         },
       });
       const version = await tx.formVersion.create({

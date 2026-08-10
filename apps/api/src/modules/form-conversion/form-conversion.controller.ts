@@ -17,6 +17,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/jwt-payload.interface';
 import { decodeUploadFilename } from '../../common/utils/filename';
 import { FormConversionService } from './form-conversion.service';
+import { StartConversionDto } from './dto/start-conversion.dto';
 
 const SUPPORTED = [
   'application/pdf',
@@ -62,9 +63,7 @@ export class FormConversionController {
     @CurrentUser() user: RequestUser,
     @UploadedFile() file: Express.Multer.File,
     @Ip() ip: string,
-    @Body('provider') provider?: string,
-    @Body('instructions') instructions?: string,
-    @Body('extractScriptConfig') extractScriptConfig?: string,
+    @Body() dto: StartConversionDto,
   ) {
     if (!file) {
       throw new BadRequestException('A source file is required');
@@ -84,11 +83,13 @@ export class FormConversionController {
         fileBuffer: file.buffer,
         fileName: decodeUploadFilename(file.originalname),
         mimeType: file.mimetype,
-        providerName: provider,
-        instructions,
+        providerName: dto.provider,
+        instructions: dto.instructions,
+        category: dto.category || undefined,
+        formType: dto.formType,
         // Multipart carries no JSON types, so the opt-in arrives as text.
         // Anything that is not an explicit yes leaves scripts untouched.
-        extractScriptConfig: extractScriptConfig === 'true' || extractScriptConfig === '1',
+        extractScriptConfig: dto.extractScriptConfig === 'true' || dto.extractScriptConfig === '1',
       },
       ip,
     );

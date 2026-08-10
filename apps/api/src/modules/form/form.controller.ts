@@ -105,6 +105,7 @@ export class FormController {
         name: body.name.trim(),
         prompt: body.prompt.trim(),
         category: body.category?.trim(),
+        formType: body.formType,
         providerName: body.provider,
       },
     );

@@ -17,8 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCreateFormFromPrompt } from '@/hooks/use-forms';
 import { useAiProviders } from '@/hooks/use-ai-builder';
 import { CategorySelect } from '@/components/forms/category-select';
-import { cn } from '@/lib/utils';
-import { AlertCircle, Loader2, UserRound, ClipboardList } from 'lucide-react';
+import { FormTypeSelect, type FormTypeValue } from '@/components/forms/form-type-select';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
 interface PromptToFormDialogProps {
@@ -40,7 +40,7 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState('');
-  const [formType, setFormType] = useState<'PATIENT' | 'NON_PATIENT'>('PATIENT');
+  const [formType, setFormType] = useState<FormTypeValue>('PATIENT');
   const [provider, setProvider] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -101,39 +101,7 @@ export function PromptToFormDialog({ open, onOpenChange }: PromptToFormDialogPro
 
         {step === 'compose' && (
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Form Type</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormType('PATIENT')}
-                  className={cn(
-                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors',
-                    formType === 'PATIENT'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-muted-foreground/30',
-                  )}
-                >
-                  <UserRound className={cn('h-6 w-6', formType === 'PATIENT' ? 'text-primary' : 'text-muted-foreground')} />
-                  <span className="text-sm font-medium">Patient Form</span>
-                  <span className="text-xs text-muted-foreground">Tied to a patient encounter</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormType('NON_PATIENT')}
-                  className={cn(
-                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-center transition-colors',
-                    formType === 'NON_PATIENT'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-muted-foreground/30',
-                  )}
-                >
-                  <ClipboardList className={cn('h-6 w-6', formType === 'NON_PATIENT' ? 'text-primary' : 'text-muted-foreground')} />
-                  <span className="text-sm font-medium">Non-Patient Form</span>
-                  <span className="text-xs text-muted-foreground">OT checklist, audit, etc.</span>
-                </button>
-              </div>
-            </div>
+            <FormTypeSelect idPrefix="prompt-form-type" value={formType} onChange={setFormType} />
 
             <div className="grid gap-2">
               <Label htmlFor="prompt-form-name">Name *</Label>

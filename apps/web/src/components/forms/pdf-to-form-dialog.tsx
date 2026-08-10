@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateJsonFormsForm, type ConversionJob } from '@/hooks/use-conversions';
 import { ConversionProgress } from './conversion-progress';
+import { CategorySelect } from '@/components/forms/category-select';
+import { FormTypeSelect, type FormTypeValue } from '@/components/forms/form-type-select';
 import { useAiProviders } from '@/hooks/use-ai-builder';
 import { AlertCircle, FileUp } from 'lucide-react';
 import axios from 'axios';
@@ -35,6 +37,13 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [instructions, setInstructions] = useState('');
+  /**
+   * The same list metadata the describe-a-form dialog collects. Asked here too
+   * because there is no post-creation surface for editing it — skipping it
+   * would leave an uploaded form permanently showing "—" for Category.
+   */
+  const [category, setCategory] = useState('');
+  const [formType, setFormType] = useState<FormTypeValue>('PATIENT');
   const [provider, setProvider] = useState('');
   /**
    * Opt in to reading declarative config out of an HTML mock-up's scripts.
@@ -52,6 +61,8 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     setJob(null);
     setFile(null);
     setInstructions('');
+    setCategory('');
+    setFormType('PATIENT');
     setProvider('');
     setReadScriptConfig(false);
     setErrorMsg('');
@@ -80,7 +91,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
   }
 
   async function handleSubmit() {
-    if (!file) return;
+    if (!file || !category.trim()) return;
 
     setStep('processing');
     setErrorMsg('');
@@ -88,6 +99,8 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     try {
       const { formId } = await createJsonFormsForm.mutateAsync({
         file,
+        category: category.trim(),
+        formType,
         provider: provider || undefined,
         instructions: instructions.trim() || undefined,
         extractScriptConfig: isHtml && readScriptConfig,
@@ -103,7 +116,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
 
   const providers = providerData?.providers ?? [];
   const isHtml = isHtmlFile(file);
-  const canSubmit = !!file;
+  const canSubmit = !!file && !!category.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -118,6 +131,8 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
 
         {step === 'upload' && (
           <div className="grid gap-4 py-4">
+            <FormTypeSelect idPrefix="pdf-form-type" value={formType} onChange={setFormType} />
+
             <div className="grid gap-2">
               <Label>Source File *</Label>
               <div
@@ -153,6 +168,8 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
             <p className="text-xs text-muted-foreground">
               The form name is taken from the file name; you can rename it after review.
             </p>
+
+            <CategorySelect id="pdf-form-cat" value={category} onChange={setCategory} />
 
             <div className="grid gap-2">
               <Label htmlFor="pdf-instructions">

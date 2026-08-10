@@ -12,9 +12,15 @@ All requests need a bearer token: `-H "Authorization: Bearer $TOKEN"` (obtain vi
 
 ```bash
 curl -X POST "$API/api/conversions" -H "Authorization: Bearer $TOKEN" \
-  -F "file=@rrt-sbar.pdf" -F "engine=jsonforms" -F "provider=claude"
+  -F "file=@rrt-sbar.pdf" -F "provider=claude" \
+  -F "category=Handover (SBAR)" -F "formType=PATIENT"
 # → { "id": "<jobId>", "status": "PENDING", ... }
 ```
+
+`category` and `formType` are optional and land on the created form row, so a
+converted form is as complete in the forms list as a described one. The body is
+validated with `forbidNonWhitelisted` — an undeclared field is a 400. (`engine`
+is still accepted and ignored, for clients written before ADR-004.)
 
 Poll until `REVIEW` (or `FAILED`):
 

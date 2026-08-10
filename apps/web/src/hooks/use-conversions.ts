@@ -30,6 +30,10 @@ export interface ConversionJob {
 
 export interface CreateJsonFormsInput {
   file: File;
+  /** Clinical category for the created form (same list the prompt route uses). */
+  category?: string;
+  /** Patient / Non-Patient. Omitted leaves the API's PATIENT default. */
+  formType?: 'PATIENT' | 'NON_PATIENT';
   provider?: string;
   instructions?: string;
   /** Opt in to parsing an HTML mock-up's scripts for declarative config. */
@@ -48,7 +52,10 @@ export function useCreateJsonFormsForm() {
     mutationFn: async (input: CreateJsonFormsInput): Promise<{ formId: string }> => {
       const formData = new FormData();
       formData.append('file', input.file);
-      formData.append('engine', 'jsonforms');
+      // The metadata that used to be the describe-a-form route's alone, so a
+      // converted form is as complete in the list as a described one.
+      if (input.category) formData.append('category', input.category);
+      if (input.formType) formData.append('formType', input.formType);
       if (input.provider) formData.append('provider', input.provider);
       if (input.instructions) formData.append('instructions', input.instructions);
       // Only sent when true: the API treats anything else as off anyway, and
