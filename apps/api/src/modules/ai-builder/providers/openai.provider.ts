@@ -18,7 +18,7 @@ export class OpenAiProvider implements LlmProvider {
       max_output_tokens: options?.maxTokens ?? 8192,
       ...this.samplingOptions(options),
       instructions: systemPrompt,
-      input: prompt,
+      input: this.withJsonRequirement(prompt, options),
       ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
     });
 
@@ -45,7 +45,7 @@ export class OpenAiProvider implements LlmProvider {
       });
     }
 
-    contentParts.push({ type: 'input_text', text: prompt });
+    contentParts.push({ type: 'input_text', text: this.withJsonRequirement(prompt, options) });
 
     const response = await this.client.responses.create({
       model: this.model,
@@ -63,6 +63,30 @@ export class OpenAiProvider implements LlmProvider {
 
     emitUsage(options, this.model, response.usage);
     return response.output_text;
+  }
+
+  /**
+   * Guarantee the word "json" reaches an input message when json mode is on.
+   *
+   * OpenAI rejects `text.format: json_object` outright — a 400, surfacing as an
+   * opaque 500 to the user — unless "json" appears in an **input** message. The
+   * system prompt does not satisfy it: it travels as `instructions`, a separate
+   * field, however many times it says JSON.
+   *
+   * This lived at the call sites and did not scale. Two of them satisfy the
+   * requirement only by accident, through the substring inside "jsonforms"; one
+   * carries an explicit reminder comment; and `createFromPrompt` never got one,
+   * which broke "describe the form" for every OpenAI tenant while Claude
+   * tenants saw nothing wrong. A prompt-content rule imposed by a remote API
+   * belongs in the adapter that knows about it, not in nine callers who have to
+   * remember. See issue #99.
+   *
+   * Only appended when genuinely absent, so prompts that already say it are
+   * sent unchanged and their tuned output is unaffected.
+   */
+  private withJsonRequirement(prompt: string, options?: LlmOptions): string {
+    if (!options?.jsonMode || /json/i.test(prompt)) return prompt;
+    return `${prompt}\n\nRespond with a single JSON object and nothing else.`;
   }
 
   /** GPT-5 and OpenAI reasoning models do not accept temperature overrides. */
