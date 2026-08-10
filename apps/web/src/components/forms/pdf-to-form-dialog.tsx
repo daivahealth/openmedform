@@ -109,7 +109,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Form from a File</DialogTitle>
+          <DialogTitle>New Form from File</DialogTitle>
           <DialogDescription>
             Upload a clinical form PDF, HTML mock-up, or image. The AI generates the
             separate data, layout and print schemas and opens the draft for review.
@@ -155,7 +155,9 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
             </p>
 
             <div className="grid gap-2">
-              <Label htmlFor="pdf-instructions">Agent Instructions</Label>
+              <Label htmlFor="pdf-instructions">
+                Extra instructions <span className="text-muted-foreground">(optional)</span>
+              </Label>
               <Textarea
                 id="pdf-instructions"
                 placeholder="e.g., Include scoring for risk factors, add signature block at the end..."
@@ -237,7 +239,7 @@ export function PdfToFormDialog({ open, onOpenChange }: PdfToFormDialogProps) {
                 Cancel
               </Button>
               <Button onClick={handleSubmit} disabled={!canSubmit}>
-                Convert to a form
+                Generate Form
               </Button>
             </>
           )}
