@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,9 +12,28 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
+type Provider = 'google' | 'microsoft';
+
 export default function LoginPage() {
   const apiBase =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
+
+  // Sign-in is a full-page navigation to the API, not a fetch, so React never
+  // re-renders after the click and the page sits there looking frozen for as
+  // long as the redirect chain takes. Track the click ourselves to show that
+  // something is happening.
+  const [pending, setPending] = useState<Provider | null>(null);
+
+  useEffect(() => {
+    // Coming back with the browser's back button can restore this page from
+    // the bfcache with its React state intact, which would leave a button
+    // spinning at a user who is no longer waiting for anything.
+    const reset = (event: PageTransitionEvent) => {
+      if (event.persisted) setPending(null);
+    };
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
 
   return (
     <Card>
@@ -33,19 +52,31 @@ export default function LoginPage() {
           <SsoErrorNotice />
         </Suspense>
         <div className="space-y-2">
-          <Button variant="outline" className="w-full" asChild>
-            <a href={`${apiBase}/api/auth/google`}>
-              <GoogleIcon className="mr-2 h-4 w-4" />
-              Sign in with Google
-            </a>
-          </Button>
-          <Button variant="outline" className="w-full" asChild>
-            <a href={`${apiBase}/api/auth/microsoft`}>
-              <MicrosoftIcon className="mr-2 h-4 w-4" />
-              Sign in with Microsoft
-            </a>
-          </Button>
+          <SsoButton
+            provider="google"
+            href={`${apiBase}/api/auth/google`}
+            label="Sign in with Google"
+            icon={<GoogleIcon className="mr-2 h-4 w-4" />}
+            pending={pending}
+            onStart={setPending}
+          />
+          <SsoButton
+            provider="microsoft"
+            href={`${apiBase}/api/auth/microsoft`}
+            label="Sign in with Microsoft"
+            icon={<MicrosoftIcon className="mr-2 h-4 w-4" />}
+            pending={pending}
+            onStart={setPending}
+          />
         </div>
+        {pending && (
+          <p
+            className="mt-3 text-center text-sm text-muted-foreground"
+            role="status"
+          >
+            This can take a few seconds.
+          </p>
+        )}
         <p className="mt-4 text-center text-sm text-muted-foreground">
           New to OpenMedForm?{' '}
           <a href="/signup" className="font-medium text-primary hover:underline">
@@ -54,6 +85,59 @@ export default function LoginPage() {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * One provider button.
+ *
+ * Deliberately still an anchor: the href is what makes middle-click, "open in
+ * new tab" and keyboard activation work, and it is what the user lands on if
+ * the click handler never runs. The handler only adds the visual state — it
+ * does not perform the navigation.
+ */
+function SsoButton({
+  provider,
+  href,
+  label,
+  icon,
+  pending,
+  onStart,
+}: {
+  provider: Provider;
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  pending: Provider | null;
+  onStart: (provider: Provider) => void;
+}) {
+  const isPending = pending === provider;
+  // Once one provider is in flight, the other would only start a second
+  // redirect the user cannot see the result of.
+  const isBlocked = pending !== null && !isPending;
+
+  return (
+    <Button variant="outline" className="w-full" asChild aria-busy={isPending}>
+      <a
+        href={href}
+        aria-disabled={isBlocked}
+        className={isBlocked ? 'pointer-events-none opacity-60' : undefined}
+        onClick={(event) => {
+          if (isBlocked) {
+            event.preventDefault();
+            return;
+          }
+          onStart(provider);
+        }}
+      >
+        {isPending ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          icon
+        )}
+        {isPending ? 'Redirecting…' : label}
+      </a>
+    </Button>
   );
 }
 

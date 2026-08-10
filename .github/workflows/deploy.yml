@@ -71,6 +71,44 @@ jobs:
           docker push ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
           docker push ${{ env.IMAGE_BASE }}/web:latest
 
+      # Migrations run here, once per deploy, rather than in the container's
+      # CMD on every cold start. Two reasons:
+      #
+      # 1. Correctness. --max-instances=4 means several containers can boot at
+      #    once on a scale-up and race the same migration. Prisma's advisory
+      #    lock makes that safe but serial: each instance waits its turn before
+      #    it can serve. Once per deploy has no race to lose.
+      # 2. Latency. Resolving the Prisma CLI, connecting to the database,
+      #    taking the lock and reading _prisma_migrations all happened *before*
+      #    the server bound its port, so every cold start paid for it.
+      #
+      # A Cloud Run Job rather than a step on this runner because it needs no
+      # new IAM: the deploy SA already has roles/run.admin, and the job runs as
+      # the runtime SA, which already holds secretAccessor on DATABASE_URL. It
+      # also runs the exact image being deployed, so the schema and the client
+      # that will serve it are guaranteed to come from the same build.
+      #
+      # --args uses gcloud's escaped-list syntax (^DELIM^a DELIM b) because the
+      # default separator is a comma and the argument contains spaces.
+      #
+      # A failure here fails the workflow before the new revision rolls out,
+      # which is the right order: previously a bad migration shipped first and
+      # then crash-looped the service.
+      - name: Run database migrations
+        run: |
+          gcloud run jobs deploy openmedform-migrate \
+            --image ${{ env.IMAGE_BASE }}/api:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --service-account openmedform-runtime@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest \
+            --command sh \
+            --args '^|^-c|npx prisma migrate deploy' \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --execute-now \
+            --wait \
+            --quiet
+
       # Secrets are sourced from Secret Manager (created by scripts/gcp-setup.sh);
       # update their values there — never in this file.
       - name: Deploy API to Cloud Run
@@ -96,7 +134,18 @@ jobs:
           # make the limits meaningless; capping instances makes the multiple
           # known. A strict global limit needs shared storage or Cloud Armor —
           # see docs/security/AUTH-AND-RBAC.md.
-          flags: --memory=1Gi --no-cpu-throttling --max-instances=4
+          #
+          # --min-instances=1 keeps one container warm. Sign-in is the reason:
+          # it is a full-page redirect to this service, so a user who had not
+          # signed in recently waited out a cold start — image pull plus Nest
+          # boot — while looking at a page that could not tell them anything
+          # was happening. Warm, the same path is 100-200ms end to end.
+          #
+          # This is a deliberate cost: combined with --no-cpu-throttling, one
+          # instance is now billed continuously rather than only while serving.
+          # Web is intentionally left scaling to zero — it is a much lighter
+          # image and is already warm by the time the SSO callback lands.
+          flags: --memory=1Gi --no-cpu-throttling --max-instances=4 --min-instances=1
           env_vars: |
             TRUST_PROXY_HOPS=1
           # Every secret listed below must exist in Secret Manager or the deploy
