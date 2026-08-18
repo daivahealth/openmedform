@@ -93,9 +93,25 @@ export class CodingSuggestService {
     // gate is open (#136).
     const snomedOk = await this.terminology.snomedAvailable(tenantId);
     const uiSchema = structuredClone(latest.uiSchema) as Record<string, unknown>;
-    const targets = await this.collectTargets(uiSchema, latest.dataSchema, snomedOk);
+    const { targets, uncodedFields } = await this.collectTargets(
+      uiSchema,
+      latest.dataSchema,
+      snomedOk,
+    );
     if (targets.length === 0) {
-      return { suggested: 0, considered: 0, skipped: 'every field is already mapped or had no candidates' };
+      // Two opposite situations used to share one message. "Everything is
+      // mapped" means the user is done; "nothing matched" means a data gap
+      // they can act on — say which one it is.
+      return {
+        suggested: 0,
+        considered: 0,
+        skipped:
+          uncodedFields === 0
+            ? 'every field already has a code — nothing left to suggest'
+            : `no candidates matched any of the ${uncodedFields} uncoded field${
+                uncodedFields === 1 ? '' : 's'
+              } — the loaded terminology tables may be too small (see docs/features/CLINICAL-TERMINOLOGY.md)`,
+      };
     }
 
     const selections = await this.selectAmongCandidates(provider, targets);
@@ -145,13 +161,18 @@ export class CodingSuggestService {
     return { suggested, considered: targets.length, skipped: '' };
   }
 
-  /** Every uncoded field/option with at least one candidate. */
+  /**
+   * Every uncoded field/option with at least one candidate, plus how many
+   * uncoded fields were seen at all — the difference between "all done" and
+   * "nothing matched" in the caller's skip message.
+   */
   private async collectTargets(
     uiSchema: Record<string, unknown>,
     dataSchema: unknown,
     snomedOk: boolean,
-  ): Promise<SuggestTarget[]> {
+  ): Promise<{ targets: SuggestTarget[]; uncodedFields: number }> {
     const targets: SuggestTarget[] = [];
+    let uncodedFields = 0;
 
     const visit = async (node: unknown): Promise<void> => {
       if (!node || typeof node !== 'object' || Array.isArray(node)) {
@@ -162,9 +183,18 @@ export class CodingSuggestService {
       const omf = ((el.options as Record<string, unknown>)?.omf ?? {}) as Record<string, unknown>;
 
       if (el.type === 'Control' && typeof el.scope === 'string' && targets.length < MAX_TARGETS) {
-        const label = typeof el.label === 'string' ? el.label : lastSegment(el.scope);
+        // Same resolution order as form-core's collectCodedItems (the
+        // dictionary panel): explicit UI label, then the dataSchema title,
+        // then the property key. AI-generated forms carry their human titles
+        // only in the dataSchema, so searching the raw key ("heartRate")
+        // found nothing and the whole pass silently skipped (#156).
+        const label =
+          (typeof el.label === 'string' && el.label) ||
+          schemaTitleAt(dataSchema, el.scope) ||
+          lastSegment(el.scope);
         const hasCoding = Array.isArray(omf.coding) && omf.coding.length > 0;
         if (!hasCoding && label) {
+          uncodedFields += 1;
           const candidates = await this.terminology.searchLoinc(label, CANDIDATES_PER_FIELD);
           if (candidates.length > 0)
             targets.push({ scope: el.scope, label, system: 'loinc', candidates });
@@ -198,7 +228,7 @@ export class CodingSuggestService {
     };
 
     await visit((uiSchema.layout ?? uiSchema) as Record<string, unknown>);
-    return targets;
+    return { targets, uncodedFields };
   }
 
   /**
@@ -305,25 +335,43 @@ function lastSegment(scope: string): string {
   return scope.split('/').pop() ?? '';
 }
 
+interface SchemaNode {
+  title?: string;
+  properties?: Record<string, unknown>;
+  items?: unknown;
+  enum?: unknown[];
+  oneOf?: Array<{ const?: unknown; title?: string }>;
+}
+
+/** The dataSchema node a control scope points at, or undefined. */
+function schemaNodeAt(dataSchema: unknown, scope: string): SchemaNode | undefined {
+  let node = dataSchema as SchemaNode | undefined;
+  if (!node || !scope.startsWith('#/')) return undefined;
+  for (const segment of scope.slice(2).split('/')) {
+    if (!node) return undefined;
+    if (segment === 'properties') continue;
+    if (segment === 'items') {
+      node = node.items as SchemaNode;
+      continue;
+    }
+    node = (node.properties as Record<string, SchemaNode> | undefined)?.[segment];
+  }
+  return node;
+}
+
+/** The dataSchema title of a control's field, or '' when it has none. */
+function schemaTitleAt(dataSchema: unknown, scope: string): string {
+  const title = schemaNodeAt(dataSchema, scope)?.title;
+  return typeof title === 'string' ? title : '';
+}
+
 /** The enum options of a control, label-resolved: oneOf titles > optionLabels > code. */
 function enumOptionsOf(
   dataSchema: unknown,
   scope: string,
   omf: Record<string, unknown>,
 ): Array<{ code: string; label: string }> {
-  let node = dataSchema as
-    | { properties?: Record<string, unknown>; items?: unknown; enum?: unknown[]; oneOf?: Array<{ const?: unknown; title?: string }> }
-    | undefined;
-  if (!node || !scope.startsWith('#/')) return [];
-  for (const segment of scope.slice(2).split('/')) {
-    if (!node) return [];
-    if (segment === 'properties') continue;
-    if (segment === 'items') {
-      node = node.items as typeof node;
-      continue;
-    }
-    node = (node.properties as Record<string, typeof node> | undefined)?.[segment];
-  }
+  const node = schemaNodeAt(dataSchema, scope);
   if (!node) return [];
 
   const labels = (omf.optionLabels ?? {}) as Record<string, string>;
