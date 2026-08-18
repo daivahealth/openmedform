@@ -43,7 +43,10 @@ shows), grouped by section, with per-option rows under enum controls:
 - **Suggest codes** — the retrieve-then-select AI pass (#135): for every
   uncoded field, the local LOINC table produces candidates and the model may
   only choose among them or decline — it can never invent a code; anything it
-  returns that was not offered is dropped. Suggestions land as amber
+  returns that was not offered is dropped. Candidate search uses the same
+  label the panel displays (UI label, else the dataSchema `title`, else the
+  property key — #156), so AI-generated forms, whose titles live only in the
+  dataSchema, get real candidates. Suggestions land as amber
   unverified chips (with confidence) for approval, never overwrite existing
   bindings, and are skipped below a 0.5 confidence floor. Audited
   `form.coding.suggest`, metered `coding.suggest`.

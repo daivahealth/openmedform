@@ -235,12 +235,17 @@ const STOPWORDS = new Set([
 ]);
 
 function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9%/]+/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t.length >= 2 && !STOPWORDS.has(t))
-    .slice(0, 8);
+  return (
+    text
+      // Split camelCase first, so a schema property key that arrives instead
+      // of a human title ("heartRate") still searches as "heart rate" (#156).
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .replace(/[^a-z0-9%/]+/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length >= 2 && !STOPWORDS.has(t))
+      .slice(0, 8)
+  );
 }
 
 /**

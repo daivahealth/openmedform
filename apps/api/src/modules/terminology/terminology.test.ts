@@ -82,10 +82,13 @@ describe('TerminologyService.searchLoinc', () => {
 function suggestHarness(options?: {
   modelResponse?: string;
   loincCount?: number;
+  loincRows?: typeof LOINC_ROWS;
   publishedAt?: Date | null;
   existingCoding?: boolean;
+  uiSchema?: Record<string, unknown>;
+  dataSchema?: Record<string, unknown>;
 }) {
-  const uiSchema = {
+  const uiSchema = options?.uiSchema ?? {
     layout: {
       type: 'VerticalLayout',
       elements: [
@@ -106,6 +109,7 @@ function suggestHarness(options?: {
     version: 1,
     publishedAt: options?.publishedAt ?? null,
     uiSchema,
+    ...(options?.dataSchema ? { dataSchema: options.dataSchema } : {}),
   };
   const versionWrites: Array<Record<string, unknown>> = [];
   const audits: Array<Record<string, unknown>> = [];
@@ -114,7 +118,7 @@ function suggestHarness(options?: {
     loincCode: {
       count: vi.fn().mockResolvedValue(options?.loincCount ?? LOINC_ROWS.length),
       findUnique: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue(LOINC_ROWS),
+      findMany: vi.fn().mockResolvedValue(options?.loincRows ?? LOINC_ROWS),
     },
     form: {
       findFirst: vi.fn().mockResolvedValue({ id: FORM_ID, versions: [version] }),
@@ -218,5 +222,145 @@ describe('CodingSuggestService', () => {
     const result = await svc.suggestForForm(TENANT, FORM_ID, {});
     expect(result.suggested).toBe(0);
     expect(versionWrites).toHaveLength(0);
+  });
+});
+
+describe('searchLoinc — camelCase queries (#156)', () => {
+  it('finds "heartRate" the same as "Heart rate"', async () => {
+    const { svc } = terminologyHarness();
+    const results = await svc.searchLoinc('heartRate');
+    expect(results[0]).toMatchObject({ code: '8867-4' });
+  });
+});
+
+/**
+ * The #156 regression: AI-generated forms keep their human titles in the
+ * dataSchema and emit Controls without `label`, so the suggest pass searched
+ * the raw property key ("heartRate"), found nothing, and skipped every field
+ * with a message claiming they were already mapped. These pin the dictionary
+ * panel's label-resolution order (UI label > dataSchema title > key) onto the
+ * suggest pass, and pin the skip message to say which situation it actually is.
+ */
+describe('CodingSuggestService — label resolution from the dataSchema (#156)', () => {
+  /** The shape both AI creation routes emit: titles in the dataSchema only. */
+  const aiGenerated = {
+    uiSchema: {
+      layout: {
+        type: 'VerticalLayout',
+        elements: [
+          {
+            type: 'Group',
+            label: 'Vital signs',
+            elements: [
+              { type: 'Control', scope: '#/properties/vitalSigns/properties/heartRate' },
+            ],
+          },
+        ],
+      },
+    },
+    dataSchema: {
+      type: 'object',
+      properties: {
+        vitalSigns: {
+          type: 'object',
+          title: 'Vital signs',
+          properties: {
+            heartRate: { type: 'integer', title: 'Heart rate (beats/min)' },
+          },
+        },
+      },
+    },
+  };
+
+  it('searches with the dataSchema title, not the property key', async () => {
+    const { svc, generate, versionWrites } = suggestHarness({
+      ...aiGenerated,
+      modelResponse: JSON.stringify({
+        selections: [
+          {
+            key: '#/properties/vitalSigns/properties/heartRate',
+            code: '8867-4',
+            confidence: 0.95,
+          },
+        ],
+      }),
+    });
+
+    const result = await svc.suggestForForm(TENANT, FORM_ID);
+
+    expect(result).toMatchObject({ suggested: 1, considered: 1 });
+    // The model was shown the human title — that is what makes its choice sound.
+    expect(generate.mock.calls[0][0]).toContain('Heart rate (beats/min)');
+    expect(generate.mock.calls[0][0]).not.toContain('"fieldLabel": "heartRate"');
+    expect(JSON.stringify(versionWrites[0])).toContain('8867-4');
+  });
+
+  it('an explicit UI label still wins over the dataSchema title', async () => {
+    const { generate, svc } = suggestHarness({
+      ...aiGenerated,
+      uiSchema: {
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/vitalSigns/properties/heartRate',
+              label: 'Pulse (apex beat)',
+            },
+          ],
+        },
+      },
+    });
+
+    await svc.suggestForForm(TENANT, FORM_ID);
+
+    expect(generate.mock.calls[0][0]).toContain('Pulse (apex beat)');
+  });
+
+  it('says "already has a code" only when every field is actually coded', async () => {
+    const { svc } = suggestHarness({
+      uiSchema: {
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            {
+              type: 'Control',
+              scope: '#/properties/hr',
+              label: 'Heart rate',
+              options: {
+                omf: { coding: [{ system: 'x', code: 'y', source: 'human', verified: true }] },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await svc.suggestForForm(TENANT, FORM_ID);
+
+    expect(result.suggested).toBe(0);
+    expect(result.skipped).toContain('already has a code');
+  });
+
+  it('names the real gap when fields are uncoded but nothing matched', async () => {
+    const { svc } = suggestHarness({
+      uiSchema: {
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Control', scope: '#/properties/a', label: 'Ventilator asynchrony index' },
+            { type: 'Control', scope: '#/properties/b', label: 'Prone positioning tolerance' },
+          ],
+        },
+      },
+      // The SQL contains-filter finds nothing for these labels.
+      loincRows: [],
+    });
+
+    const result = await svc.suggestForForm(TENANT, FORM_ID);
+
+    expect(result.suggested).toBe(0);
+    expect(result.skipped).toContain('no candidates matched any of the 2 uncoded fields');
+    expect(result.skipped).not.toContain('already');
   });
 });
