@@ -17,6 +17,7 @@ export class OpenAiProvider implements LlmProvider {
       model: this.model,
       max_output_tokens: options?.maxTokens ?? 8192,
       ...this.samplingOptions(options),
+      ...this.reasoningOptions(options),
       instructions: systemPrompt,
       input: this.withJsonRequirement(prompt, options),
       ...(options?.jsonMode && { text: { format: { type: 'json_object' as const } } }),
@@ -51,6 +52,7 @@ export class OpenAiProvider implements LlmProvider {
       model: this.model,
       max_output_tokens: options?.maxTokens ?? 8192,
       ...this.samplingOptions(options),
+      ...this.reasoningOptions(options),
       instructions: systemPrompt,
       input: [
         {
@@ -91,15 +93,31 @@ export class OpenAiProvider implements LlmProvider {
 
   /** GPT-5 and OpenAI reasoning models do not accept temperature overrides. */
   private samplingOptions(options?: LlmOptions): { temperature?: number } {
+    if (this.isReasoningModel()) {
+      return {};
+    }
+    return { temperature: options?.temperature ?? 0.2 };
+  }
+
+  /**
+   * Reasoning effort for reasoning models, empty otherwise. Only reasoning
+   * models accept the `reasoning` param (others 400), and only when the caller
+   * asked — unset keeps the model's default effort.
+   */
+  private reasoningOptions(options?: LlmOptions): {
+    reasoning?: { effort: 'low' | 'medium' | 'high' };
+  } {
+    if (!options?.reasoningEffort || !this.isReasoningModel()) return {};
+    return { reasoning: { effort: options.reasoningEffort } };
+  }
+
+  private isReasoningModel(): boolean {
     const model = this.model.toLowerCase();
-    if (
+    return (
       model.startsWith('gpt-5') ||
       model.startsWith('o1') ||
       model.startsWith('o3') ||
       model.startsWith('o4')
-    ) {
-      return {};
-    }
-    return { temperature: options?.temperature ?? 0.2 };
+    );
   }
 }

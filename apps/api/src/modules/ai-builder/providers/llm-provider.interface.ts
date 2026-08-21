@@ -18,6 +18,13 @@ export interface LlmOptions {
   maxTokens?: number;
   jsonMode?: boolean;
   /**
+   * Advisory reasoning budget for models that think before answering. On
+   * OpenAI's Responses API reasoning tokens are spent from `maxTokens`, so
+   * extraction-shaped work (form conversion) requests 'low' to keep the budget
+   * for the schema itself. Providers/models without the concept ignore it.
+   */
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  /**
    * Best-effort usage sink. Providers invoke this (when the underlying SDK
    * reports usage) so callers can meter token consumption without changing the
    * string return contract. The metering wrapper in AiUsageService injects it;

@@ -18,7 +18,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
 | 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
 | 5 | ~~Click-built content missed; matrix group-boundaries inferred~~ — **fixed**: a bounded sandbox probe presses add-controls and measures the split | Resolved | — (requires Chromium; `HTML_PROBE_DISABLED=1` reverts to a single read) | [#76](https://github.com/daivahealth/openmedform/issues/76) ✅ |
-| 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload | By design | Split into one file per section | — |
+| 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload (defaults; deployment-configurable via `CONVERSION_MAX_*` env vars) | By design | Split into one file per section, or the operator raises the caps for capable providers | — |
 | 7 | Fidelity is structural, not pixel-exact | By design | Print engine reconstructs A4 from the Print Schema | — |
 
 ## 1. Structure detection is `<table>`-only — resolved
@@ -189,7 +189,15 @@ pressed once — a structure that only appears on the *second* press is not seen
   model runs out of output budget and truncates *silently*, which is worse than
   a clear rejection. The caps and the output budget move together — see
   [PDF-TO-FORM](PDF-TO-FORM.md#size-and-complexity-limits). Split big forms
-  into one file per section.
+  into one file per section. All but the file-size cap are **deployment-level
+  env vars** (`CONVERSION_MAX_FIELDS`, `CONVERSION_MAX_TABLE_ROWS`,
+  `CONVERSION_MAX_TOKENS`, `CONVERSION_MAX_SOURCE_CHARS` — defaults 120 / 120 /
+  32 768 / 24 000): an operator whose providers can emit more (OpenAI
+  GPT-5-family, Claude) may raise them **together**. They are deliberately not
+  per-user settings — the bound is what one model pass can reliably produce,
+  not a fairness quota — and raising them past a smaller provider's output
+  ceiling (Kimi, Minimax, Ollama) makes conversions on that provider fail or
+  truncate.
 - **Structural, not pixel, fidelity** on screen is a stance, not a gap: the
   renderer is a responsive data-entry engine. Paper-accurate output is the
   print engine's job, reconstructing A4 from the Print Schema.
