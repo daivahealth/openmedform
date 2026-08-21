@@ -33,35 +33,53 @@ import {
 } from './renderers/controls';
 import {
   OmfTextareaControlComponent,
-  omfTextareaTester,
   OmfRadioControlComponent,
-  omfRadioTester,
   OmfCheckboxGroupComponent,
 } from './renderers/omf-controls';
-import { checkboxGroupTester } from './testers';
+import { omfControlTesters, type OmfControlName } from './testers';
 import {
   ScoringMatrixComponent,
-  scoringMatrixTester,
   SignatureDateComponent,
-  signatureDateTester,
   VitalSignsChartComponent,
-  vitalSignsChartTester,
   ChecklistMatrixComponent,
-  checklistMatrixTester,
   ColorCodedGridComponent,
-  colorCodedGridTester,
   ClinicalReferenceTableComponent,
-  clinicalReferenceTableTester,
   RiskStratificationComponent,
-  riskStratificationTester,
 } from './renderers/clinical-controls';
-import { ScoreSummaryComponent, scoreSummaryTester } from './renderers/score-controls';
+import { ScoreSummaryComponent } from './renderers/score-controls';
 import {
   RecordTableComponent,
-  recordTableTester,
   OmfTabsLayoutComponent,
   omfTabsTester,
 } from './renderers/record-table';
+
+/**
+ * The component for every canonical omf control, registered with the tester of
+ * the SAME name from `omfControlTesters`. `Record<OmfControlName, …>` makes
+ * registration completeness a COMPILE-TIME guarantee: a control added to
+ * form-core's OMF_CONTROL_NAMES without an Angular component fails the build
+ * here (its tester is likewise forced by the map in testers.ts, and
+ * renderer-set.test.ts proves each tester claims its own name).
+ */
+const omfControlComponents: Record<OmfControlName, unknown> = {
+  textarea: OmfTextareaControlComponent,
+  radio: OmfRadioControlComponent,
+  checkboxGroup: OmfCheckboxGroupComponent,
+  recordTable: RecordTableComponent,
+  scoringMatrix: ScoringMatrixComponent,
+  signatureDate: SignatureDateComponent,
+  vitalSignsChart: VitalSignsChartComponent,
+  checklistMatrix: ChecklistMatrixComponent,
+  colorCodedGrid: ColorCodedGridComponent,
+  clinicalReferenceTable: ClinicalReferenceTableComponent,
+  riskStratification: RiskStratificationComponent,
+  scoreSummary: ScoreSummaryComponent,
+};
+
+const entry = (name: OmfControlName): JsonFormsRendererRegistryEntry => ({
+  tester: omfControlTesters[name],
+  renderer: omfControlComponents[name],
+});
 
 /** Standard layout + input renderers. */
 export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
@@ -80,26 +98,26 @@ export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
 
 /** omf-aware standard controls. */
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
-  { tester: omfTextareaTester, renderer: OmfTextareaControlComponent },
-  { tester: omfRadioTester, renderer: OmfRadioControlComponent },
-  { tester: checkboxGroupTester, renderer: OmfCheckboxGroupComponent },
+  entry('textarea'),
+  entry('radio'),
+  entry('checkboxGroup'),
   { tester: omfTabsTester, renderer: OmfTabsLayoutComponent },
   // Repeating encounter log (add/remove records with an expandable detail
   // panel). Outranks the standard array handling so a source "+ Add <thing>"
   // table renders as that table rather than a generic list widget.
-  { tester: recordTableTester, renderer: RecordTableComponent },
+  entry('recordTable'),
 ];
 
-/** The six clinical custom controls. */
+/** The clinical custom controls. */
 export const clinicalRenderers: JsonFormsRendererRegistryEntry[] = [
-  { tester: scoringMatrixTester, renderer: ScoringMatrixComponent },
-  { tester: signatureDateTester, renderer: SignatureDateComponent },
-  { tester: vitalSignsChartTester, renderer: VitalSignsChartComponent },
-  { tester: checklistMatrixTester, renderer: ChecklistMatrixComponent },
-  { tester: colorCodedGridTester, renderer: ColorCodedGridComponent },
-  { tester: clinicalReferenceTableTester, renderer: ClinicalReferenceTableComponent },
-  { tester: riskStratificationTester, renderer: RiskStratificationComponent },
-  { tester: scoreSummaryTester, renderer: ScoreSummaryComponent },
+  entry('scoringMatrix'),
+  entry('signatureDate'),
+  entry('vitalSignsChart'),
+  entry('checklistMatrix'),
+  entry('colorCodedGrid'),
+  entry('clinicalReferenceTable'),
+  entry('riskStratification'),
+  entry('scoreSummary'),
 ];
 
 /** Complete registry consumed by <omf-form> / <jsonforms>. */

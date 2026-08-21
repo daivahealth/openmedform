@@ -13,11 +13,13 @@ import { JsonFormsControl } from '@jsonforms/angular';
 import {
   isBooleanControl,
   isDateControl,
+  isDateTimeControl,
   isEnumControl,
   isIntegerControl,
   isNumberControl,
   isOneOfEnumControl,
   isStringControl,
+  isTimeControl,
   or,
   rankWith,
 } from '@jsonforms/core';
@@ -35,7 +37,7 @@ import { pointColor, readOmf } from '../point-value';
         <label class="omf-label" [attr.for]="id">{{ label }}</label>
         <input
           class="omf-input"
-          type="text"
+          [type]="inputType"
           [id]="id"
           [value]="data ?? ''"
           [disabled]="!enabled"
@@ -47,7 +49,14 @@ import { pointColor, readOmf } from '../point-value';
   `,
   styles: [FIELD_STYLES],
 })
-export class TextControlComponent extends JsonFormsControl {}
+export class TextControlComponent extends JsonFormsControl {
+  /** `format: "email"` gets a native email input, mirroring the React renderer. */
+  get inputType(): string {
+    return (this.scopedSchema as { format?: string } | undefined)?.format === 'email'
+      ? 'email'
+      : 'text';
+  }
+}
 export { textControlTester };
 
 @Component({
@@ -163,7 +172,7 @@ export { enumControlTester };
         <label class="omf-label" [attr.for]="id">{{ label }}</label>
         <input
           class="omf-input"
-          type="date"
+          [type]="inputType"
           [id]="id"
           [value]="data ?? ''"
           [disabled]="!enabled"
@@ -175,5 +184,25 @@ export { enumControlTester };
   `,
   styles: [FIELD_STYLES],
 })
-export class DateControlComponent extends JsonFormsControl {}
-export const dateControlTester = rankWith(ENUM_DATE_RANK, isDateControl);
+export class DateControlComponent extends JsonFormsControl {
+  /**
+   * date → date, time → time, date-time → datetime-local — the same mapping
+   * the React renderer's default input uses. Without this, a `format: "time"`
+   * field fell through to the plain text control and rendered as free text
+   * with no time picker.
+   */
+  get inputType(): string {
+    switch ((this.scopedSchema as { format?: string } | undefined)?.format) {
+      case 'time':
+        return 'time';
+      case 'date-time':
+        return 'datetime-local';
+      default:
+        return 'date';
+    }
+  }
+}
+export const dateControlTester = rankWith(
+  ENUM_DATE_RANK,
+  or(isDateControl, isTimeControl, isDateTimeControl),
+);

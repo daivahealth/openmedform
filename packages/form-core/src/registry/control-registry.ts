@@ -17,6 +17,30 @@ import type { JsonSchema, UiSchemaElement } from '@openmedform/form-schema-types
 /** Sentinel score meaning a tester does not apply to an element. */
 export const NOT_APPLICABLE = -1;
 
+/**
+ * The canonical `options.omf.control` vocabulary. This is the contract between
+ * the AI builder (which may emit these names) and the two renderers (which must
+ * both claim every one of them). Each renderer has a parity test asserting its
+ * registry covers this list, so adding a name here without implementing it in
+ * BOTH renderers fails CI. The AI prompt's allowed list
+ * (apps/api/src/modules/ai-builder/prompts/pdf-to-jsonforms-prompt.ts) is
+ * test-pinned to these same names.
+ */
+export const OMF_CONTROL_NAMES = [
+  'textarea',
+  'radio',
+  'checkboxGroup',
+  'scoringMatrix',
+  'vitalSignsChart',
+  'colorCodedGrid',
+  'riskStratification',
+  'signatureDate',
+  'clinicalReferenceTable',
+  'checklistMatrix',
+  'scoreSummary',
+  'recordTable',
+] as const;
+
 /** Context a tester may consult (e.g. the resolved data schema for the field). */
 export interface ControlContext {
   dataSchema?: JsonSchema;
