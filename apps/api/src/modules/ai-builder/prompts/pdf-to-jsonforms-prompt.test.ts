@@ -1,7 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { getPdfToJsonFormsPrompt } from './pdf-to-jsonforms-prompt';
 
+// Mirror of OMF_CONTROL_NAMES in packages/form-core/src/registry/control-registry.ts
+// (this app deliberately has no workspace dependency, so the list is pinned by
+// value). Both renderers have parity tests proving they claim every one of
+// these — keep the three lists identical.
+const CANONICAL_CONTROLS = [
+  'textarea',
+  'radio',
+  'checkboxGroup',
+  'scoringMatrix',
+  'vitalSignsChart',
+  'colorCodedGrid',
+  'riskStratification',
+  'signatureDate',
+  'clinicalReferenceTable',
+  'checklistMatrix',
+  'scoreSummary',
+  'recordTable',
+];
+
 describe('getPdfToJsonFormsPrompt', () => {
+  it('allows exactly the canonical omf.control vocabulary both renderers implement', () => {
+    const prompt = getPdfToJsonFormsPrompt();
+    const line = prompt
+      .split('\n')
+      .find((l) => l.includes('omf.control values you may use:'));
+    expect(line).toBeDefined();
+    const allowed = [...line!.matchAll(/"([a-zA-Z]+)"/g)].map((m) => m[1]);
+    expect(allowed.sort()).toEqual([...CANONICAL_CONTROLS].sort());
+  });
+
   it('keeps the widget faithful to the source for scored single-selects', () => {
     // The regression this guards: the scored-select example used to hardcode
     // "control": "radio", and the model copied it — a form whose source drew

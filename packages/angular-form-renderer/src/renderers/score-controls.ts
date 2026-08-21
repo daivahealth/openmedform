@@ -17,12 +17,14 @@ import {
   OnInit,
 } from '@angular/core';
 import { JsonFormsAngularService } from '@jsonforms/angular';
-import { rankWith, type ControlElement, type UISchemaElement } from '@jsonforms/core';
+import { type ControlElement, type UISchemaElement } from '@jsonforms/core';
 import { collectScoreItems, computeScore, type RiskBand, type ScoreItem } from '@openmedform/form-core';
 import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { RuleAwareRenderer } from '../rule-visibility';
 import { FIELD_STYLES } from '../styles';
-import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
+import { readOmf } from '../testers';
+
+export { scoreSummaryTester } from '../testers';
 
 @Component({
   selector: 'omf-score-summary',
@@ -127,4 +129,3 @@ export class ScoreSummaryComponent
   }
 }
 
-export const scoreSummaryTester = rankWith(OMF_CONTROL_RANK, omfControlIs('scoreSummary'));

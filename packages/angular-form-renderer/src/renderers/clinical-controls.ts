@@ -7,9 +7,18 @@
 
 import { Component } from '@angular/core';
 import { JsonFormsControl } from '@jsonforms/angular';
-import { rankWith } from '@jsonforms/core';
 import { FIELD_STYLES } from '../styles';
-import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
+import { readOmf } from '../testers';
+
+export {
+  scoringMatrixTester,
+  signatureDateTester,
+  vitalSignsChartTester,
+  checklistMatrixTester,
+  colorCodedGridTester,
+  clinicalReferenceTableTester,
+  riskStratificationTester,
+} from '../testers';
 
 interface ScoringItem { field: string; label?: string; points?: number; }
 interface ScoringDomain { name?: string; items?: ScoringItem[]; }
@@ -74,7 +83,6 @@ export class ScoringMatrixComponent extends JsonFormsControl {
     this.onChange({ value: { ...this.value, [field]: checked } });
   }
 }
-export const scoringMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('scoringMatrix'));
 
 @Component({
   selector: 'omf-signature-date',
@@ -104,7 +112,6 @@ export class SignatureDateComponent extends JsonFormsControl {
     this.onChange({ value: { ...this.value, [key]: val } });
   }
 }
-export const signatureDateTester = rankWith(OMF_CONTROL_RANK, omfControlIs('signatureDate'));
 
 interface VitalColumn { key: string; label?: string; }
 
@@ -143,7 +150,6 @@ export class VitalSignsChartComponent extends JsonFormsControl {
     return String(row?.[key] ?? '');
   }
 }
-export const vitalSignsChartTester = rankWith(OMF_CONTROL_RANK, omfControlIs('vitalSignsChart'));
 
 interface MatrixRowCol { key: string; label?: string; }
 type MatrixValue = Record<string, Record<string, boolean>>;
@@ -207,7 +213,6 @@ export class ChecklistMatrixComponent extends JsonFormsControl {
     this.onChange({ value: { ...this.value, [rowKey]: nextRow } });
   }
 }
-export const checklistMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('checklistMatrix'));
 
 interface ColorRow { label?: string; range?: string; color?: string; }
 
@@ -237,7 +242,6 @@ export class ColorCodedGridComponent extends JsonFormsControl {
     return (readOmf(this.uischema)?.['rows'] as ColorRow[] | undefined) ?? [];
   }
 }
-export const colorCodedGridTester = rankWith(OMF_CONTROL_RANK, omfControlIs('colorCodedGrid'));
 
 @Component({
   selector: 'omf-clinical-reference-table',
@@ -269,7 +273,6 @@ export class ClinicalReferenceTableComponent extends JsonFormsControl {
     return (readOmf(this.uischema)?.['rows'] as string[][] | undefined) ?? [];
   }
 }
-export const clinicalReferenceTableTester = rankWith(OMF_CONTROL_RANK, omfControlIs('clinicalReferenceTable'));
 
 @Component({
   selector: 'omf-risk-stratification',
@@ -291,4 +294,3 @@ export class RiskStratificationComponent extends JsonFormsControl {
     return this.data == null || this.data === '' ? 'Calculated on submission' : String(this.data);
   }
 }
-export const riskStratificationTester = rankWith(OMF_CONTROL_RANK, omfControlIs('riskStratification'));
