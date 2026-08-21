@@ -106,3 +106,25 @@ export function resolveEnumOptions(
 
   return [];
 }
+
+/** The slice of an array-typed JSON Schema node the multi-select resolver reads. */
+interface MultiEnumSchemaLike {
+  items?: EnumSchemaLike | EnumSchemaLike[];
+}
+
+/**
+ * The options of a multi-select control — an array whose `items` carry the
+ * `enum`/`oneOf`. Same resolution (and the same `optionLabels` fallback) as
+ * `resolveEnumOptions`, applied to `items`.
+ *
+ * Returns `[]` for a tuple-typed `items` or a schema with no options — the
+ * caller is then not looking at a multi-select.
+ */
+export function resolveMultiEnumOptions(
+  schema: MultiEnumSchemaLike | undefined,
+  uischema?: OmfOptionsCarrier,
+): EnumOption[] {
+  const items = schema?.items;
+  if (!items || Array.isArray(items)) return [];
+  return resolveEnumOptions(items, uischema);
+}

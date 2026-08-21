@@ -265,6 +265,7 @@ recovers grouping and tables reliably. Mapping:
 | left-label / right-value grid (no header row) | `OmfTableLayout` + `OmfTableRow` |
 | `<input type="checkbox">` | a boolean `Control` |
 | radio group / `<select>` | an enum `Control` (`omf.control: "radio"`) |
+| compact same-line choose-any checkbox row | `omf.control: "checkboxGroup"` (array of coded `oneOf` options) |
 | `<label for=…>` / adjacent text | the dataSchema property `title` |
 | colour utilities or inline colour (`bg-red-50`, `color:#c0392b`) | `options.omf.accentColor` |
 | leading emoji in a heading | `options.omf.icon` |

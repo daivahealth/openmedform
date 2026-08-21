@@ -21,6 +21,7 @@ import {
   isDateControl,
   isEnumControl,
   isOneOfEnumControl,
+  schemaMatches,
 } from '@jsonforms/core';
 import {
   withJsonFormsControlProps,
@@ -28,7 +29,12 @@ import {
   JsonFormsDispatch,
   useJsonForms,
 } from '@jsonforms/react';
-import { collectScoreItems, computeScore, resolveEnumOptions } from '@openmedform/form-core';
+import {
+  collectScoreItems,
+  computeScore,
+  resolveEnumOptions,
+  resolveMultiEnumOptions,
+} from '@openmedform/form-core';
 import { FieldFrame, inputStyle } from './field-frame';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
 
@@ -160,6 +166,69 @@ function OmfRadio(props: ControlProps) {
 
 export const omfRadioTester = rankWith(OMF_CONTROL_RANK, omfControlIs('radio'));
 export const OmfRadioControl: ComponentType<any> = withJsonFormsControlProps(OmfRadio);
+
+// --- checkbox group (multi-select: array of enum/oneOf codes) ----------------
+
+function OmfCheckboxGroup(props: ControlProps) {
+  const { id, label, data, enabled, visible, required, errors, path, handleChange, schema, uischema } = props;
+  if (!visible) return null;
+  // Codes are what we store; labels are what the clinician reads. Resolved in
+  // form-core so the Angular renderer shows the same words.
+  const options = resolveMultiEnumOptions(schema, uischema);
+  const selected = Array.isArray(data) ? (data as string[]) : [];
+  const screen = readOmf(uischema)?.screen as { inline?: boolean } | undefined;
+  const inline = screen?.inline ?? true;
+
+  const toggle = (code: string, checked: boolean) => {
+    const next = new Set(selected);
+    if (checked) next.add(code);
+    else next.delete(code);
+    // Stored in schema order regardless of click order, so the same answers
+    // always serialize identically.
+    const value = options.filter((o) => next.has(o.code)).map((o) => o.code);
+    handleChange(path, value.length ? value : undefined);
+  };
+
+  return (
+    <FieldFrame id={id} label={label} required={required} errors={errors}>
+      <div style={{ display: 'flex', flexDirection: inline ? 'row' : 'column', gap: inline ? 16 : 4, flexWrap: 'wrap' }}>
+        {options.map((option) => (
+          <label key={option.code} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'var(--omf-font-size-body, 14px)' }}>
+            <input
+              type="checkbox"
+              value={option.code}
+              checked={selected.includes(option.code)}
+              disabled={!enabled}
+              onChange={(e) => toggle(option.code, e.target.checked)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+    </FieldFrame>
+  );
+}
+
+/** An array whose items are enum/oneOf codes — a multi-select, not a list. */
+const isMultiEnumArray = schemaMatches((s) => {
+  if (s?.type !== 'array' || !s.items || Array.isArray(s.items)) return false;
+  const items = s.items as { type?: string; enum?: unknown[]; oneOf?: unknown[] };
+  return (
+    (items.type === 'string' || items.type === 'number' || items.type === 'integer') &&
+    (Array.isArray(items.enum) || Array.isArray(items.oneOf))
+  );
+});
+
+// Rank ONE ABOVE the other omf controls on purpose: an enum-array wearing the
+// wrong control name (the AI used to emit `checklistMatrix` for these) would
+// otherwise reach the rows×columns matrix, which needs omf.rows/columns config
+// and renders an empty grid without it. A real checklistMatrix stores a nested
+// object, never an enum-array, so this never steals a configured matrix.
+export const omfCheckboxGroupTester = rankWith(
+  OMF_CONTROL_RANK + 1,
+  or(omfControlIs('checkboxGroup'), isMultiEnumArray),
+);
+export const OmfCheckboxGroupControl: ComponentType<any> = withJsonFormsControlProps(OmfCheckboxGroup);
 
 // --- default single-line input (bordered box — text/number/date/time) -------
 // Ranked above the vanilla input (which renders a borderless faint line) but

@@ -19,6 +19,7 @@ import type {
 import {
   resolveSchemaAtScope,
   resolveEnumOptions,
+  resolveMultiEnumOptions,
   scopeToDataPathSegments,
   getValueAtScope,
 } from '@openmedform/form-core';
@@ -136,6 +137,22 @@ function renderControl(el: UiControlLike, ctx: RenderCtx): string {
 
   if (type === 'boolean') {
     return `<div class="omf-field"><span class="omf-check">${value ? '☑' : '☐'}</span>${esc(label)}</div>`;
+  }
+
+  // Multi-select checkbox group: an enum-array prints one tick box per option,
+  // exactly as the screen renderers draw it — never the raw codes array.
+  if (type === 'array') {
+    const multiOptions = resolveMultiEnumOptions(fieldSchema, el);
+    if (multiOptions.length > 0) {
+      const selected = Array.isArray(value) ? (value as unknown[]).map(String) : [];
+      const opts = multiOptions
+        .map(
+          (o) =>
+            `<span><span class="omf-check">${selected.includes(o.code) ? '☑' : '☐'}</span>${esc(o.label)}</span>`,
+        )
+        .join('');
+      return `<div class="omf-field"><span class="omf-label">${esc(label)}</span><span class="omf-inline">${opts}</span></div>`;
+    }
   }
 
   if (control === 'radio' && enumOptions.length > 0) {

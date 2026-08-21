@@ -335,6 +335,7 @@ export class FormConversionService {
         '- <table> whose rows repeat a label + per-column inputs -> "checklistMatrix" (rows/columns from <th>/<td>).\n' +
         '- A left-label / right-value grid -> "OmfTableLayout" with "OmfTableRow" children.\n' +
         '- <input type="checkbox"> -> a boolean Control; <input type="radio"> group or <select> -> an enum Control (omf.control "radio" when the source draws radio circles).\n' +
+        '- A compact same-line row of choose-any checkboxes (e.g. "Contact / Droplet / Airborne") -> ONE omf.control "checkboxGroup" Control bound to an array whose items carry the coded oneOf options — never "checklistMatrix", which is only for a rows x columns grid.\n' +
         '- <label for=...> / adjacent text -> the dataSchema property "title" (keep the exact source-language text).\n' +
         '- Colour utility classes or inline colours on a section (e.g. "bg-red-50 border-red-200", "color:#c0392b") -> options.omf.accentColor; a leading emoji in the heading -> options.omf.icon.\n' +
         '- A number printed at the end of a scored row -> options.omf.points.\n\n';
