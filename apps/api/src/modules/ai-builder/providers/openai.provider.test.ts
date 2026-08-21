@@ -119,6 +119,57 @@ describe('OpenAiProvider', () => {
     });
   });
 
+  describe('reasoning effort', () => {
+    // On the Responses API reasoning tokens are spent from max_output_tokens,
+    // so conversion asks for 'low'. Only reasoning models accept the param.
+    it('passes the requested effort to a reasoning model', async () => {
+      const provider = new OpenAiProvider('test-key', 'gpt-5.6-terra');
+
+      await provider.generate('convert to jsonforms', 'sys', {
+        jsonMode: true,
+        reasoningEffort: 'low',
+      });
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ reasoning: { effort: 'low' } }),
+      );
+    });
+
+    it('passes it on image requests too', async () => {
+      const provider = new OpenAiProvider('test-key', 'o3-mini');
+
+      await provider.generateWithImages(
+        'read this page as json',
+        [{ type: 'image', mediaType: 'image/png', data: 'aGVsbG8=' }],
+        'sys',
+        { jsonMode: true, reasoningEffort: 'low' },
+      );
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ reasoning: { effort: 'low' } }),
+      );
+    });
+
+    it('omits the param for non-reasoning models, which reject it', async () => {
+      const provider = new OpenAiProvider('test-key', 'gpt-4o');
+
+      await provider.generate('convert to jsonforms', 'sys', {
+        jsonMode: true,
+        reasoningEffort: 'low',
+      });
+
+      expect(create.mock.calls[0][0]).not.toHaveProperty('reasoning');
+    });
+
+    it('leaves the model default when the caller does not ask', async () => {
+      const provider = new OpenAiProvider('test-key', 'gpt-5.6-terra');
+
+      await provider.generate('convert to jsonforms', 'sys', { jsonMode: true });
+
+      expect(create.mock.calls[0][0]).not.toHaveProperty('reasoning');
+    });
+  });
+
   it('retains deterministic temperature for models that support sampling controls', async () => {
     const provider = new OpenAiProvider('test-key', 'gpt-4o');
 

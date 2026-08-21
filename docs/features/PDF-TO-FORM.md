@@ -917,25 +917,32 @@ are therefore enforced up front, and an oversized mock-up is **rejected with
 guidance** rather than converted into a form that looks complete but silently
 lost its later sections:
 
-| Limit | Value | On breach |
-|---|---|---|
-| File size | 2 MB (vs 10 MB for PDF/images) | 400 with the actual size |
-| Fields (inputs/selects/textareas) | 120 | 400 — "split into one file per section" |
-| Table rows | 120 | 400 — "split the large tables" |
-| No fields found | — | 400 — the file is not a form mock-up (or everything was hidden) |
-| Cleaned markup | 24 000 chars | truncated + `POTENTIAL_MISSING_FIELD` warning |
+| Limit | Default | Env var | On breach |
+|---|---|---|---|
+| File size | 2 MB (vs 10 MB for PDF/images) | — | 400 with the actual size |
+| Fields (inputs/selects/textareas) | 120 | `CONVERSION_MAX_FIELDS` | 400 — "split into one file per section" |
+| Table rows | 120 | `CONVERSION_MAX_TABLE_ROWS` | 400 — "split the large tables" |
+| No fields found | — | — | 400 — the file is not a form mock-up (or everything was hidden) |
+| Source chars (cleaned markup / extracted PDF text) | 24 000 | `CONVERSION_MAX_SOURCE_CHARS` | truncated + `POTENTIAL_MISSING_FIELD` warning |
+| Output-token budget per conversion call | 32 768 | `CONVERSION_MAX_TOKENS` | model stops mid-object → run rejected (see below) |
 
-The field/row limits and the conversion call's output budget
-(`CONVERSION_MAX_TOKENS`, 32 768) **move together** — raising the field limit
-alone would just trade a clear rejection for a silently truncated form. As a
-backstop, if a model still runs out of budget mid-object the run is rejected
-with *"the AI ran out of space … split it into one file per section"* rather
-than the generic "not valid JSON", which would send the author looking for a
-problem in their source file.
+The field/row limits, the source-char budget and the conversion call's output
+budget **move together** — raising the field limit alone would just trade a
+clear rejection for a silently truncated form (or a silently clipped input).
+They live in `apps/api/src/modules/form-conversion/conversion-limits.ts` and
+are read from the environment, so an operator whose providers can emit more
+raises them together at deployment level; on OpenAI reasoning models the
+conversion also requests `reasoning: { effort: 'low' }` so thinking tokens do
+not eat the schema's share of the output budget. As a backstop, if a model
+still runs out of budget mid-object the run is rejected with *"the AI ran out
+of space … split it into one file per section"* rather than the generic "not
+valid JSON", which would send the author looking for a problem in their source
+file.
 
 These thresholds are calibrated against the output budget rather than measured
 per model, so they are the dial to turn if legitimate mock-ups start being
-rejected.
+rejected — but only up to what every configured provider can actually emit:
+Kimi/Minimax/Ollama ceilings are far below OpenAI GPT-5-family or Claude.
 
 Multi-document files are flagged with a warning.
 

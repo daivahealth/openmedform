@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { FormConversionController } from './form-conversion.controller';
 import { FormConversionService, assertHtmlWithinBudget } from './form-conversion.service';
 import { assertConversionOutputComplete } from '../../common/utils/llm-output';
@@ -147,6 +147,39 @@ describe('assertConversionOutputComplete', () => {
       expect(
         guardFor('<input type="text" name="a"><script>enhance()</script>'),
       ).not.toThrow();
+    });
+  });
+
+  describe('deployment-configurable size caps', () => {
+    // The caps are correctness bounds tied to the output-token budget, so they
+    // are env vars for the operator (conversion-limits.ts), never per-user.
+    const manyFields = (n: number) =>
+      Array.from({ length: n }, (_, i) => `<input type="text" name="f${i}">`).join('');
+    const guardFor = (html: string) => () =>
+      assertHtmlWithinBudget(extractFormHtml(html).stats);
+
+    afterEach(() => {
+      delete process.env.CONVERSION_MAX_FIELDS;
+    });
+
+    it('rejects past the default limit, naming the limit', () => {
+      expect(guardFor(manyFields(150))).toThrow(/limit 120/);
+    });
+
+    it('honors a raised CONVERSION_MAX_FIELDS', () => {
+      process.env.CONVERSION_MAX_FIELDS = '240';
+      expect(guardFor(manyFields(150))).not.toThrow();
+      expect(guardFor(manyFields(300))).toThrow(/limit 240/);
+    });
+
+    it('falls back to the default when the env var is not a number', () => {
+      process.env.CONVERSION_MAX_FIELDS = 'lots';
+      expect(guardFor(manyFields(150))).toThrow(/limit 120/);
+    });
+
+    it('clamps to the floor so a typo cannot zero the pipeline', () => {
+      process.env.CONVERSION_MAX_FIELDS = '0';
+      expect(guardFor(manyFields(5))).not.toThrow();
     });
   });
 });

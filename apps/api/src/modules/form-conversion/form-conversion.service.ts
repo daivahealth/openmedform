@@ -27,6 +27,12 @@ import {
   type LayoutSnapshot,
 } from '../../common/utils/layout-detect';
 import { JsonFormsAssemblerService, type AssembledJsonForms } from './jsonforms-assembler.service';
+import {
+  conversionMaxFields,
+  conversionMaxSourceChars,
+  conversionMaxTableRows,
+  conversionMaxTokens,
+} from './conversion-limits';
 import { FormQuotaService } from '../form/form-quota.service';
 import { getStructureProbePrompt } from '../ai-builder/prompts/structure-probe-prompt';
 import {
@@ -53,20 +59,14 @@ export const HTML_MIME_TYPE = 'text/html';
  * mock-up is rejected with guidance to split it rather than converted into a
  * form that looks complete but is not.
  *
- * These two constants and CONVERSION_MAX_TOKENS move together — raising the
- * field limit without raising the output budget just trades a clear rejection
- * for a silently truncated form.
- */
-const MAX_HTML_FIELDS = 120;
-const MAX_HTML_TABLE_ROWS = 120;
-
-/**
- * Output budget for a conversion call. Large enough for MAX_HTML_FIELDS worth
- * of Data + UI + Print schema in one pass; providers cap this to their own
- * ceiling, and `assertConversionOutputComplete` catches the case where a model
+ * The budgets live in conversion-limits.ts and are deployment-configurable
+ * (CONVERSION_MAX_FIELDS / CONVERSION_MAX_TABLE_ROWS / CONVERSION_MAX_TOKENS /
+ * CONVERSION_MAX_SOURCE_CHARS). They move together — raising the field limit
+ * without raising the output budget just trades a clear rejection for a
+ * silently truncated form, and without raising the source-char budget it clips
+ * the input instead. `assertConversionOutputComplete` catches a model that
  * still runs out mid-object.
  */
-const CONVERSION_MAX_TOKENS = 32768;
 
 /**
  * Budget for the page-structure pre-pass. It answers one narrow question, so it
@@ -422,7 +422,11 @@ export class FormConversionService {
       await this.setStage(jobId, 'GENERATING', `HTML mock-up · ${provider.name}`);
       rawOutput = await provider.generate(userPrompt, systemPrompt, {
         temperature: 0.2,
-        maxTokens: CONVERSION_MAX_TOKENS,
+        maxTokens: conversionMaxTokens(),
+        // Conversion is transcription, not problem-solving, and on reasoning
+        // models thinking tokens come out of the same output budget the schema
+        // needs. Providers that cannot honor this ignore it.
+        reasoningEffort: 'low',
         jsonMode: true,
       });
     } else if (input.mimeType === 'application/pdf') {
@@ -434,7 +438,7 @@ export class FormConversionService {
       // Keep enough embedded text that later pages/sections aren't cut off on a
       // multi-page form (the page images remain the layout authority).
       const reference = text.trim()
-        ? text.substring(0, 24000)
+        ? text.substring(0, conversionMaxSourceChars())
         : 'No reliable embedded text; rely on the attached page images.';
       let userPrompt = `Convert this clinical form PDF (${pages} page(s)) into the jsonforms engine format.\n\nExtracted text for reference:\n${reference}`;
       if (input.instructions) userPrompt += `\n\nAdditional instructions: ${input.instructions}`;
@@ -457,7 +461,8 @@ export class FormConversionService {
         userPrompt += this.pageHintText(structureProbe);
         rawOutput = await provider.generateWithImages(userPrompt, images, systemPrompt, {
           temperature: 0.2,
-          maxTokens: CONVERSION_MAX_TOKENS,
+          maxTokens: conversionMaxTokens(),
+          reasoningEffort: 'low',
           jsonMode: true,
         });
       } else {
@@ -469,7 +474,8 @@ export class FormConversionService {
         );
         rawOutput = await provider.generate(userPrompt, systemPrompt, {
           temperature: 0.2,
-          maxTokens: CONVERSION_MAX_TOKENS,
+          maxTokens: conversionMaxTokens(),
+          reasoningEffort: 'low',
           jsonMode: true,
         });
       }
@@ -492,7 +498,11 @@ export class FormConversionService {
         this.pageHintText(structureProbe);
       rawOutput = await provider.generateWithImages(userPrompt, images, systemPrompt, {
         temperature: 0.2,
-        maxTokens: CONVERSION_MAX_TOKENS,
+        maxTokens: conversionMaxTokens(),
+        // Conversion is transcription, not problem-solving, and on reasoning
+        // models thinking tokens come out of the same output budget the schema
+        // needs. Providers that cannot honor this ignore it.
+        reasoningEffort: 'low',
         jsonMode: true,
       });
     }
@@ -588,7 +598,8 @@ export class FormConversionService {
 
     const rawOutput = await provider.generate(userPrompt, getPdfToJsonFormsPrompt(), {
       temperature: 0.2,
-      maxTokens: CONVERSION_MAX_TOKENS,
+      maxTokens: conversionMaxTokens(),
+      reasoningEffort: 'low',
       jsonMode: true,
     });
 
@@ -660,6 +671,7 @@ export class FormConversionService {
           // cheap next to the conversion it precedes.
           temperature: 0,
           maxTokens: STRUCTURE_PROBE_MAX_TOKENS,
+          reasoningEffort: 'low',
           jsonMode: true,
         },
       );
@@ -762,7 +774,10 @@ export class FormConversionService {
     warnings: string[],
     extractScriptConfigOptIn = false,
   ): Promise<ReturnType<typeof extractFormHtml>> {
-    const options = { extractScriptConfig: extractScriptConfigOptIn };
+    const options = {
+      extractScriptConfig: extractScriptConfigOptIn,
+      maxChars: conversionMaxSourceChars(),
+    };
     const staticResult = extractFormHtml(html, options);
 
     const scriptBuilt =
@@ -990,14 +1005,16 @@ export function assertHtmlWithinBudget(
   stats: HtmlExtractStats,
   renderOutcome: HtmlRenderOutcome['status'] | 'not-attempted' = 'not-attempted',
 ): void {
-  if (stats.fields > MAX_HTML_FIELDS) {
+  const maxFields = conversionMaxFields();
+  if (stats.fields > maxFields) {
     throw new BadRequestException(
-      `This mock-up has about ${stats.fields} fields, which is more than one conversion pass can reliably produce (limit ${MAX_HTML_FIELDS}). Split it into one file per section and convert them separately.`,
+      `This mock-up has about ${stats.fields} fields, which is more than one conversion pass can reliably produce (limit ${maxFields}). Split it into one file per section and convert them separately.`,
     );
   }
-  if (stats.tableRows > MAX_HTML_TABLE_ROWS) {
+  const maxTableRows = conversionMaxTableRows();
+  if (stats.tableRows > maxTableRows) {
     throw new BadRequestException(
-      `This mock-up has about ${stats.tableRows} table rows, which is more than one conversion pass can reliably produce (limit ${MAX_HTML_TABLE_ROWS}). Split the large tables into separate files.`,
+      `This mock-up has about ${stats.tableRows} table rows, which is more than one conversion pass can reliably produce (limit ${maxTableRows}). Split the large tables into separate files.`,
     );
   }
   if (stats.fields === 0) {
