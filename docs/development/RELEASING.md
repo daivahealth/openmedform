@@ -5,7 +5,7 @@ and GitHub Actions.
 
 ## Publishable set
 
-Four first-party packages are published to npm under the `@openmedform` org. They are a **fixed group**
+Five first-party packages are published to npm under the `@openmedform` org. Four are a **fixed group**
 in `.changeset/config.json` — they always bump and publish together at the same version:
 
 - `@openmedform/form-schema-types`
@@ -13,12 +13,19 @@ in `.changeset/config.json` — they always bump and publish together at the sam
 - `@openmedform/form-design-tokens`
 - `@openmedform/react-form-renderer`
 
+`@openmedform/angular-form-renderer` (issue #4, done) is also publishable — it versions
+independently of the fixed group, so a changeset that should release it must name it explicitly.
+When a change lands in both renderers, include the Angular package in the same changeset so the
+two renderers ship together.
+
 Every other workspace package is `private: true`, so **`changeset publish` never publishes them**.
-Private packages that depend on the four (the apps, `form-print-engine`, `angular-form-renderer`)
-are listed in the `ignore` array in `.changeset/config.json`, so the "Version Packages" PR touches
-**only the four publishable packages** — no private-app version churn. (Angular packaging is tracked
-in issue #4; add `@openmedform/angular-form-renderer` to the publishable set and remove it from
-`ignore` when it's ready.)
+The private packages (the apps, demos, `form-print-engine`) are listed in the `ignore` array in
+`.changeset/config.json`, so the "Version Packages" PR touches only the publishable packages —
+no private-app version churn.
+
+**A merged PR is not a release.** Nothing reaches npm until a changeset lands on `main` and the
+resulting "Version Packages" PR is merged — a PR that changes a publishable package without a
+changeset publishes nothing.
 
 ## Day-to-day: add a changeset
 
