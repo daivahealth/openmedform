@@ -221,6 +221,16 @@ otherwise reject the whole schema; the assembler instead **strips the dangling
 and records an `UNCERTAIN_FIELD_BINDING` warning so the reviewer can tighten it,
 so one bad reference no longer sinks an otherwise-complete conversion.
 
+The assembler also validates every `omf.control` against the config it draws
+from. A config-driven control emitted without it (a `checklistMatrix` with no
+`omf.rows`/`omf.columns`, a `scoringMatrix` with no or empty `domains`, an
+unconfigured `vitalSignsChart` / `colorCodedGrid` / `clinicalReferenceTable` /
+`recordTable`) would render an empty shell and silently lose the paper's
+content; an enum-driven `radio`/`checkboxGroup` bound to a schema with no
+`enum`/`oneOf` would render no inputs. Each such control gets a
+`MISSING_CONTROL_CONFIG` warning against its binding — a warning, not a
+rejection, so one half-configured control never sinks the whole form.
+
 #### Total score & risk stratification
 
 Many scored forms sum the ticked points across every box into a grand total and
