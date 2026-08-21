@@ -12,10 +12,12 @@ import {
   isStringControl,
   or,
   rankWith,
+  type RankedTester,
   schemaMatches,
   type UISchemaElement,
   uiTypeIs,
 } from '@jsonforms/core';
+import { OMF_CONTROL_NAMES } from '@openmedform/form-core';
 
 /** Rank for omf/clinical custom controls — must beat the standard controls. */
 export const OMF_CONTROL_RANK = 20;
@@ -87,6 +89,52 @@ export const checkboxGroupTester = rankWith(
   OMF_CONTROL_RANK + 1,
   or(omfControlIs('checkboxGroup'), isMultiEnumArray),
 );
+
+// --- one tester per canonical omf control ------------------------------------
+// All defined HERE (pure, no Angular imports) rather than beside their
+// components, so the parity test below the map can run them under vitest —
+// @jsonforms/angular cannot be loaded outside an Angular build.
+
+export const omfTextareaTester = rankWith(OMF_CONTROL_RANK, omfControlIs('textarea'));
+export const omfRadioTester = rankWith(OMF_CONTROL_RANK, omfControlIs('radio'));
+export const scoringMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('scoringMatrix'));
+export const signatureDateTester = rankWith(OMF_CONTROL_RANK, omfControlIs('signatureDate'));
+export const vitalSignsChartTester = rankWith(OMF_CONTROL_RANK, omfControlIs('vitalSignsChart'));
+export const checklistMatrixTester = rankWith(OMF_CONTROL_RANK, omfControlIs('checklistMatrix'));
+export const colorCodedGridTester = rankWith(OMF_CONTROL_RANK, omfControlIs('colorCodedGrid'));
+export const clinicalReferenceTableTester = rankWith(
+  OMF_CONTROL_RANK,
+  omfControlIs('clinicalReferenceTable'),
+);
+export const riskStratificationTester = rankWith(
+  OMF_CONTROL_RANK,
+  omfControlIs('riskStratification'),
+);
+export const scoreSummaryTester = rankWith(OMF_CONTROL_RANK, omfControlIs('scoreSummary'));
+
+/** A name from the canonical omf.control vocabulary (see form-core). */
+export type OmfControlName = (typeof OMF_CONTROL_NAMES)[number];
+
+/**
+ * The tester for every canonical control. `satisfies Record<OmfControlName, …>`
+ * makes coverage a COMPILE-TIME guarantee: adding a name to OMF_CONTROL_NAMES
+ * without a tester here fails the build. The renderer set registers from this
+ * map, and testers.test.ts asserts each tester actually claims its name.
+ */
+export const omfControlTesters = {
+  textarea: omfTextareaTester,
+  radio: omfRadioTester,
+  checkboxGroup: checkboxGroupTester,
+  scoringMatrix: scoringMatrixTester,
+  signatureDate: signatureDateTester,
+  vitalSignsChart: vitalSignsChartTester,
+  checklistMatrix: checklistMatrixTester,
+  colorCodedGrid: colorCodedGridTester,
+  clinicalReferenceTable: clinicalReferenceTableTester,
+  riskStratification: riskStratificationTester,
+  scoreSummary: scoreSummaryTester,
+  recordTable: recordTableTester,
+} satisfies Record<OmfControlName, RankedTester>;
 
 /** Selects the tab-strip layout used for a record's detail panel. */
 export const omfTabsTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTabsLayout'));

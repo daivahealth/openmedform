@@ -5,14 +5,15 @@
 
 import { Component } from '@angular/core';
 import { JsonFormsControl } from '@jsonforms/angular';
-import { rankWith } from '@jsonforms/core';
 import {
   resolveEnumOptions,
   resolveMultiEnumOptions,
   type EnumOption,
 } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
-import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
+import { readOmf } from '../testers';
+
+export { omfTextareaTester, omfRadioTester } from '../testers';
 
 @Component({
   selector: 'omf-textarea-control',
@@ -41,7 +42,6 @@ export class OmfTextareaControlComponent extends JsonFormsControl {
     return screen?.rows ?? 3;
   }
 }
-export const omfTextareaTester = rankWith(OMF_CONTROL_RANK, omfControlIs('textarea'));
 
 @Component({
   selector: 'omf-radio-control',
@@ -98,7 +98,6 @@ export class OmfRadioControlComponent extends JsonFormsControl {
     return this.screen?.inline ?? this.labelLeft;
   }
 }
-export const omfRadioTester = rankWith(OMF_CONTROL_RANK, omfControlIs('radio'));
 
 @Component({
   selector: 'omf-checkbox-group',

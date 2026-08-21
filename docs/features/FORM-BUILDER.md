@@ -21,7 +21,11 @@ surface in the product.
 
 ## Clinical controls
 
-Rendered by both the React and Angular renderers from `options.omf.control`:
+Rendered by both the React and Angular renderers from `options.omf.control`.
+The canonical vocabulary is `OMF_CONTROL_NAMES` in form-core's control
+registry; parity tests in both renderer packages (and a pinned list in the AI
+prompt tests) fail CI if a control is added without being implemented in both
+frameworks:
 
 | Control | Purpose |
 |---------|---------|
