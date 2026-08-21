@@ -64,6 +64,30 @@ export const recordTableTester = rankWith(
   or(omfControlIs('recordTable'), isObjectArrayControl),
 );
 
+/** An array whose items are enum/oneOf codes — a multi-select, not a list. */
+const isMultiEnumArray = schemaMatches((s) => {
+  if (s?.type !== 'array' || !s.items || Array.isArray(s.items)) return false;
+  const items = s.items as { type?: string; enum?: unknown[]; oneOf?: unknown[] };
+  return (
+    (items.type === 'string' || items.type === 'number' || items.type === 'integer') &&
+    (Array.isArray(items.enum) || Array.isArray(items.oneOf))
+  );
+});
+
+/**
+ * Selects the multi-select checkbox group: an explicit `checkboxGroup`, or any
+ * enum/oneOf array. Rank ONE ABOVE the other omf controls on purpose: an
+ * enum-array wearing the wrong control name (the AI used to emit
+ * `checklistMatrix` for these) would otherwise reach the rows×columns matrix,
+ * which needs omf.rows/columns config and renders an empty grid without it. A
+ * real checklistMatrix stores a nested object, never an enum-array, so this
+ * never steals a configured matrix. Mirrors the React tester exactly.
+ */
+export const checkboxGroupTester = rankWith(
+  OMF_CONTROL_RANK + 1,
+  or(omfControlIs('checkboxGroup'), isMultiEnumArray),
+);
+
 /** Selects the tab-strip layout used for a record's detail panel. */
 export const omfTabsTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTabsLayout'));
 

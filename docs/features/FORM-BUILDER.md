@@ -26,7 +26,8 @@ Rendered by both the React and Angular renderers from `options.omf.control`:
 | Control | Purpose |
 |---------|---------|
 | `scoringMatrix` | Grid with domain-grouped rows, checkboxes, point values, auto-sum |
-| `checklistMatrix` | Repeating label rows against per-column tick boxes |
+| `checklistMatrix` | Repeating label rows against per-column tick boxes (needs `omf.rows`/`omf.columns`) |
+| `checkboxGroup` | Multi-select ("choose all that apply") — an array of coded options rendered as one checkbox row; also the automatic fallback for any enum/`oneOf` array, even one mislabelled `checklistMatrix` |
 | `recordTable` | Repeating encounter log — add/remove records with an expandable tabbed detail panel |
 | `colorCodedGrid` | Table with coloured rows, highlights the active row based on score |
 | `clinicalReferenceTable` | Read-only reference table (dosing guides, contraindications) |

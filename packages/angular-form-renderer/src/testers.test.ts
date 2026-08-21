@@ -6,6 +6,7 @@ import {
   OMF_CONTROL_RANK,
   STANDARD_RANK,
   recordTableTester,
+  checkboxGroupTester,
   omfTabsTester,
   enumControlTester,
   textControlTester,
@@ -48,6 +49,51 @@ describe('Angular renderer testers (shared contract with React)', () => {
   it('recordTableTester ignores an ordinary control', () => {
     const plain = { type: 'Control', scope: '#/properties/name' } as UISchemaElement;
     expect(recordTableTester(plain, {} as never, undefined as never)).toBe(-1);
+  });
+
+  // The multi-select checkbox group. The fallback half must claim an enum-array
+  // even when the AI labeled it `checklistMatrix` — an unconfigured matrix
+  // renders an empty grid, which is exactly the failure this tester prevents.
+  it('checkboxGroupTester claims an explicit checkboxGroup', () => {
+    expect(checkboxGroupTester(withOmf('checkboxGroup'), {} as never, undefined as never)).toBe(
+      OMF_CONTROL_RANK + 1,
+    );
+  });
+
+  it('checkboxGroupTester claims any enum/oneOf array, beating checklistMatrix', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        x: {
+          type: 'array',
+          uniqueItems: true,
+          items: { type: 'string', oneOf: [{ const: 'HBV', title: 'HBV' }] },
+        },
+      },
+    };
+    const el = {
+      type: 'Control',
+      scope: '#/properties/x',
+      options: { omf: { control: 'checklistMatrix' } },
+    } as unknown as UISchemaElement;
+    const rank = checkboxGroupTester(el, schema as never, { rootSchema: schema, config: {} } as never);
+    expect(rank).toBe(OMF_CONTROL_RANK + 1);
+    expect(rank).toBeGreaterThan(OMF_CONTROL_RANK);
+  });
+
+  it('checkboxGroupTester ignores object arrays and plain strings', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        records: { type: 'array', items: { type: 'object', properties: {} } },
+        name: { type: 'string' },
+      },
+    };
+    const ctx = { rootSchema: schema, config: {} } as never;
+    const records = { type: 'Control', scope: '#/properties/records' } as UISchemaElement;
+    const name = { type: 'Control', scope: '#/properties/name' } as UISchemaElement;
+    expect(checkboxGroupTester(records, schema as never, ctx)).toBe(-1);
+    expect(checkboxGroupTester(name, schema as never, ctx)).toBe(-1);
   });
 
   it('omfTabsTester claims OmfTabsLayout only', () => {

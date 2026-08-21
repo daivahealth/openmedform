@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { UiSchemaElement } from '@openmedform/form-schema-types';
-import { elementOptionPoints, resolveEnumOptions } from './enum-options';
+import { elementOptionPoints, resolveEnumOptions, resolveMultiEnumOptions } from './enum-options';
 
 const control = (omf: Record<string, unknown>): UiSchemaElement =>
   ({ type: 'Control', scope: '#/properties/x', options: { omf } }) as unknown as UiSchemaElement;
@@ -75,6 +75,38 @@ describe('resolveEnumOptions', () => {
       oneOf: [{ const: 'A', title: 'Alpha' }, { title: 'no const here' }],
     });
     expect(options).toEqual([{ code: 'A', label: 'Alpha' }]);
+  });
+});
+
+describe('resolveMultiEnumOptions', () => {
+  it('resolves the items oneOf of an enum array', () => {
+    const options = resolveMultiEnumOptions({
+      items: {
+        oneOf: [
+          { const: 'HBV', title: 'HBV' },
+          { const: 'C.Difficile', title: 'C. Difficile****' },
+        ],
+      },
+    });
+    expect(options).toEqual([
+      { code: 'HBV', label: 'HBV' },
+      { code: 'C.Difficile', label: 'C. Difficile****' },
+    ]);
+  });
+
+  it('applies optionLabels from the UI element, like the single-select', () => {
+    const options = resolveMultiEnumOptions(
+      { items: { enum: ['TB'] } },
+      control({ optionLabels: { TB: 'Tuberculosis' } }),
+    );
+    expect(options).toEqual([{ code: 'TB', label: 'Tuberculosis' }]);
+  });
+
+  it('returns nothing for tuple items or a schema with no options', () => {
+    expect(resolveMultiEnumOptions({ items: [{ enum: ['A'] }] })).toEqual([]);
+    expect(resolveMultiEnumOptions({ items: {} })).toEqual([]);
+    expect(resolveMultiEnumOptions({})).toEqual([]);
+    expect(resolveMultiEnumOptions(undefined)).toEqual([]);
   });
 });
 

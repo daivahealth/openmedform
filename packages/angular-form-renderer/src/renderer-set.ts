@@ -36,7 +36,9 @@ import {
   omfTextareaTester,
   OmfRadioControlComponent,
   omfRadioTester,
+  OmfCheckboxGroupComponent,
 } from './renderers/omf-controls';
+import { checkboxGroupTester } from './testers';
 import {
   ScoringMatrixComponent,
   scoringMatrixTester,
@@ -80,6 +82,7 @@ export const standardRenderers: JsonFormsRendererRegistryEntry[] = [
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfTextareaTester, renderer: OmfTextareaControlComponent },
   { tester: omfRadioTester, renderer: OmfRadioControlComponent },
+  { tester: checkboxGroupTester, renderer: OmfCheckboxGroupComponent },
   { tester: omfTabsTester, renderer: OmfTabsLayoutComponent },
   // Repeating encounter log (add/remove records with an expandable detail
   // panel). Outranks the standard array handling so a source "+ Add <thing>"

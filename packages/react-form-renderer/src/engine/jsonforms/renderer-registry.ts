@@ -12,6 +12,8 @@ import {
   omfTextareaTester,
   OmfRadioControl,
   omfRadioTester,
+  OmfCheckboxGroupControl,
+  omfCheckboxGroupTester,
   OmfCheckboxControl,
   omfCheckboxTester,
   OmfGroupControl,
@@ -51,6 +53,7 @@ import { OmfTabsLayoutControl, omfTabsTester } from './renderers/tabs-layout';
 export const omfRenderers: JsonFormsRendererRegistryEntry[] = [
   { tester: omfTextareaTester, renderer: OmfTextareaControl },
   { tester: omfRadioTester, renderer: OmfRadioControl },
+  { tester: omfCheckboxGroupTester, renderer: OmfCheckboxGroupControl },
   { tester: omfCheckboxTester, renderer: OmfCheckboxControl },
   { tester: omfInputTester, renderer: OmfInputControl },
   { tester: omfSelectTester, renderer: OmfSelectControl },
