@@ -100,6 +100,7 @@ export class JsonFormsAssemblerService {
         message: `Removed an unresolved schema reference "${ref}" (the AI referenced a $def it did not define). The affected field now validates permissively — review its type/constraints.`,
       });
     }
+    warnings.push(...this.validateOmfControlConfig(uiSchema, dataSchema));
 
     // Free text destined for a chat bubble — bounded so a rambling model
     // cannot turn the transcript into a wall.
@@ -298,6 +299,137 @@ export class JsonFormsAssemblerService {
       out.push(segments[i].replace(/~1/g, '/').replace(/~0/g, '~'));
     }
     return out.join('.');
+  }
+
+  /**
+   * Flag omf controls that arrived without the config they draw from.
+   *
+   * A config-driven control (scoringMatrix, checklistMatrix, vitalSignsChart,
+   * colorCodedGrid, clinicalReferenceTable, recordTable) takes its rows/columns
+   * from `options.omf`, not from the data schema — so when the AI omits that
+   * config, the control renders an EMPTY shell and the paper's content is
+   * silently lost. That is exactly how a transfer form's infection-control
+   * checkboxes vanished (an enum array labelled `checklistMatrix` with no
+   * rows/columns). Enum-driven controls (radio, checkboxGroup) have the mirror
+   * failure: a schema with no options renders no inputs.
+   *
+   * Warnings, not rejections: a half-configured control loses one section,
+   * while a hard failure loses the whole form. The reviewer sees each finding
+   * against its binding and can regenerate or fix just that control.
+   */
+  private validateOmfControlConfig(
+    uiSchema: Record<string, unknown>,
+    dataSchema: Record<string, unknown>,
+  ): ConversionWarningData[] {
+    const warnings: ConversionWarningData[] = [];
+    const filled = (v: unknown): boolean => Array.isArray(v) && v.length > 0;
+    const hasOptions = (schema?: Record<string, unknown>): boolean =>
+      !!schema && (filled(schema.enum) || filled(schema.oneOf));
+    const isOptionArray = (schema?: Record<string, unknown>): boolean => {
+      if (!schema || schema.type !== 'array') return false;
+      const items = schema.items;
+      return (
+        !!items &&
+        typeof items === 'object' &&
+        !Array.isArray(items) &&
+        hasOptions(items as Record<string, unknown>)
+      );
+    };
+
+    const visit = (el: unknown): void => {
+      if (!el || typeof el !== 'object' || Array.isArray(el)) return;
+      const node = el as Record<string, unknown>;
+      const omf = ((node.options as Record<string, unknown>)?.omf ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const control = typeof omf.control === 'string' ? omf.control : undefined;
+      const scope = typeof node.scope === 'string' ? node.scope : undefined;
+      const field = scope ? this.resolveLocalPointer(dataSchema, scope) : undefined;
+      const warn = (message: string): void => {
+        warnings.push({ type: 'MISSING_CONTROL_CONFIG', message, binding: scope });
+      };
+
+      switch (control) {
+        case 'scoringMatrix': {
+          const domains = omf.domains;
+          if (!filled(domains)) {
+            warn(
+              'scoringMatrix has no omf.domains — the scoring grid renders empty and every risk-factor row is lost. Populate omf.domains[].items or regenerate this section.',
+            );
+          } else {
+            const empty = (domains as Record<string, unknown>[]).filter(
+              (d) => !filled(d?.items),
+            ).length;
+            if (empty > 0) {
+              warn(
+                `scoringMatrix has ${empty} domain(s) with no items — those domains render as empty boxes and their risk-factor rows are lost.`,
+              );
+            }
+          }
+          break;
+        }
+        case 'checklistMatrix': {
+          if (!filled(omf.rows) || !filled(omf.columns)) {
+            if (isOptionArray(field)) {
+              warn(
+                'checklistMatrix without omf.rows/omf.columns on an option array — the renderers fall back to a checkboxGroup, which is what this field should be authored as (omf.control "checkboxGroup").',
+              );
+            } else {
+              warn(
+                'checklistMatrix has no omf.rows/omf.columns — the grid renders with no checkboxes. Supply both, or use checkboxGroup for a flat multi-select.',
+              );
+            }
+          }
+          break;
+        }
+        case 'vitalSignsChart':
+          if (!filled(omf.columns)) {
+            warn('vitalSignsChart has no omf.columns — the chart renders with no parameters.');
+          }
+          break;
+        case 'colorCodedGrid':
+          if (!filled(omf.rows)) {
+            warn('colorCodedGrid has no omf.rows — the reference grid renders empty.');
+          }
+          break;
+        case 'clinicalReferenceTable':
+          if (!filled(omf.headers) || !filled(omf.rows)) {
+            warn(
+              'clinicalReferenceTable is missing omf.headers or omf.rows — the reference table renders empty.',
+            );
+          }
+          break;
+        case 'recordTable': {
+          const rt = omf.recordTable as Record<string, unknown> | undefined;
+          if (!rt || typeof rt !== 'object' || !filled(rt.columns)) {
+            warn(
+              'recordTable has no omf.recordTable.columns — the log renders without summary columns. Define one { label, path } per source column.',
+            );
+          }
+          break;
+        }
+        case 'checkboxGroup':
+          if (!isOptionArray(field)) {
+            warn(
+              'checkboxGroup must bind an array whose items carry enum/oneOf options — with none, it renders no checkboxes.',
+            );
+          }
+          break;
+        case 'radio':
+          if (!hasOptions(field)) {
+            warn(
+              'radio bound to a schema with no enum/oneOf — it renders no options. Add a oneOf of coded options with titles.',
+            );
+          }
+          break;
+      }
+
+      if (Array.isArray(node.elements)) node.elements.forEach(visit);
+    };
+
+    visit((uiSchema.layout as Record<string, unknown>) ?? uiSchema);
+    return warnings;
   }
 
   /** Collect field-level + form-level warnings into a flat, persistable list. */
