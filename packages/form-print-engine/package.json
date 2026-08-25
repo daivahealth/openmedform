@@ -1,6 +1,6 @@
 {
   "name": "@openmedform/form-print-engine",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "license": "Apache-2.0",
   "description": "Custom A4 print engine: reconstructs a print-accurate HTML/CSS (@page in mm) document from a jsonforms FormDefinition's UI + Print schemas, plus a pixel-diff primitive for the render→compare→AI-patch visual-fidelity loop. Framework-independent.",
