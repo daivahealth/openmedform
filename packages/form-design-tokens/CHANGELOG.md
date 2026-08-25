@@ -1,5 +1,35 @@
 # @openmedform/form-design-tokens
 
+## 1.6.0
+
+### Minor Changes
+
+- 1264a03: **Licensing is now Apache-2.0 across every package, matching the repository's
+  `LICENSE` file.**
+
+  Five packages (`form-schema-types`, `form-core`, `form-design-tokens`,
+  `react-form-renderer`, `angular-form-renderer`) declared `MIT` in their
+  `package.json` while the only licence text in the repository — the one a
+  consumer actually finds — has always been Apache-2.0. That was wrong metadata
+  rather than a second grant, and it is corrected here; `form-print-engine` and
+  the applications already declared Apache-2.0.
+
+  Every published package now also ships the full `LICENSE` text in its tarball,
+  so the terms travel with the package instead of only living in the repository.
+
+  Versions already on npm are unaffected: whatever grant they were published
+  under stands for those versions.
+
+- 1264a03: `OmfTableRow` now honours its own JSON Forms `rule` in both renderers, so a
+  table can reveal rows in turn — a stepwise assessment such as CAM-ICU asks
+  Feature 2 only once Feature 1 is present. A row is the layout itself and never
+  passes through a dispatch, so the rule was previously ignored by React and
+  Angular alike; both now resolve their rows through form-core's new
+  `filterVisibleElements()`, the same evaluation the server uses. A `DISABLE` on a
+  row is ANDed into every cell it contains. form-core also exports
+  `hasElementRules()` for renderers that subscribe to state only when a container
+  actually has conditional children.
+
 ## 1.5.0
 
 ### Minor Changes
