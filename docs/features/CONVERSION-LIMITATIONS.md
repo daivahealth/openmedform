@@ -15,7 +15,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 |---|---|---|---|---|
 | 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
 | 2 | ~~PDFs and images get no structural hints~~ — **fixed**: a vision pre-pass reads the page's table structures and emits the same hints | Resolved | — (hints are read off the page, so they are a careful reading rather than a proof; HTML remains the most reliable source) | [#73](https://github.com/daivahealth/openmedform/issues/73) ✅ |
-| 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" now converts with a SHOW rule | Resolved | — (only the select-with-"Other" pattern is spared; other hidden content is still stripped) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
+| 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" and script-revealed sections now convert with a SHOW rule | Resolved | — (only those two patterns are spared; other hidden content is still stripped, and a revealed section's *condition* is inferred from the form's text, so check it in review) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
 | 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
 | 5 | ~~Click-built content missed; matrix group-boundaries inferred~~ — **fixed**: a bounded sandbox probe presses add-controls and measures the split | Resolved | — (requires Chromium; `HTML_PROBE_DISABLED=1` reverts to a single read) | [#76](https://github.com/daivahealth/openmedform/issues/76) ✅ |
 | 6 | Size caps: 120 fields / 120 table rows / 24k chars / 2 MB per HTML upload (defaults; deployment-configurable via `CONVERSION_MAX_*` env vars) | By design | Split into one file per section, or the operator raises the caps for capable providers | — |
@@ -116,6 +116,24 @@ tiny:
   "specify" companion.
 - the one string a hidden element can newly put in front of the model is its own
   label, capped at 60 characters.
+
+**Progressive disclosure** is the second spared pattern. Clinical worksheets hide
+whole *sections*, not just one input: CAM-ICU ships Features 2-4 as
+`display:none` rows its script reveals in turn, and stripping them turned a
+four-feature delirium assessment into a one-question form. `findConditionalFields`
+could not help — it spares a lone text input, never a container.
+
+`findScriptToggledSections` now spares a container whose visibility the page's
+own script toggles, provided it holds a real field and stays inside the size
+caps (1,500 characters per section, 6,000 per document, 12 sections). The model
+is told to gate it with a rule on the `OmfTableRow`. See
+[Progressive disclosure](PDF-TO-FORM.md#progressive-disclosure-script-revealed-sections)
+for the full table of what is spared and what is not.
+
+**The reveal condition is inferred, not extracted.** Scripts are parsed for the
+toggle *target* only, never for logic and never executed, so what reveals a
+section comes from the form's own visible instructions. On a stepwise form,
+check the rules in review.
 
 Anything else with `display:none` is removed and reported exactly as before.
 

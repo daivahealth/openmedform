@@ -60,3 +60,50 @@ export function evaluateRule(rule: UiRule, data: unknown): ElementState {
 export function evaluateElementState(element: RuledElement, data: unknown): ElementState {
   return element.rule ? evaluateRule(element.rule, data) : VISIBLE_ENABLED;
 }
+
+/** One surviving child of a container, with its position in the original list. */
+export interface VisibleElement<T> {
+  element: T;
+  /**
+   * Index in the ORIGINAL list. Renderers key/track on this so a child that
+   * appears or disappears does not renumber — and therefore re-mount — its
+   * siblings.
+   */
+  index: number;
+  /** Parent enablement AND-ed with this element's own ENABLE/DISABLE rule. */
+  enabled: boolean;
+}
+
+/**
+ * Resolve the children a container should actually render.
+ *
+ * Containers that dispatch each child through the host framework get rule
+ * handling for free. Some do not: a table renderer maps a row straight onto a
+ * `<tr>` because the row IS the layout, and a rule on that row was silently
+ * ignored in both renderers. Both now call this, so a progressive-disclosure
+ * table (reveal Feature 2 once Feature 1 is present) behaves identically in
+ * React, in Angular, and against the same form-core evaluation the server uses.
+ */
+export function filterVisibleElements<T extends RuledElement>(
+  elements: readonly T[] | undefined,
+  data: unknown,
+  parentEnabled = true,
+): VisibleElement<T>[] {
+  const visible: VisibleElement<T>[] = [];
+  (elements ?? []).forEach((element, index) => {
+    const state = evaluateElementState(element, data);
+    if (!state.visible) return;
+    visible.push({ element, index, enabled: parentEnabled && state.enabled });
+  });
+  return visible;
+}
+
+/**
+ * True when any child carries a rule. Lets a renderer skip the per-element
+ * state subscription that conditional children would otherwise require — most
+ * containers have no rules anywhere, and on a large clinical form that
+ * subscription is not free.
+ */
+export function hasElementRules(elements: readonly RuledElement[] | undefined): boolean {
+  return (elements ?? []).some((element) => element?.rule !== undefined);
+}

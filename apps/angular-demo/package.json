@@ -2,6 +2,7 @@
   "name": "@openmedform/angular-demo",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Angular 20 demo proving the same jsonforms FormDefinition renders through the Angular engine (@openmedform/angular-form-renderer), matching the React demo.",
   "type": "module",
   "scripts": {

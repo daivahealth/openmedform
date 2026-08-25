@@ -17,6 +17,7 @@ import type {
   UiSchemaElement,
 } from '@openmedform/form-schema-types';
 import {
+  evaluateElementState,
   resolveSchemaAtScope,
   resolveEnumOptions,
   resolveMultiEnumOptions,
@@ -27,6 +28,23 @@ import {
 export interface PrintRenderOptions {
   /** Response data to pre-fill (omitted → a blank printable form). */
   data?: Record<string, unknown>;
+  /**
+   * What to do with an element that carries a conditional `rule`.
+   *
+   * The right answer depends on what the sheet is FOR, so it follows `data` by
+   * default rather than being one fixed policy:
+   * - `'apply'` (the default once `data` is given) — a completed submission is
+   *   a clinical record. A section the response never triggered was never asked,
+   *   so printing it would put unanswered questions in the record.
+   * - `'ignore'` (the default for a blank form) — a blank sheet is printed to be
+   *   filled in by hand. Evaluating rules against no data would hide every
+   *   conditional section, so a blank CAM-ICU would print Feature 1 alone and
+   *   the paper form would be unusable.
+   *
+   * Only VISIBILITY is honoured. `ENABLE`/`DISABLE` describe an input's
+   * interactivity and have no meaning on paper — a disabled field still prints.
+   */
+  rules?: 'apply' | 'ignore';
 }
 
 const DEFAULT_PRINT: PrintSchema = {
@@ -45,6 +63,7 @@ export function renderPrintHtml(
   const ctx: RenderCtx = {
     dataSchema: def.dataSchema,
     data: options.data ?? {},
+    applyRules: (options.rules ?? (options.data ? 'apply' : 'ignore')) === 'apply',
   };
   const body = renderElement((def.uiSchema as UiSchema).layout, ctx);
   return `<!doctype html>
@@ -60,6 +79,8 @@ ${body}
 interface RenderCtx {
   dataSchema: JsonFormsFormDefinition['dataSchema'];
   data: Record<string, unknown>;
+  /** Whether a conditional `rule` may remove an element from the sheet. */
+  applyRules: boolean;
 }
 
 function pageCss(print: PrintSchema): string {
@@ -86,6 +107,13 @@ function pageCss(print: PrintSchema): string {
 }
 
 function renderElement(el: UiSchemaElement, ctx: RenderCtx): string {
+  // Rules are evaluated with the SAME form-core code the renderers and the
+  // server use, so a condition cannot mean one thing on screen and another on
+  // paper. The gate sits here rather than in each branch so it covers every
+  // element kind — Controls, Groups, layouts, and the Omf* custom layouts and
+  // their `OmfTableRow` children, which fall through to `children()`.
+  if (ctx.applyRules && !evaluateElementState(el, ctx.data).visible) return '';
+
   switch (el.type) {
     case 'VerticalLayout':
       return `<div class="omf-v">${children(el, ctx)}</div>`;

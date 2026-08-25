@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { rrtSbarReference } from '@openmedform/form-core';
 import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 import { JsonFormsRenderer } from './JsonFormsRenderer';
@@ -267,6 +267,60 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
 
     // The row's field controls render in the right cell.
     expect(document.querySelectorAll('input, textarea, select').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('reveals an OmfTableRow only when its own rule is satisfied', () => {
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          feature1: { type: 'string', title: 'Feature 1', enum: ['PRESENT', 'ABSENT'] },
+          feature2: { type: 'string', title: 'Feature 2', enum: ['PRESENT', 'ABSENT'] },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'OmfTableLayout',
+          elements: [
+            {
+              type: 'OmfTableRow',
+              label: 'Feature 1: Acute Onset',
+              elements: [{ type: 'Control', scope: '#/properties/feature1' }],
+            },
+            {
+              type: 'OmfTableRow',
+              label: 'Feature 2: Inattention',
+              elements: [{ type: 'Control', scope: '#/properties/feature2' }],
+              rule: {
+                effect: 'SHOW',
+                condition: {
+                  scope: '#/properties/feature1',
+                  schema: { const: 'PRESENT' },
+                },
+              },
+            },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    // Progressive disclosure: only the gating row is on the page to start with.
+    expect(document.querySelectorAll('tbody > tr').length).toBe(1);
+    expect(screen.queryByText('Feature 2: Inattention')).toBeNull();
+
+    const select = document.querySelector('select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'PRESENT' } });
+
+    expect(document.querySelectorAll('tbody > tr').length).toBe(2);
+    expect(screen.getByText('Feature 2: Inattention')).toBeTruthy();
+
+    // …and it goes away again when the gate closes.
+    fireEvent.change(select, { target: { value: 'ABSENT' } });
+    expect(document.querySelectorAll('tbody > tr').length).toBe(1);
   });
 
   it('preserves line breaks in a multi-line bulleted Label', () => {

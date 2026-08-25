@@ -10,7 +10,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean",
-    "build:packages": "pnpm --filter=@openmedform/form-schema-types --filter=@openmedform/form-core --filter=@openmedform/form-design-tokens --filter=@openmedform/react-form-renderer --filter=@openmedform/angular-form-renderer run build",
+    "build:packages": "pnpm --filter=@openmedform/form-schema-types --filter=@openmedform/form-core --filter=@openmedform/form-design-tokens --filter=@openmedform/react-form-renderer --filter=@openmedform/angular-form-renderer --filter=@openmedform/form-print-engine run build",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build:packages && changeset publish",

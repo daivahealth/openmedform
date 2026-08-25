@@ -2,7 +2,7 @@
   "name": "@openmedform/react-form-renderer",
   "version": "1.5.0",
   "private": false,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "description": "React renderer for OpenMedForm form definitions: JSON Forms with custom clinical controls, sharing form-core and form-design-tokens with the Angular renderer so the same FormDefinition renders equivalently in both.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

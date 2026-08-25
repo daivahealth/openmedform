@@ -1,15 +1,31 @@
 {
   "name": "@openmedform/form-print-engine",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "license": "Apache-2.0",
   "description": "Custom A4 print engine: reconstructs a print-accurate HTML/CSS (@page in mm) document from a jsonforms FormDefinition's UI + Print schemas, plus a pixel-diff primitive for the render→compare→AI-patch visual-fidelity loop. Framework-independent.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "tsc"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   },
   "dependencies": {
     "@openmedform/form-core": "workspace:*",
@@ -18,5 +34,14 @@
   "devDependencies": {
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daivahealth/openmedform.git",
+    "directory": "packages/form-print-engine"
+  },
+  "homepage": "https://github.com/daivahealth/openmedform/tree/main/packages/form-print-engine#readme",
+  "bugs": {
+    "url": "https://github.com/daivahealth/openmedform/issues"
   }
 }

@@ -2,7 +2,7 @@
   "name": "@openmedform/form-design-tokens",
   "version": "1.5.0",
   "private": false,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "description": "Shared visual/layout tokens (typography, spacing, borders, row heights, breakpoints) exposed as TS constants and CSS custom properties, consumed by BOTH the React and Angular renderers so the same FormDefinition renders equivalently across frameworks.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

@@ -335,10 +335,11 @@ The upload is untrusted and is handled as **inert text only** — see
   natural place to smuggle instructions past the person uploading the file and
   into the LLM, so it is stripped — and the removal is reported as a conversion
   warning rather than happening silently. (`sr-only` is kept: it is real
-  accessible text, not smuggled content.) One narrow exception is carved out for
-  genuinely conditional fields — see
-  [Conditional fields](#conditional-other--please-specify-fields) for the exact
-  shape and why it carries no smuggling surface.
+  accessible text, not smuggled content.) Two exceptions are carved out for
+  content the page itself reveals — see
+  [Conditional fields](#conditional-other--please-specify-fields) and
+  [Progressive disclosure](#progressive-disclosure-script-revealed-sections) for
+  the exact shapes and the limits that keep each one small.
 - The prompt additionally frames the markup as untrusted source material to be
   read for layout only.
 
@@ -627,9 +628,14 @@ Two things still worth checking after a render:
 
 - **Conditional fields.** A "Please specify…" input that only appears when a
   select is set to "Other" is kept and converted with a SHOW rule — VIP yields
-  all 23 fields. Any *other* `display:none` content is still stripped, so a
-  conditional block that does not match that pattern must be revealed before
-  upload. See [Conditional fields](#conditional-other--please-specify-fields).
+  all 23 fields. See [Conditional fields](#conditional-other--please-specify-fields).
+- **Progressive disclosure.** A whole section the page's own script reveals is
+  also kept, and the model is told to gate it with a rule. The reveal
+  *condition* is read from the form's visible instructions, never from the
+  script, so check that each gated section appears on the right answer. See
+  [Progressive disclosure](#progressive-disclosure-script-revealed-sections).
+  Any *other* `display:none` content is still stripped, so a conditional block
+  matching neither pattern must be revealed before upload.
 - **Row count.** A repeating table renders however many rows the script created
   on load, plus one more per add-control the probe pressed — see
   [Pressing the page](#pressing-the-page-interaction-probing).
@@ -690,7 +696,75 @@ field already contributes. Every adversarial case above is covered by a test in
 Both renderers honour the rule. React reads JSON Forms' `visible` prop
 throughout; the Angular renderer's controls read `hidden`, and its layouts, Label
 and score summary get the same treatment from `RuleAwareRenderer`, which
-evaluates the rule with the **same** `form-core` code the server uses.
+evaluates the rule with the **same** `form-core` code the server uses. An
+`OmfTableRow` is the one element the framework cannot resolve for itself — the
+row *is* the layout and never reaches a dispatch — so both table renderers
+resolve their rows through `form-core`'s `filterVisibleElements()`. See
+[Conditional rows in a table](FORM-BUILDER.md#conditional-rows-in-a-table).
+
+### Progressive disclosure: script-revealed sections
+
+The carve-out above spares one input. Clinical worksheets also hide whole
+*sections* — a stepwise assessment that only asks the next question when the
+previous answer requires it. The CAM-ICU worksheet is the canonical shape:
+
+```html
+<tr><td>Feature 1: Acute Onset…</td><td><select class="cam-feat">…</select></td></tr>
+<tr id="cam-row-2" style="display:none">
+  <td>Feature 2: Inattention…</td><td><select class="cam-feat">…</select></td>
+</tr>
+```
+
+`findConditionalFields()` cannot help here — it spares a lone text input, never a
+container — so a four-feature delirium assessment converted to a one-question
+form. Rendering the page does not recover it either: the script runs on load and
+leaves the rows hidden, and the [interaction probe](#pressing-the-page-interaction-probing)
+only presses add-controls, never a `<select>`.
+
+`findScriptToggledSections()` runs **before** the strip, resolves the elements
+the page's own script toggles the visibility of, and spares those. The hiding
+declarations are removed from the spared element (present *and* marked invisible
+reads to the model as "ignore this"), and each section is named in a conversion
+warning.
+
+The model is then told to gate them. On an `OmfTableLayout` the rule goes on the
+**row**, not on the Controls inside it, so the row appears as a unit:
+
+```jsonc
+{
+  "type": "OmfTableRow",
+  "label": "Feature 2: Inattention",
+  "elements": [{ "type": "Control", "scope": "#/properties/feature2" }],
+  "rule": {
+    "effect": "SHOW",
+    "condition": { "scope": "#/properties/feature1", "schema": { "const": "PRESENT" } }
+  }
+}
+```
+
+**The condition is inferred, not extracted.** Scripts are parsed for the toggle
+*target* only — never executed, and never read for logic. What reveals a section
+comes from the form's own visible instructions ("CAM-ICU is POSITIVE only if
+Feature 1 is present AND…"). Where the source does not say, the model is
+instructed to emit the section always-visible with an
+`UNCERTAIN_SECTION_BOUNDARY` warning: always-visible is recoverable in review,
+dropped is not. **Check the rules on a converted stepwise form.**
+
+**Why this does not reopen the injection channel.** This is a real narrowing of
+the strip, so it is fenced in:
+
+| Spared | Still stripped |
+|---|---|
+| a container whose visibility the script toggles by id or selector | a hidden container no script touches |
+| a section containing at least one `<input>`/`<select>`/`<textarea>` | a hidden container of pure text — the injection shape |
+| ≤ 1,500 characters per section, ≤ 6,000 per document, ≤ 12 sections | anything past those caps |
+| only when the page responds to a choice at all (a `change`/`input` handler) | a page that toggles for some other reason |
+
+A determined uploader can satisfy these conditions; they raise the bar, they are
+not the boundary. The boundary is unchanged: extracted strings only ever become
+JSON schema values, the whole subtree still passes the tag and attribute
+allow-lists, and the prompt frames the markup as untrusted source material. Every
+adversarial case in the table is covered by a test in `html-extract.test.ts`.
 
 ### Reading config from scripts (opt-in)
 
@@ -969,5 +1043,5 @@ Multi-document files are flagged with a warning.
 - Generated schemas should always be reviewed before publishing — AI output is a starting point, not a final form.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
-- Hidden HTML is not converted, by design — with one narrow exception for a conditional "Please specify…" field beside an "Other" option, which is kept and given a SHOW rule. If a mock-up hides anything else (e.g. a whole conditional section), make it visible before uploading; the conversion warning will say what was removed.
+- Hidden HTML is not converted, by design — with two narrow exceptions, both kept and given a SHOW rule: a conditional "Please specify…" field beside an "Other" option, and a section the mock-up's own script reveals (progressive disclosure, e.g. CAM-ICU's Features 2-4). If a mock-up hides anything else, make it visible before uploading; the conversion warning will say what was removed.
 - Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered from the markup alone (a sandboxed render recovers the fields, and an opt-in parse recovers option lists — see [Reading config from scripts](#reading-config-from-scripts-opt-in)). They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).

@@ -4,6 +4,8 @@ import {
   evaluateCondition,
   evaluateRule,
   evaluateElementState,
+  filterVisibleElements,
+  hasElementRules,
 } from './evaluate-rule';
 
 const spo2Low: UiRule = {
@@ -59,5 +61,56 @@ describe('evaluateElementState', () => {
     expect(
       evaluateElementState({ rule: spo2Low }, { assessment: { spo2: 88 } }),
     ).toEqual({ visible: true, enabled: true });
+  });
+});
+
+describe('filterVisibleElements', () => {
+  const showWhenPresent: UiRule = {
+    effect: 'SHOW',
+    condition: { scope: '#/properties/feature1', schema: { const: 'PRESENT' } },
+  };
+  const rows = [
+    { label: 'Feature 1' },
+    { label: 'Feature 2', rule: showWhenPresent },
+    { label: 'Feature 3', rule: showWhenPresent },
+  ];
+
+  it('drops children whose SHOW rule is inactive', () => {
+    expect(filterVisibleElements(rows, {}).map((v) => v.element.label)).toEqual(['Feature 1']);
+  });
+
+  it('reveals them once the controlling value matches', () => {
+    const visible = filterVisibleElements(rows, { feature1: 'PRESENT' });
+    expect(visible.map((v) => v.element.label)).toEqual(['Feature 1', 'Feature 2', 'Feature 3']);
+  });
+
+  it('keeps each child original index so siblings do not renumber', () => {
+    const visible = filterVisibleElements(
+      [{ label: 'a' }, { label: 'b', rule: showWhenPresent }, { label: 'c' }],
+      {},
+    );
+    expect(visible.map((v) => v.index)).toEqual([0, 2]);
+  });
+
+  it('ANDs parent enablement with a DISABLE rule', () => {
+    const disabled: UiRule = { ...showWhenPresent, effect: 'DISABLE' };
+    expect(filterVisibleElements([{ rule: disabled }], { feature1: 'PRESENT' })[0].enabled).toBe(
+      false,
+    );
+    expect(filterVisibleElements([{}], {}, false)[0].enabled).toBe(false);
+  });
+
+  it('treats a missing list as empty', () => {
+    expect(filterVisibleElements(undefined, {})).toEqual([]);
+  });
+});
+
+describe('hasElementRules', () => {
+  it('is false when nothing carries a rule', () => {
+    expect(hasElementRules([{}, {}])).toBe(false);
+    expect(hasElementRules(undefined)).toBe(false);
+  });
+  it('is true when any child carries one', () => {
+    expect(hasElementRules([{}, { rule: spo2Low }])).toBe(true);
   });
 });

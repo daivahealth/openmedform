@@ -209,6 +209,20 @@ import { renderPrintHtml } from '@openmedform/form-print-engine';
 const html = renderPrintHtml(definition, { data }); // data optional
 ```
 
+**Conditional sections.** An element carrying a JSON Forms `rule` is evaluated with the same
+`form-core` code the renderers use, so a condition means the same thing on paper as on screen.
+Which way it resolves follows `data`, because a blank sheet and a completed record want opposite
+things:
+
+| Call | `rules` | Result |
+|---|---|---|
+| `renderPrintHtml(definition)` | `'ignore'` (default) | every conditional section prints — the sheet is there to be filled in by hand |
+| `renderPrintHtml(definition, { data })` | `'apply'` (default) | a section the response never triggered is omitted; it was never asked, so it does not belong in the record |
+
+Pass `rules: 'apply' \| 'ignore'` to override either default. Only **visibility** is honoured —
+`ENABLE`/`DISABLE` describe an input's interactivity and have no meaning on paper, so a disabled
+field still prints.
+
 ### A. Print preview in a browser app (what OpenMedForm itself does)
 
 Open the A4 document in a new tab and invoke the print dialog (its live preview shows the paginated

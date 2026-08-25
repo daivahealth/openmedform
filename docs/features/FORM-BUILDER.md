@@ -82,6 +82,47 @@ code — visibly wrong on purpose, since an empty control would hide the mistake
 Note that the `translations` bundle is **not** wired into either renderer today,
 so it cannot supply option labels.
 
+### Conditional rows in a table
+
+Any UI element may carry a JSON Forms `rule` (`SHOW` / `HIDE` / `ENABLE` /
+`DISABLE`); `form-core`'s `evaluateRule()` is the single implementation, so a
+condition means the same thing in React, in Angular and on the server.
+
+An `OmfTableRow` is the one place this needs saying. A row is *not* dispatched
+through the framework — the table renderer maps it straight onto a `<tr>`,
+because the row is the layout — so a rule on a row was ignored by both renderers
+until it was handled explicitly. Both now resolve their rows through
+`filterVisibleElements()` in `form-core`, which is what makes a stepwise
+assessment work: CAM-ICU asks Feature 2 only once Feature 1 is present.
+
+```jsonc
+{
+  "type": "OmfTableRow",
+  "label": "Feature 2: Inattention",
+  "elements": [{ "type": "Control", "scope": "#/properties/feature2" }],
+  "rule": {
+    "effect": "SHOW",
+    "condition": { "scope": "#/properties/feature1", "schema": { "const": "PRESENT" } }
+  }
+}
+```
+
+Put the rule on the **row**, not on the Controls inside it — a gated row appears
+and disappears as a unit, where gated Controls leave an empty row behind. A
+`DISABLE` on a row is ANDed into every cell it contains. A conditionally-shown
+field is never listed in `required`: it is absent whenever the condition is
+false. Conversion emits these rules automatically for a mock-up that reveals
+sections with JavaScript — see
+[Progressive disclosure](PDF-TO-FORM.md#progressive-disclosure-script-revealed-sections).
+
+**On paper**, the print engine evaluates the same rules with the same form-core
+code, and which way it resolves follows what the sheet is for: a **blank** form
+prints every conditional section (it is there to be filled in by hand), while a
+**filled** one omits a section the response never triggered (a question that was
+never asked does not belong in the record). `renderPrintHtml`'s `rules: 'apply' |
+'ignore'` overrides either default. Only visibility applies — `ENABLE`/`DISABLE`
+have no meaning on paper, so a disabled field still prints.
+
 ## Removing Forms
 
 The forms list (`/forms`) offers two removal actions:

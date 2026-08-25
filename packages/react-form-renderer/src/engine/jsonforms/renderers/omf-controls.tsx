@@ -29,9 +29,11 @@ import {
   JsonFormsDispatch,
   useJsonForms,
 } from '@jsonforms/react';
+import type { UiRule } from '@openmedform/form-schema-types';
 import {
   collectScoreItems,
   computeScore,
+  filterVisibleElements,
   resolveEnumOptions,
   resolveMultiEnumOptions,
 } from '@openmedform/form-core';
@@ -575,6 +577,13 @@ export const OmfHorizontalLayoutControl: ComponentType<any> =
 interface OmfTableRowShape {
   label?: string;
   elements?: UISchemaElement[];
+  /**
+   * A row may carry a JSON Forms rule of its own, so a table can reveal rows in
+   * turn (CAM-ICU: assess Feature 2 only once Feature 1 is present). The row is
+   * the layout here — it never passes through JsonFormsDispatch — so the rule
+   * is evaluated below rather than by the framework.
+   */
+  rule?: UiRule;
 }
 
 interface OmfTableColumn {
@@ -585,8 +594,14 @@ interface OmfTableColumn {
 
 function OmfTableLayout(props: LayoutProps) {
   const { uischema, schema, path, visible, enabled, renderers, cells } = props;
+  // Row rules are evaluated against the whole response, not this layout's
+  // scope, so read the core data the same way the scored controls do. Hooks
+  // run before any early return.
+  const ctx = useJsonForms();
+  const data = ctx.core?.data ?? {};
   if (!visible) return null;
-  const rows = ((uischema as Layout).elements ?? []) as unknown as OmfTableRowShape[];
+  const allRows = ((uischema as Layout).elements ?? []) as unknown as OmfTableRowShape[];
+  const rows = filterVisibleElements(allRows, data, enabled !== false);
   const columns = readOmf(uischema)?.columns as OmfTableColumn[] | undefined;
   const border = 'var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4)';
   const pad = 'var(--omf-control-padding, 8px)';
@@ -597,7 +612,12 @@ function OmfTableLayout(props: LayoutProps) {
     color: 'var(--omf-color-label, #3a4552)',
   };
 
-  const dispatch = (child: UISchemaElement, key: number, stripLabel: boolean) => (
+  const dispatch = (
+    child: UISchemaElement,
+    key: number,
+    stripLabel: boolean,
+    rowEnabled: boolean,
+  ) => (
     <JsonFormsDispatch
       key={key}
       // In column mode the header names the field, so suppress the control's
@@ -608,7 +628,7 @@ function OmfTableLayout(props: LayoutProps) {
       uischema={stripLabel ? ({ ...child, label: false } as UISchemaElement) : child}
       schema={schema}
       path={path}
-      enabled={enabled}
+      enabled={rowEnabled}
       renderers={renderers}
       cells={cells}
     />
@@ -659,7 +679,7 @@ function OmfTableLayout(props: LayoutProps) {
           </thead>
         ) : null}
         <tbody>
-          {rows.map((row, r) => (
+          {rows.map(({ element: row, index: r, enabled: rowEnabled }) => (
             <tr key={r}>
               {hasColumns ? (
                 <>
@@ -685,7 +705,7 @@ function OmfTableLayout(props: LayoutProps) {
                         textAlign: columns![index + (row.label !== undefined ? 1 : 0)]?.align ?? 'left',
                       }}
                     >
-                      {dispatch(child, index, true)}
+                      {dispatch(child, index, true, rowEnabled)}
                     </td>
                   ))}
                 </>
@@ -704,7 +724,9 @@ function OmfTableLayout(props: LayoutProps) {
                     {row.label}
                   </td>
                   <td style={{ border, verticalAlign: 'top', padding: pad }}>
-                    {(row.elements ?? []).map((child, index) => dispatch(child, index, false))}
+                    {(row.elements ?? []).map((child, index) =>
+                      dispatch(child, index, false, rowEnabled),
+                    )}
                   </td>
                 </>
               )}

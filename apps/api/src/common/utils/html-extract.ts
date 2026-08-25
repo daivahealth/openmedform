@@ -146,6 +146,12 @@ export interface HtmlExtractResult {
    */
   conditionalFields: ConditionalFieldHint[];
   /**
+   * Sections the mock-up hides and its own script reveals — progressive
+   * disclosure. Kept rather than stripped, and converted with a SHOW rule; see
+   * `ScriptToggledSectionHint`.
+   */
+  scriptToggledSections: ScriptToggledSectionHint[];
+  /**
    * Named literal config parsed out of the mock-up's scripts — option lists,
    * threshold bands, reference tables. Always empty unless the upload opted in
    * via `extractScriptConfig`.
@@ -243,6 +249,13 @@ export function extractFormHtml(
   // Must also run BEFORE the hidden strip below, which is what would otherwise
   // delete these fields.
   const { hints: conditionalFields, reveal } = findConditionalFields(root);
+  // Same reason, one level up: whole SECTIONS the page's own script reveals in
+  // turn. Also before the strip, which is what would otherwise delete them.
+  const { hints: scriptToggledSections, reveal: revealSections } = findScriptToggledSections(
+    root,
+    html,
+  );
+  for (const el of revealSections) reveal.add(el);
 
   let strippedTags = 0;
   for (const el of root.querySelectorAll('*')) {
@@ -261,7 +274,12 @@ export function extractFormHtml(
     // SHOW rule instead of vanishing. Only the field itself is spared — if a
     // hidden ANCESTOR is removed this still goes with it, which is correct: a
     // whole hidden section is not a conditional field.
-    if (reveal.has(el)) continue;
+    if (reveal.has(el)) {
+      // Present but still marked invisible reads as "ignore this"; the rule,
+      // not the CSS, carries visibility from here on.
+      unhide(el);
+      continue;
+    }
     if (isHidden(el)) {
       el.remove();
       hiddenRemoved++;
@@ -313,6 +331,15 @@ export function extractFormHtml(
         '). They were kept and converted with a SHOW rule rather than dropped.',
     );
   }
+  if (scriptToggledSections.length > 0) {
+    warnings.push(
+      `${scriptToggledSections.length} section(s) are hidden until this mock-up's script reveals ` +
+        `them (${scriptToggledSections.map((t) => `${t.label} [${t.selector}]`).join(', ')}). ` +
+        'They were kept and converted with a SHOW rule rather than dropped — check that each ' +
+        'one appears on the right answer, because the reveal condition was read from the form, ' +
+        'not from the script.',
+    );
+  }
   if (commentsRemoved > 0) {
     warnings.push(`Removed ${commentsRemoved} HTML comment(s).`);
   }
@@ -340,6 +367,7 @@ export function extractFormHtml(
     repeatingTables,
     transposedMatrices,
     conditionalFields,
+    scriptToggledSections,
     scriptConfig: scriptConfig.entries,
   };
 }
@@ -603,6 +631,217 @@ function findConditionalFields(root: HTMLElement): {
   }
 
   return { hints, reveal };
+}
+
+/**
+ * A section the mock-up hides until its script reveals it — the progressive
+ * disclosure pattern (CAM-ICU: `<tr id="cam-row-2" style="display:none">` for
+ * Feature 2, shown once Feature 1 is answered "present").
+ *
+ * Reported so the converter can emit the section WITH a SHOW rule instead of
+ * losing it. See `findScriptToggledSections` for what has to be true before a
+ * hidden container is trusted this far.
+ */
+export interface ScriptToggledSectionHint {
+  /** How the script addresses it, e.g. '#cam-row-2' — also the reviewer's handle. */
+  selector: string;
+  /** Short heading text taken from inside the section, for the prompt. */
+  label: string;
+  /** How many inputs/selects/textareas it contains. */
+  fields: number;
+}
+
+/** Container tags a progressive-disclosure section is drawn with. */
+const TOGGLEABLE_TAGS = new Set([
+  'tr',
+  'tbody',
+  'div',
+  'section',
+  'fieldset',
+  'article',
+  'details',
+  'li',
+  'td',
+  'p',
+]);
+
+/** At most this many hidden sections may be revealed in one document. */
+const MAX_TOGGLED_SECTIONS = 12;
+/** Cap on the text a single revealed section may add to the prompt. */
+const MAX_TOGGLED_SECTION_CHARS = 1_500;
+/** Whole-document budget for text recovered from hidden sections. */
+const MAX_TOGGLED_TOTAL_CHARS = 6_000;
+
+/** `<script>` bodies, read from the RAW upload — never added to the tree. */
+const SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+
+/** `const row2 = document.getElementById('cam-row-2')` / `querySelector('#x')`. */
+const LOOKUP_ASSIGN =
+  /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*document\s*\.\s*(?:getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)|querySelector\s*\(\s*['"]([^'"]+)['"]\s*\))/g;
+
+/** `row2.style.display = …` / `row2.hidden = …` on a variable bound above. */
+const VAR_TOGGLE =
+  /([A-Za-z_$][\w$]*)\s*\.\s*(?:style\s*\.\s*display|hidden)\s*=/g;
+
+/** `row2.classList.toggle('hidden')` and friends. */
+const VAR_CLASS_TOGGLE =
+  /([A-Za-z_$][\w$]*)\s*\.\s*classList\s*\.\s*(?:toggle|add|remove)\s*\(/g;
+
+/** The one-liner form: `document.getElementById('x').style.display = …`. */
+const DIRECT_TOGGLE =
+  /document\s*\.\s*(?:getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)|querySelector\s*\(\s*['"]([^'"]+)['"]\s*\))\s*\.\s*(?:style\s*\.\s*display|hidden|classList)\b/g;
+
+/**
+ * Does the page react to a CHOICE at all? Progressive disclosure is driven by
+ * an answer changing; a document with no change/input handler anywhere is
+ * toggling for some other reason and gets no carve-out.
+ */
+const CHOICE_LISTENER = /addEventListener\s*\(\s*['"](?:change|input)['"]/i;
+
+/** Text of every inline `<script>` in the raw upload, concatenated. */
+function scriptText(html: string): string {
+  let combined = '';
+  for (const match of html.matchAll(SCRIPT_BLOCK)) combined += `\n${match[1] ?? ''}`;
+  return combined;
+}
+
+/** Selectors a script toggles the visibility of, in source order. */
+function toggledSelectors(scripts: string): string[] {
+  // Pass 1: variable -> selector, so a toggle far from the lookup still resolves.
+  const bound = new Map<string, string>();
+  for (const m of scripts.matchAll(LOOKUP_ASSIGN)) {
+    const name = m[1];
+    const selector = m[2] !== undefined ? `#${m[2]}` : m[3];
+    if (name && selector) bound.set(name, selector);
+  }
+
+  const selectors: string[] = [];
+  const add = (selector: string | undefined) => {
+    if (selector && !selectors.includes(selector)) selectors.push(selector);
+  };
+
+  // Pass 2: every visibility toggle, through a variable or inline.
+  for (const m of scripts.matchAll(VAR_TOGGLE)) add(bound.get(m[1] ?? ''));
+  for (const m of scripts.matchAll(VAR_CLASS_TOGGLE)) add(bound.get(m[1] ?? ''));
+  for (const m of scripts.matchAll(DIRECT_TOGGLE)) {
+    add(m[1] !== undefined ? `#${m[1]}` : m[2]);
+  }
+  return selectors;
+}
+
+/** A short human heading for a section, for the hint text. */
+function sectionLabel(el: HTMLElement): string {
+  const heading = el.querySelector('strong, b, th, legend, h1, h2, h3, h4, h5, h6, summary');
+  const text = (heading?.text ?? el.text).replace(/\s+/g, ' ').trim();
+  return text.length <= MAX_CONDITIONAL_LABEL
+    ? text
+    : `${text.slice(0, MAX_CONDITIONAL_LABEL).trim()}…`;
+}
+
+/**
+ * Find sections the mock-up hides and its own script reveals, and report both
+ * the hint and the elements to spare from the hidden-content strip.
+ *
+ * WHY THIS EXISTS — hidden markup is stripped because it is the natural place
+ * to smuggle instructions past the person uploading the file. But progressive
+ * disclosure is drawn exactly that way: the CAM-ICU worksheet ships Features
+ * 2, 3 and 4 as `display:none` rows that its script reveals in turn, and
+ * stripping them turned a four-feature delirium assessment into a one-question
+ * form. `findConditionalFields` above could not help — it spares a lone "Please
+ * specify" input, never a container.
+ *
+ * SECURITY — this is a real narrowing of the strip, so it is fenced in:
+ * - the script must actually toggle THIS element's visibility, addressed by id
+ *   or selector, and the page must respond to a choice at all
+ *   (`CHOICE_LISTENER`). Prose hidden in an untouched `<div>` stays stripped.
+ * - the section must contain a form field. A hidden container of pure text —
+ *   the injection shape — is never revealed, however it is toggled.
+ * - what one section may add is capped (`MAX_TOGGLED_SECTION_CHARS`), as is the
+ *   document total (`MAX_TOGGLED_TOTAL_CHARS`) and the count
+ *   (`MAX_TOGGLED_SECTIONS`), so the hidden channel cannot be made large.
+ * - every revealed section is named in `warnings`, so it is never silent, and
+ *   the whole subtree still passes the tag and attribute allow-lists.
+ *
+ * A determined uploader can still satisfy this: it raises the bar, it is not a
+ * boundary. The boundary remains that extracted strings only ever become JSON
+ * schema values, and that the conversion prompt frames the markup as untrusted.
+ */
+function findScriptToggledSections(
+  root: HTMLElement,
+  html: string,
+): { hints: ScriptToggledSectionHint[]; reveal: Set<HTMLElement> } {
+  const hints: ScriptToggledSectionHint[] = [];
+  const reveal = new Set<HTMLElement>();
+
+  const scripts = scriptText(html);
+  if (!scripts.trim()) return { hints, reveal };
+  const respondsToChoice =
+    CHOICE_LISTENER.test(scripts) || root.querySelectorAll('[onchange], [oninput]').length > 0;
+  if (!respondsToChoice) return { hints, reveal };
+
+  let budget = MAX_TOGGLED_TOTAL_CHARS;
+  for (const selector of toggledSelectors(scripts)) {
+    if (hints.length >= MAX_TOGGLED_SECTIONS) break;
+
+    let el: HTMLElement | null = null;
+    try {
+      el = root.querySelector(selector);
+    } catch {
+      // A selector this parser cannot handle is simply not a candidate.
+      continue;
+    }
+    if (!el || reveal.has(el)) continue;
+    if (!isHidden(el)) continue;
+    if (!TOGGLEABLE_TAGS.has(el.rawTagName?.toLowerCase() ?? '')) continue;
+
+    // A hidden container with no field in it is prose, not a form section.
+    const fields = el.querySelectorAll('input, select, textarea').length;
+    if (fields === 0) continue;
+
+    const size = el.text.replace(/\s+/g, ' ').trim().length;
+    if (size > MAX_TOGGLED_SECTION_CHARS || size > budget) continue;
+    budget -= size;
+
+    const label = sectionLabel(el);
+    if (!label) continue;
+
+    reveal.add(el);
+    hints.push({ selector, label, fields });
+  }
+
+  return { hints, reveal };
+}
+
+/**
+ * Drop the declarations that were hiding a spared element, so the cleaned
+ * markup does not hand the model a section that is simultaneously present and
+ * marked invisible — which reads as "ignore this" and loses the field again.
+ * Visibility is expressed downstream by a rule, not by CSS.
+ */
+function unhide(el: HTMLElement): void {
+  el.removeAttribute('hidden');
+  if (el.getAttribute('aria-hidden') === 'true') el.removeAttribute('aria-hidden');
+
+  const style = el.getAttribute('style');
+  if (style) {
+    const kept = style
+      .split(';')
+      .filter((decl) => decl.trim() && !HIDDEN_STYLE.test(`;${decl}`))
+      .join('; ')
+      .trim();
+    if (kept) el.setAttribute('style', kept);
+    else el.removeAttribute('style');
+  }
+
+  const cls = el.getAttribute('class');
+  if (cls && /(^|\s)hidden(\s|$)/.test(cls)) {
+    const kept = cls
+      .split(/\s+/)
+      .filter((token) => token && token !== 'hidden')
+      .join(' ');
+    if (kept) el.setAttribute('class', kept);
+    else el.removeAttribute('class');
+  }
 }
 
 /** Containers a browser would populate at runtime; we never execute the page. */

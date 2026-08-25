@@ -2,7 +2,7 @@
   "name": "@openmedform/form-schema-types",
   "version": "1.5.0",
   "private": false,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "description": "Framework-independent contract types for OpenMedForm (Data / UI / Print schema, FormDefinition, FormInstance).",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
