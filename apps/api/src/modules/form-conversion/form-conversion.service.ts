@@ -12,6 +12,7 @@ import { getPdfToJsonFormsPrompt } from '../ai-builder/prompts/pdf-to-jsonforms-
 import { extractPdfText, renderPdfPagesToImages } from '../../common/utils/pdf-render';
 import { assertConversionOutputComplete } from '../../common/utils/llm-output';
 import {
+  countRepeatedLogRows,
   extractFormHtml,
   hasAddAffordance,
   type HtmlExtractStats,
@@ -804,9 +805,15 @@ export class FormConversionService {
     };
     const staticResult = extractFormHtml(html, options);
 
+    // Worth a render when the page builds form content at runtime. The field
+    // count is NOT the test on its own: a sheet can carry dozens of static
+    // inputs and still write a whole 14-row screening checklist from a script
+    // array, and that checklist is invisible to every markup detector.
     const scriptBuilt =
       staticResult.stats.scripts > 0 &&
-      (staticResult.stats.fields === 0 || staticResult.scriptFilledPlaceholders.length > 0);
+      (staticResult.stats.fields === 0 ||
+        staticResult.scriptFilledPlaceholders.length > 0 ||
+        staticResult.scriptPopulatedContainers.length > 0);
 
     // A chart drawn with <div>s and CSS grid is invisible to the markup
     // detectors however well-formed it is, so a file that shows fields and
@@ -839,6 +846,7 @@ export class FormConversionService {
       // than sending the author off to do by hand what the server should have
       // done for them.
       this.lastRenderOutcome = outcome.status;
+      this.warnUnrecoveredContainers(staticResult, warnings);
       return staticResult;
     }
     this.lastRenderOutcome = 'rendered';
@@ -869,12 +877,106 @@ export class FormConversionService {
       );
     }
 
+    // Read the CHOSEN extraction: a container the page filled is no longer
+    // empty in the rendered DOM, so it drops off this list by itself.
+    this.warnUnrecoveredContainers(best, warnings);
+
     const merged =
       best.scriptConfig.length === 0 && staticResult.scriptConfig.length > 0
         ? { ...best, scriptConfig: staticResult.scriptConfig }
         : best;
-    const hinted = this.withGeometryHints(merged, outcome.layout, warnings);
+    const hinted = this.withGeometryHints(
+      this.withStaticMarkupHints(merged, staticResult, outcome.html),
+      outcome.layout,
+      warnings,
+    );
     return this.withMeasuredNesting(hinted, outcome.probe, warnings);
+  }
+
+  /**
+   * Keep the repeating-structure hints the STATIC markup carried when the
+   * rendered pass no longer shows them, and stop the rows that erased them
+   * being charged twice to the size budget.
+   *
+   * Running the page can erase the very evidence a hint is read from: an
+   * hourly-observation table detected as a `recordTable` because its `<tbody>`
+   * was empty next to "+ Add Row" comes back from the render with three blank
+   * rows in it, and the detector then sees an ordinary populated table. Without
+   * this the render trades a whole repeating chart for the rows it recovered
+   * elsewhere. Additive and count-based: the render wins wherever it found at
+   * least as much, so a genuinely richer reading is never overwritten.
+   *
+   * Those same rows also inflate the field count the budget is checked against,
+   * and that count is a claim about the model's OUTPUT: a restored hint means
+   * the log converts to one `recordTable` holding a single row's worth of
+   * fields, so every row after the first is discounted (see
+   * `countRepeatedLogRows`). Only rows of a table matching a restored hint are
+   * ever discounted, so an ordinary data table still counts in full.
+   */
+  private withStaticMarkupHints(
+    result: ReturnType<typeof extractFormHtml>,
+    staticResult: ReturnType<typeof extractFormHtml>,
+    renderedHtml: string,
+  ): ReturnType<typeof extractFormHtml> {
+    if (result === staticResult) return result;
+    const repeatingTables =
+      result.repeatingTables.length >= staticResult.repeatingTables.length
+        ? result.repeatingTables
+        : staticResult.repeatingTables;
+    const transposedMatrices =
+      result.transposedMatrices.length >= staticResult.transposedMatrices.length
+        ? result.transposedMatrices
+        : staticResult.transposedMatrices;
+    if (
+      repeatingTables === result.repeatingTables &&
+      transposedMatrices === result.transposedMatrices
+    ) {
+      return result;
+    }
+    this.logger.log(
+      'Kept static markup repeating-structure hints the rendered DOM no longer showed',
+    );
+
+    const restored = repeatingTables === staticResult.repeatingTables ? repeatingTables : [];
+    const repeated = countRepeatedLogRows(renderedHtml, restored);
+    if (repeated.fields === 0 && repeated.rows === 0) {
+      return { ...result, repeatingTables, transposedMatrices };
+    }
+    this.logger.log(
+      `Discounted ${repeated.fields} field(s) in ${repeated.rows} repeated log row(s) from the size budget`,
+    );
+    return {
+      ...result,
+      repeatingTables,
+      transposedMatrices,
+      stats: {
+        ...result.stats,
+        fields: Math.max(0, result.stats.fields - repeated.fields),
+        tableRows: Math.max(0, result.stats.tableRows - repeated.rows),
+      },
+    };
+  }
+
+  /**
+   * Say so when a script-populated container could not be read.
+   *
+   * These containers are normally recovered by rendering the page. When the
+   * render is unavailable, times out, or the page builds nothing, their
+   * contents are genuinely absent from the source the model sees — and an empty
+   * box beside a heading is exactly where a model invents a plausible control.
+   * Naming them lets the reviewer fill the gap deliberately.
+   */
+  private warnUnrecoveredContainers(
+    result: ReturnType<typeof extractFormHtml>,
+    warnings: string[],
+  ): void {
+    const names = result.scriptPopulatedContainers;
+    if (names.length === 0) return;
+    warnings.push(
+      `${names.length} section(s) of this mock-up are built by JavaScript and could not be read ` +
+        `(${names.join(', ')}). Their fields are missing from the converted form — add them by ` +
+        'hand or with "Refine with AI"; nothing was invented for them.',
+    );
   }
 
   /** Whichever extraction found more fields; `b` wins ties only if it exists. */

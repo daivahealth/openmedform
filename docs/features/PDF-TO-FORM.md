@@ -238,8 +238,11 @@ map that total to a risk level. This is **data-driven and computed from a single
 source of truth** — the `options.omf.points` on each checkbox, and
 `options.omf.optionPoints` on each scored single-select:
 
-- **Live, on screen (clinician aid):** each domain box header shows a running
-  section subtotal (`Σ N`), and a `omf.control: "scoreSummary"` element shows the
+- **Live, on screen (clinician aid):** each scoring box header shows a running
+  section subtotal (`Σ N`) — the innermost scoring Group only, unless a Group
+  sets `options.omf.showSectionTotal` (force it on an outer box the source
+  totals) or `options.omf.hideSectionTotal` (remove it) — and a
+  `omf.control: "scoreSummary"` element shows the
   grand total, the per-section breakdown, and the risk band. The renderers derive
   this with `collectScoreItems` / `computeScore` from
   [`@openmedform/form-core`](../../packages/form-core/src/scoring/score.ts) as the
@@ -489,7 +492,11 @@ array with its own `recordTable` config.
 
 The detector deliberately ignores: tables whose first column also holds inputs
 (an ordinary data grid), tables with no inputs at all (a score legend or dosing
-reference), and anything under three rows.
+reference), anything under three rows, and — because a matrix is a record
+repeated *across* columns — a table with a single answer column and no control
+that adds another. "Parameter | Patient's Condition" is a checklist: read as a
+matrix, its 14 rows become the fields of one record and the answer column
+becomes an instance you can add more of.
 
 #### Rows are edited in place
 
@@ -552,8 +559,10 @@ to convert.
 **Conversion renders these itself.** A mock-up is executed in a sandboxed
 headless browser, and the resulting DOM read instead, in two cases:
 
-1. it ships scripts *and* either has no fields at all or contains
-   named-but-empty containers — the case below; or
+1. it ships scripts *and* either has no fields at all, contains
+   named-but-empty containers — the case below — or contains a
+   **script-populated container** the markup does not otherwise describe (see
+   [A full form that still hides a checklist](#a-full-form-that-still-hides-a-checklist)); or
 2. its markup yields no repeating structure but it names an "Add …" control, in
    which case the render exists to measure the layout — see
    [Grids built without tables](#grids-built-without-tables).
@@ -600,6 +609,44 @@ installs the Alpine `chromium` package and points `playwright-core` at it via
 A render only replaces the static read when it recovers **more** fields, so a
 script that errors halfway cannot lose content that was already readable. When
 it does help, a conversion warning records how many fields it recovered.
+
+#### A full form that still hides a checklist
+
+A page does not have to be *entirely* script-built to lose most of a section.
+The Sepsis Screening & Monitoring sheet carries 66 static fields — and writes
+its 14 "Clinical Suspicion of Sepsis" parameters into an empty `<tbody>` from a
+JS array. With fields in the markup, the render trigger never fired, and the
+whole checklist reached the model as its two column headings; the converted
+form showed one line of static text where the parameters belonged.
+
+`findScriptPopulatedContainers()` closes that gap. It names an empty container
+whose id or class the page's own scripts mention, in a document whose scripts
+build DOM at all (`appendChild`, `innerHTML = `, `insertRow`, …) — and
+**excludes** the shape the markup already describes: an empty `<tbody>` under a
+populated `<thead>` beside an "Add …" control is a
+[repeating log](#repeating-logs-recordtable), convertible without a render.
+Anything left is a container whose contents exist only once the page has run,
+so the render is spent and the recovered rows go through the normal sanitiser.
+
+Two consequences follow:
+
+- **Static markup hints survive the render.** Running the page can erase the
+  evidence a hint was read from — the hourly-observation `<tbody>` detected as a
+  `recordTable` because it was empty comes back with three blank rows in it.
+  The repeating-structure hints from the static parse are kept whenever the
+  rendered pass shows fewer, so a render never trades a whole chart for the rows
+  it recovered elsewhere.
+- **An unrecovered container is named.** If no browser is available, or the page
+  builds nothing, the containers are listed in a conversion warning like
+  `findScriptFilledPlaceholders`' — an acknowledged gap, never an invented
+  control.
+
+A related correction sits in the matrix detector: a two-column
+"Parameter | Patient's Condition" table is a checklist, not a
+[matrix chart](#matrix-transposed-tables). A matrix needs a record
+repeated across columns, so two or more instance columns, or a control that adds
+one, is now required — otherwise a 14-row screening checklist converted into an
+"add another patient's condition" grid.
 
 #### What this does and does not fix
 
@@ -1005,11 +1052,21 @@ lost its later sections:
 | Limit | Default | Env var | On breach |
 |---|---|---|---|
 | File size | 2 MB (vs 10 MB for PDF/images) | — | 400 with the actual size |
-| Fields (inputs/selects/textareas) | 120 | `CONVERSION_MAX_FIELDS` | 400 — "split into one file per section" |
-| Table rows | 120 | `CONVERSION_MAX_TABLE_ROWS` | 400 — "split the large tables" |
+| Fields (inputs/selects/textareas) | 160 | `CONVERSION_MAX_FIELDS` | 400 — "split into one file per section" |
+| Table rows | 160 | `CONVERSION_MAX_TABLE_ROWS` | 400 — "split the large tables" |
 | No fields found | — | — | 400 — the file is not a form mock-up (or everything was hidden) |
-| Source chars (cleaned markup / extracted PDF text) | 24 000 | `CONVERSION_MAX_SOURCE_CHARS` | truncated + `POTENTIAL_MISSING_FIELD` warning |
-| Output-token budget per conversion call | 32 768 | `CONVERSION_MAX_TOKENS` | model stops mid-object → run rejected (see below) |
+| Source chars (cleaned markup / extracted PDF text) | 32 000 | `CONVERSION_MAX_SOURCE_CHARS` | truncated + `POTENTIAL_MISSING_FIELD` warning |
+| Output-token budget per conversion call | 40 960 | `CONVERSION_MAX_TOKENS` | model stops mid-object → run rejected (see below) |
+
+The field/row counts are a claim about what the model must **emit**, so a
+repeating log is counted as the one `recordTable` it becomes: when a rendered
+page has filled a log whose hint came from the static markup, every row after
+the first is discounted (`countRepeatedLogRows`). The Sepsis monitoring sheet is
+the case that forced this — its hourly chart calls `addVitalsRow()` three times
+at load, and those 39 identical inputs are 13 column definitions in the output.
+Counted raw, the sheet came to 132 fields and was rejected as too large; counted
+as the schema it produces, 106. Only rows of a table matching a restored hint
+are ever discounted, so an ordinary data table still counts in full.
 
 The field/row limits, the source-char budget and the conversion call's output
 budget **move together** — raising the field limit alone would just trade a
@@ -1044,4 +1101,4 @@ Multi-document files are flagged with a warning.
 - The jsonforms conversion's structural quality depends on the LLM; confidence/warnings + the review loop are the mitigation, not a guarantee.
 - HTML mock-ups must be a **single page**: one form per file. Anything past the field/row limits above is rejected rather than partially converted.
 - Hidden HTML is not converted, by design — with two narrow exceptions, both kept and given a SHOW rule: a conditional "Please specify…" field beside an "Other" option, and a section the mock-up's own script reveals (progressive disclosure, e.g. CAM-ICU's Features 2-4). If a mock-up hides anything else, make it visible before uploading; the conversion warning will say what was removed.
-- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered from the markup alone (a sandboxed render recovers the fields, and an opt-in parse recovers option lists — see [Reading config from scripts](#reading-config-from-scripts-opt-in)). They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).
+- Sections a mock-up builds with JavaScript are empty in the markup and cannot be recovered from the markup alone (a sandboxed render recovers the fields, and an opt-in parse recovers option lists — see [Reading config from scripts](#reading-config-from-scripts-opt-in)). They are named in a conversion warning and left as a labelled gap rather than guessed at — see [Sections built by JavaScript](#sections-built-by-javascript). A repeating log is the exception: its `<thead>` and "Add …" button make it recoverable — see [Repeating logs](#repeating-logs-recordtable). A page that is only PARTLY script-built is rendered too — a container the page's own script fills is recovered even when the rest of the markup is full of fields — see [A full form that still hides a checklist](#a-full-form-that-still-hides-a-checklist). If the *whole* form is script-built there is nothing to read at all and the upload is rejected with instructions — see [When the whole form is built by JavaScript](#when-the-whole-form-is-built-by-javascript).

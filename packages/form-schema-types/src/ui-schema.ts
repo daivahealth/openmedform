@@ -146,6 +146,14 @@ export interface OmfOptions {
    */
   hideSectionTotal?: boolean;
   /**
+   * Force the "Σ n" subtotal chip onto a section that would not draw one by
+   * default — an OUTER box whose own total the paper form prints ("Total
+   * score", "Combined risk"). The automatic chip belongs to the innermost
+   * scoring section, so a box that only contains scoring sections stays quiet
+   * unless it says otherwise here. Ignored when `hideSectionTotal` is set.
+   */
+  showSectionTotal?: boolean;
+  /**
    * Clinical terminology bindings for THIS field (the question). Lives on the
    * UI element rather than as a dataSchema keyword because Ajv runs strict in
    * every engine — the omf bag already passes through assembly, refine and

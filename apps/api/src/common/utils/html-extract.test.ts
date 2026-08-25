@@ -196,6 +196,60 @@ describe('extractFormHtml — complexity measurement', () => {
     });
   });
 
+  describe('script-populated containers (worth a render)', () => {
+    // The Sepsis screening sheet: 14 clinical-suspicion parameters appended
+    // into an empty <tbody> by the page's own script. The markup carries only
+    // the two column headings, so without this the whole checklist reached the
+    // model as two words and converted to a line of static text.
+    const sepsisSigns = `
+      <h3>Clinical Suspicion of Sepsis — Signs Observed</h3>
+      <table><thead><tr><th>Parameter</th><th>Patient's Condition</th></tr></thead>
+        <tbody id="sepsis-signs-body"></tbody></table>
+      <input type="text" name="consultant">
+      <script>
+        const signs = ['Chills, rigors', 'CRT > 3 seconds'];
+        signs.forEach((s) => {
+          const tr = document.createElement('tr');
+          document.getElementById('sepsis-signs-body').appendChild(tr);
+        });
+      </script>`;
+
+    it('names a script-filled tbody the markup does not otherwise describe', () => {
+      const { scriptPopulatedContainers, scriptFilledPlaceholders } = extractFormHtml(sepsisSigns);
+      expect(scriptPopulatedContainers).toEqual(['#sepsis-signs-body']);
+      // Still not reported as an unrecoverable gap: rendering the page reads it.
+      expect(scriptFilledPlaceholders).toEqual([]);
+    });
+
+    it('leaves a user-extendable log alone — its markup already describes it', () => {
+      // Header row + "Add …" control convert to a recordTable statically, so
+      // this needs no render and is not an unread gap.
+      const { scriptPopulatedContainers, repeatingTables } = extractFormHtml(
+        `<div class="toolbar"><button>+ Add Row</button></div>
+         <table><thead><tr><th>Date</th><th>HR</th></tr></thead><tbody id="vitals-body"></tbody></table>
+         <script>document.getElementById('vitals-body').appendChild(row());</script>`,
+      );
+      expect(scriptPopulatedContainers).toEqual([]);
+      expect(repeatingTables).toHaveLength(1);
+    });
+
+    it('ignores a container the scripts never name', () => {
+      const { scriptPopulatedContainers } = extractFormHtml(
+        `<div id="spacer"></div>
+         <script>document.getElementById('other').appendChild(x);</script>`,
+      );
+      expect(scriptPopulatedContainers).toEqual([]);
+    });
+
+    it('ignores a page whose scripts build no DOM', () => {
+      const { scriptPopulatedContainers } = extractFormHtml(
+        `<div id="totals"></div>
+         <script>document.getElementById('totals').textContent = sum;</script>`,
+      );
+      expect(scriptPopulatedContainers).toEqual([]);
+    });
+  });
+
   describe('repeating record tables', () => {
     const chemo = `
       <div class="toolbar">
@@ -333,6 +387,35 @@ describe('extractFormHtml — complexity measurement', () => {
          </tbody></table>`,
       );
       expect(transposedMatrices).toEqual([]);
+    });
+
+    it('ignores a label-and-answer table with a single answer column', () => {
+      // "Parameter | Patient's Condition" is a 14-row screening checklist, not
+      // 14 fields of one repeated record. Read as a matrix it converts to an
+      // "add another patient's condition" grid.
+      const { transposedMatrices } = extractFormHtml(
+        `<table><thead><tr><th>Parameter</th><th>Patient's Condition</th></tr></thead><tbody>
+           <tr><td>New-onset fever</td><td><select><option>Present</option></select></td></tr>
+           <tr><td>Chills, rigors</td><td><select><option>Present</option></select></td></tr>
+           <tr><td>CRT > 3 seconds</td><td><select><option>Present</option></select></td></tr>
+         </tbody></table>`,
+      );
+      expect(transposedMatrices).toEqual([]);
+    });
+
+    it('still reads a single-instance chart when a control adds another', () => {
+      // The VIP chart ships with one cannula column and an "+ Add Cannula"
+      // button — one column plus a way to add more IS a record.
+      const { transposedMatrices } = extractFormHtml(
+        `<button>+ Add Cannula</button>
+         <table><thead><tr><th>Parameter</th><th>Cannula 1</th></tr></thead><tbody>
+           <tr><td>Site</td><td><input></td></tr>
+           <tr><td>Side</td><td><input></td></tr>
+           <tr><td>Gauge</td><td><input></td></tr>
+         </tbody></table>`,
+      );
+      expect(transposedMatrices).toHaveLength(1);
+      expect(transposedMatrices[0].addInstanceLabel).toBe('+ Add Cannula');
     });
 
     it('handles several instance columns', () => {

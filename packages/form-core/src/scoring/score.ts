@@ -116,6 +116,42 @@ export function collectScoreItems(uiSchema: UiSchema | UiSchemaElement): ScoreIt
   return items;
 }
 
+/**
+ * Does THIS section header draw its own live "Σ n" subtotal chip?
+ *
+ * The chip is automatic — no definition says "show a total here" — so the rule
+ * has to decide where a total belongs. Summing every scored descendant put one
+ * on every ANCESTOR too: a Sepsis sheet whose qSOFA and SIRS boxes each score
+ * out of 3 and 4 also grew a Σ on "Scoring Systems" and another on the whole
+ * screening section, neither of which the paper form totals. A subtotal on a
+ * box that merely CONTAINS scoring sections is noise at best and, read as a
+ * clinical total, wrong.
+ *
+ * So the chip belongs to the INNERMOST scoring section: a Group with scored
+ * items of its own and no nested Group that scores. Either default can be
+ * overridden per section — `omf.showSectionTotal` puts a total on an outer box
+ * that really does total its parts, `omf.hideSectionTotal` removes one — and
+ * scoring itself is untouched either way: every item still feeds the grand
+ * total and the `bySection` breakdown.
+ */
+export function showsSectionSubtotal(el: UiSchemaElement): boolean {
+  const omf = (el as { options?: { omf?: Record<string, unknown> } }).options?.omf;
+  if (omf?.hideSectionTotal === true) return false;
+  if (omf?.showSectionTotal === true) return true;
+  if (collectScoreItems(el).length === 0) return false;
+  return !hasScoringDescendantGroup(el);
+}
+
+/** Does any Group BELOW this element carry scored items of its own? */
+function hasScoringDescendantGroup(el: UiSchemaElement): boolean {
+  const walk = (node: UiSchemaElement): boolean =>
+    children(node).some(
+      (child) =>
+        (child.type === 'Group' && collectScoreItems(child).length > 0) || walk(child),
+    );
+  return walk(el);
+}
+
 /** True when a stored value counts as "ticked/present" for scoring. */
 function isPresent(value: unknown): boolean {
   return value === true || value === 1 || value === '1' || value === 'yes' ||

@@ -42,10 +42,15 @@ frameworks:
 
 Scored sections also carry `omf.accentColor`, `omf.icon`, `omf.points` and
 `omf.pointLegend` to reproduce colour-coded paper domains. A section with
-scored fields shows a live "Σ n" subtotal chip in its header automatically;
-`omf.hideSectionTotal: true` suppresses the chip on that one section without
-touching the scoring (the refine chat can set it — "remove the Σ 0 from that
-box"). Scoring shown on screen is advisory: the server recalculates on
+scored fields shows a live "Σ n" subtotal chip in its header automatically —
+the INNERMOST one: a Group that merely contains scoring sections stays quiet,
+because a box grouping qSOFA and SIRS totals nothing on the paper. Two flags
+override that per section: `omf.showSectionTotal: true` puts the chip on an
+outer Group whose combined total the source does print, and
+`omf.hideSectionTotal: true` removes it from a section that would draw one
+(the refine chat can set either — "remove the Σ 0 from that box"). Neither
+touches the scoring itself: every item still feeds the grand total and the
+per-section breakdown. Scoring shown on screen is advisory: the server recalculates on
 submission and is authoritative.
 
 ### Two shapes of scoring

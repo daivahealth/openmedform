@@ -129,6 +129,20 @@ export interface HtmlExtractResult {
    */
   scriptFilledPlaceholders: string[];
   /**
+   * Named containers a browser WOULD fill at runtime and that are worth a
+   * render to recover — the recoverable twin of `scriptFilledPlaceholders`.
+   *
+   * The distinction is what the markup already carries. An empty `<tbody>`
+   * under a populated `<thead>` beside an "Add …" control converts on its own
+   * (see `repeatingTables`), but the same `<tbody>` with NO add control is a
+   * fixed list of rows the page's script writes out — a 14-parameter screening
+   * checklist, say — and the markup states nothing but the two column
+   * headings. Rendering the page turns those rows back into real controls, so
+   * this exists purely to tell the caller a render can change the outcome even
+   * though the static parse already found plenty of fields elsewhere.
+   */
+  scriptPopulatedContainers: string[];
+  /**
    * Repeating record tables found in the markup — a populated `<thead>` with an
    * empty `<tbody>` next to an "Add …" control. Recoverable, unlike
    * `scriptFilledPlaceholders`: the converter turns each into a `recordTable`.
@@ -244,6 +258,7 @@ export function extractFormHtml(
   // Must run BEFORE scripts are stripped: an empty container only implies
   // "filled at runtime" if the document actually shipped scripts.
   const scriptFilledPlaceholders = findScriptFilledPlaceholders(root);
+  const scriptPopulatedContainers = findScriptPopulatedContainers(root, html);
   const repeatingTables = findRepeatingTables(root);
   const transposedMatrices = findTransposedMatrices(root);
   // Must also run BEFORE the hidden strip below, which is what would otherwise
@@ -364,6 +379,7 @@ export function extractFormHtml(
     warnings,
     looksMultiDocument,
     scriptFilledPlaceholders,
+    scriptPopulatedContainers,
     repeatingTables,
     transposedMatrices,
     conditionalFields,
@@ -468,6 +484,14 @@ function findTransposedMatrices(root: HTMLElement): TransposedMatrixHint[] {
         .find((t) => ADD_BUTTON.test(t) && t !== addNestedLabel);
       if (found) { addInstanceLabel = found; break; }
     }
+
+    // A matrix is a record repeated ACROSS columns. With one instance column
+    // there is nothing repeated: "Parameter | Patient's Condition" is an
+    // ordinary label-and-answer table — a 14-row screening checklist, not 14
+    // fields of one record — and reading it as a matrix turns the checklist
+    // into an "add another patient's condition" grid. Two or more instance
+    // columns, or a control that adds one, is what makes the shape a record.
+    if (instanceHeaders.length < 2 && !addInstanceLabel && !addNestedLabel) continue;
 
     hints.push({
       labelHeader: labelTh.text.replace(/\s+/g, ' ').trim(),
@@ -894,6 +918,90 @@ function isRepeatingTableBody(el: HTMLElement): boolean {
 }
 
 /**
+ * Calls that mean a script WRITES content into the DOM, as opposed to merely
+ * reading or styling it. Any one of them anywhere in the page's scripts is
+ * enough — this only decides whether recovering the page by rendering it could
+ * change the outcome, never what the recovered content means.
+ */
+const DOM_BUILD_CALL =
+  /\b(?:appendChild|insertAdjacentHTML|insertBefore|insertRow|replaceChildren|createElement|innerHTML\s*=|innerHTML\s*\+=)/;
+
+/**
+ * Find empty containers the page's OWN script fills at runtime and that the
+ * markup does not already describe.
+ *
+ * WHY THIS EXISTS — the Sepsis screening sheet ships its 14 clinical-suspicion
+ * parameters as a JS array appended into `<tbody id="sepsis-signs-body">`. The
+ * static markup carries only "Parameter | Patient's Condition", so the whole
+ * checklist arrived at the model as two words of table header and converted to
+ * a line of static text. Nothing flagged it either: `findScriptFilledPlaceholders`
+ * deliberately spares an empty `<tbody>` under a populated `<thead>` (that
+ * shape is usually a record table), and the render trigger only fired when the
+ * static parse found NO fields at all — this page has dozens.
+ *
+ * Excluded, therefore, is the shape the markup already states: a table whose
+ * header names every column AND which has an "Add …" control converts to a
+ * `recordTable` from the static markup alone, so it needs no render and is not
+ * an unread gap. What is left is a container whose real contents exist only
+ * once the page has run.
+ *
+ * Detection is deliberately coarse — the container must be empty, named, and
+ * its name must appear in a script that builds DOM somewhere. Being wrong
+ * costs one render (or one warning naming a container the author can check),
+ * never invented content: scripts are read for the container NAME only, and
+ * anything recovered comes from re-extracting the rendered DOM through this
+ * same sanitiser.
+ */
+function findScriptPopulatedContainers(root: HTMLElement, html: string): string[] {
+  const scripts = scriptText(html);
+  if (!scripts.trim() || !DOM_BUILD_CALL.test(scripts)) return [];
+
+  const names: string[] = [];
+  for (const el of root.querySelectorAll('*')) {
+    const tag = el.rawTagName?.toLowerCase() ?? '';
+    if (!PLACEHOLDER_TAGS.has(tag)) continue;
+    if (el.querySelectorAll('*').length > 0) continue;
+    if (el.text.trim().length > 0) continue;
+
+    // A user-extendable log is already fully described by its header row and
+    // its add control, so it is not a gap and gains nothing from a render.
+    if (isRepeatingTableBody(el) && nearbyAddLabel(el.closest?.('table'))) continue;
+
+    const id = el.getAttribute('id');
+    const cls = el.getAttribute('class');
+    const token = id ?? cls?.trim().split(/\s+/)[0];
+    if (!token) continue;
+    // The script must name THIS container; an anonymous spacer div stays quiet.
+    if (!scripts.includes(token)) continue;
+
+    const name = id ? `#${id}` : `.${token}`;
+    if (!names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Text of an "Add …" control near a table — same parent, or the parent's
+ * parent, which is where a toolbar above the table usually sits.
+ *
+ * Shared so the repeating-table detector and the script-populated-container
+ * detector agree on what counts as an add affordance. One shape must not be a
+ * record table on one path and an unread gap on the other.
+ */
+function nearbyAddLabel(table: HTMLElement | null | undefined): string | undefined {
+  if (!table) return undefined;
+  const scopes = [table.parentNode, table.parentNode?.parentNode].filter(Boolean) as HTMLElement[];
+  for (const scope of scopes) {
+    const button = scope
+      .querySelectorAll('button, a, input[type="button"], input[type="submit"]')
+      .map((b) => (b.text || b.getAttribute('value') || '').replace(/\s+/g, ' ').trim())
+      .find((text) => ADD_BUTTON.test(text));
+    if (button) return button;
+  }
+  return undefined;
+}
+
+/**
  * Detect repeating record tables: a `<table>` whose `<thead>` names the columns
  * but whose `<tbody>` is empty, alongside an "Add …" control.
  *
@@ -976,6 +1084,53 @@ export interface TransposedMatrixHint {
   nestedRowLabels?: string[];
 }
 
+/**
+ * Count what a rendered repeating log costs the FIELD BUDGET beyond one row.
+ *
+ * The budget bounds what one conversion pass has to emit, and a repeating log
+ * collapses into a single `recordTable` control whose item schema holds one
+ * row's worth of fields however many rows are on screen. Counting a rendered
+ * page's blank rows individually therefore overstates the output: the Sepsis
+ * sheet's hourly chart calls `addVitalsRow()` three times at load, and those
+ * 39 identical inputs are 13 column definitions in the generated schema.
+ *
+ * Only tables that MATCH a hint are counted, so this can never discount an
+ * ordinary data table — matching is by the hint's exact column list, and the
+ * first row is always kept because that is the row the item schema encodes.
+ */
+export function countRepeatedLogRows(
+  html: string,
+  hints: RepeatingTableHint[],
+): { rows: number; fields: number } {
+  if (hints.length === 0) return { rows: 0, fields: 0 };
+  const root = parse(html);
+  let rows = 0;
+  let fields = 0;
+
+  for (const table of root.querySelectorAll('table')) {
+    const headers = table
+      .querySelectorAll('thead th')
+      .map((th) => th.text.replace(/\s+/g, ' ').trim())
+      .filter((t) => t.length > 0);
+    const hint = hints.find(
+      (h) =>
+        h.columns.length === headers.length &&
+        h.columns.every((column, index) => column === headers[index]),
+    );
+    if (!hint) continue;
+
+    const bodyRows = table.querySelectorAll('tbody tr');
+    if (bodyRows.length < 2) continue; // one row IS the item schema
+
+    const fieldsIn = (row: HTMLElement) =>
+      row.querySelectorAll('input, select, textarea').length;
+    rows += bodyRows.length - 1;
+    fields += bodyRows.slice(1).reduce((sum, row) => sum + fieldsIn(row), 0);
+  }
+
+  return { rows, fields };
+}
+
 function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {
   const hints: RepeatingTableHint[] = [];
 
@@ -989,19 +1144,10 @@ function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {
     const bodyRows = table.querySelectorAll('tbody tr').length;
     if (bodyRows > 0) continue; // a table with real rows converts normally
 
-    // Look for the add control near the table: same parent, or the parent's
-    // parent, which is where a toolbar above the table usually sits.
     const scopes = [table.parentNode, table.parentNode?.parentNode].filter(Boolean) as HTMLElement[];
-    let addLabel: string | undefined;
+    const addLabel = nearbyAddLabel(table);
     let countLabel: string | undefined;
     for (const scope of scopes) {
-      if (!addLabel) {
-        const button = scope
-          .querySelectorAll('button, a, input[type="button"], input[type="submit"]')
-          .map((b) => (b.text || b.getAttribute('value') || '').replace(/\s+/g, ' ').trim())
-          .find((text) => ADD_BUTTON.test(text));
-        if (button) addLabel = button;
-      }
       if (!countLabel) {
         // Take the SHORTEST match: an ancestor div also "contains" the count
         // line, but its text drags in the toolbar buttons around it.
@@ -1012,7 +1158,7 @@ function findRepeatingTables(root: HTMLElement): RepeatingTableHint[] {
           .sort((a, b) => a.length - b.length);
         countLabel = candidates[0];
       }
-      if (addLabel && countLabel) break;
+      if (countLabel) break;
     }
 
     if (!addLabel) continue; // no add affordance → not a user-extendable log

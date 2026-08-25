@@ -12,10 +12,15 @@
  * The four values move together. Raising the field limit without raising the
  * token budget trades a clear rejection for a silently truncated form; raising
  * the field limit without raising the source-char budget clips the INPUT
- * instead. Defaults are today's long-standing values, calibrated for a 32k
- * output budget; the operator raises them only when every configured provider
- * can honor the larger request (Kimi/Minimax/Ollama ceilings are lower than
- * OpenAI GPT-5-family or Claude).
+ * instead. Defaults are calibrated for a ~40k output budget, and were raised
+ * from 120/120/32 768/24 000 once whole sheets started being rejected for
+ * being a little over: a real three-section monitoring chart (screening +
+ * 1-hour bundle + hourly observations) lands around 130 fields, and splitting
+ * it costs the author more than the model struggles with. The operator raises
+ * them further only when every configured provider can honor the larger
+ * request (Kimi/Minimax/Ollama ceilings are lower than OpenAI GPT-5-family or
+ * Claude), and lowers CONVERSION_MAX_TOKENS for a provider that cannot accept
+ * this default.
  *
  * Read from process.env at call time (the html-render.ts pattern), so tests
  * and container restarts pick changes up without ConfigService plumbing.
@@ -28,12 +33,12 @@ interface LimitSpec {
   min: number;
 }
 
-const MAX_FIELDS: LimitSpec = { envVar: 'CONVERSION_MAX_FIELDS', fallback: 120, min: 10 };
-const MAX_TABLE_ROWS: LimitSpec = { envVar: 'CONVERSION_MAX_TABLE_ROWS', fallback: 120, min: 10 };
-const MAX_TOKENS: LimitSpec = { envVar: 'CONVERSION_MAX_TOKENS', fallback: 32768, min: 1000 };
+const MAX_FIELDS: LimitSpec = { envVar: 'CONVERSION_MAX_FIELDS', fallback: 160, min: 10 };
+const MAX_TABLE_ROWS: LimitSpec = { envVar: 'CONVERSION_MAX_TABLE_ROWS', fallback: 160, min: 10 };
+const MAX_TOKENS: LimitSpec = { envVar: 'CONVERSION_MAX_TOKENS', fallback: 40960, min: 1000 };
 const MAX_SOURCE_CHARS: LimitSpec = {
   envVar: 'CONVERSION_MAX_SOURCE_CHARS',
-  fallback: 24_000,
+  fallback: 32_000,
   min: 1000,
 };
 

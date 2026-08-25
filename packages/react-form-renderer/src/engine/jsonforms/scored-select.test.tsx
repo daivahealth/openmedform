@@ -226,3 +226,48 @@ describe('omf.hideSectionTotal', () => {
     expect(container.querySelectorAll('select, input[type="radio"]').length).toBeGreaterThan(0);
   });
 });
+
+describe('where the automatic Σ chip is drawn', () => {
+  /**
+   * The Sepsis screening sheet: qSOFA and SIRS each total on the paper; the
+   * boxes AROUND them do not. Summing every scored descendant put a "Σ 0" on
+   * the outer section and on the whole screening tool as well — a total the
+   * source never printed, and one a clinician could read as a score.
+   */
+  const nested = (outerOmf: Record<string, unknown> = {}): JsonFormsFormDefinition =>
+    ({
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: { hypotension: { type: 'boolean' }, tachypnoea: { type: 'boolean' } },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'Group',
+          label: 'Scoring Systems',
+          options: { omf: outerOmf },
+          elements: [
+            {
+              type: 'Group',
+              label: 'qSOFA',
+              elements: [
+                { type: 'Control', scope: '#/properties/hypotension', options: { omf: { points: 1 } } },
+                { type: 'Control', scope: '#/properties/tachypnoea', options: { omf: { points: 1 } } },
+              ],
+            },
+          ],
+        },
+      },
+    }) as unknown as JsonFormsFormDefinition;
+
+  it('draws one chip — on the scoring section, not on the box around it', () => {
+    render(<JsonFormsRenderer definition={nested()} />);
+    expect(screen.getAllByTitle('Section subtotal')).toHaveLength(1);
+  });
+
+  it('draws the outer chip too when the definition asks for it', () => {
+    render(<JsonFormsRenderer definition={nested({ showSectionTotal: true })} />);
+    expect(screen.getAllByTitle('Section subtotal')).toHaveLength(2);
+  });
+});
