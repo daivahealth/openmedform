@@ -1,6 +1,6 @@
 {
   "name": "@openmedform/angular-form-renderer",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": false,
   "license": "Apache-2.0",
   "description": "Angular (standalone) JSON Forms renderer: custom token-styled control/layout renderers over @jsonforms/angular, sharing form-core and form-design-tokens with the React renderer so the same jsonforms FormDefinition renders equivalently in both frameworks.",
