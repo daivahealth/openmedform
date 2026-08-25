@@ -218,13 +218,13 @@ costing the feature anything, and no SVG sanitiser is needed.
 
 ## Uploaded Mock-ups Are Untrusted Input
 
-An uploaded HTML mock-up is attacker-controlled. Three deliberate rules bound
-what it can do, and each has one narrow, documented exception:
+An uploaded HTML mock-up is attacker-controlled. Four deliberate rules bound
+what it can do, and each has a narrow, documented exception:
 
 | Rule | Exception |
 |---|---|
 | **Scripts are stripped** and never shown to the model. | With a per-upload opt-in, they are **parsed** (acorn, AST only — no `eval`, no `Function`, no VM) for named *literal* config: option lists, thresholds, reference tables. Any value containing an identifier, call, template hole, spread or function is discarded whole. Hard caps on bytes parsed, entries, depth, string length and total size. The `<script>` element is still removed from the cleaned HTML either way. |
-| **Hidden content is stripped** — it is the natural place to smuggle instructions past the person uploading the file. | A conditional "Please specify…" `<input>` (or empty `<textarea>`) beside a select's "Other" option is kept and given a SHOW rule. Never a container; label capped at 60 characters. |
+| **Hidden content is stripped** — it is the natural place to smuggle instructions past the person uploading the file. | Two carve-outs, both given a SHOW rule instead of being dropped. (1) A conditional "Please specify…" `<input>` (or empty `<textarea>`) beside a select's "Other" option — never a container; label capped at 60 characters. (2) A section the page's **own script** toggles the visibility of (progressive disclosure, e.g. CAM-ICU's Features 2-4) — only if it contains a real field, only on a page that responds to a `change`/`input` event, and capped at 1,500 characters per section, 6,000 per document and 12 sections. Scripts are parsed for the toggle *target* only, never for logic. Both carve-outs are named in a conversion warning, so neither is silent. |
 | **The page is never executed in our process.** | A sandboxed headless browser may run it — Chromium's own OS-level sandbox is the isolation boundary, with no network and a hard timeout. Uploaded script is never evaluated in the API process. |
 | **The page is not driven around.** | A bounded probe presses controls whose text matches the "Add …" patterns — never submit/save/delete/print — once each, at most three, within its own budget raced inside the render timeout, with dialogs auto-dismissed. It only adds precision: a probe that stalls or crashes yields the un-probed result. `HTML_PROBE_DISABLED=1` switches it off. |
 

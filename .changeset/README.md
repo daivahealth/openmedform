@@ -14,10 +14,12 @@ summary. Commit the generated file in `.changeset/`.
 
 ## How releases happen
 
-- The four publishable packages are a **fixed group** — they always bump and publish together at the
-  same version:
+- Four of the publishable packages are a **fixed group** — they always bump and publish together at
+  the same version:
   `@openmedform/form-schema-types`, `@openmedform/form-core`,
   `@openmedform/form-design-tokens`, `@openmedform/react-form-renderer`.
+- `@openmedform/angular-form-renderer` and `@openmedform/form-print-engine` are also published, but
+  version **independently** — a changeset that should release either must name it explicitly.
 - All other workspace packages are `private: true` and are ignored by changesets automatically.
 - On push to `main`, the Release workflow opens a **"Version Packages"** PR that applies the pending
   changesets (bumps versions + updates `CHANGELOG.md`). Merging that PR publishes to npm.

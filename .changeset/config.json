@@ -18,7 +18,6 @@
     "@openmedform/web",
     "@openmedform/api",
     "@openmedform/react-demo",
-    "@openmedform/angular-demo",
-    "@openmedform/form-print-engine"
+    "@openmedform/angular-demo"
   ]
 }

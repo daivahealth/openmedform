@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { UISchemaElement } from '@jsonforms/core';
 import { OMF_CONTROL_NAMES } from '@openmedform/form-core';
@@ -31,5 +33,35 @@ describe('canonical omf.control vocabulary coverage', () => {
 
   it('has a tester for every canonical name and no strays', () => {
     expect(Object.keys(omfControlTesters).sort()).toEqual([...OMF_CONTROL_NAMES].sort());
+  });
+});
+
+/**
+ * Row-rule parity guard.
+ *
+ * A rule on an `OmfTableRow` cannot be resolved by the framework — the row IS
+ * the layout and never reaches a `<jsonforms-outlet>` — so each renderer has to
+ * evaluate it itself. That is exactly the shape that drifts: it was ignored in
+ * BOTH renderers until now, and a fix applied to one of them would be invisible
+ * from the other's tests.
+ *
+ * @jsonforms/angular cannot load under vitest, so the component cannot be
+ * mounted here (see the note above). What can still be pinned is that the
+ * Angular table renderer resolves its rows through form-core's shared
+ * `filterVisibleElements` — the same function the React renderer calls and the
+ * same evaluation the server uses — rather than re-deriving visibility locally.
+ */
+describe('OmfTableLayout row rules', () => {
+  const source = readFileSync(join(__dirname, 'renderers', 'layouts.ts'), 'utf8');
+
+  it('resolves rows through form-core rather than rendering them unconditionally', () => {
+    expect(source).toContain("from '@openmedform/form-core'");
+    expect(source).toContain('filterVisibleElements(this.rows');
+    // The old unconditional loop must not come back.
+    expect(source).not.toContain('@for (row of rows;');
+  });
+
+  it('subscribes to the store only when a row actually carries a rule', () => {
+    expect(source).toContain('hasElementRules(this.rows)');
   });
 });

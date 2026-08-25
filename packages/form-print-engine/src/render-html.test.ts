@@ -103,3 +103,134 @@ describe('renderPrintHtml (A4 reconstruction)', () => {
     expect(out).toContain('- Να πάρει ελαφρύ πρωινό\n- Να έχει τις εξετάσεις\n- Να μην χρησιμοποιεί μακιγιάζ');
   });
 });
+
+describe('renderPrintHtml — conditional rules', () => {
+  /** CAM-ICU's shape: a gating select and a row asked only if it is present. */
+  const stepwise = {
+    ...rrtSbarReference,
+    dataSchema: {
+      type: 'object',
+      properties: {
+        feature1: { type: 'string', title: 'Feature 1' },
+        feature2: { type: 'string', title: 'Feature 2' },
+      },
+    },
+    uiSchema: {
+      schemaVersion: '1.0',
+      layout: {
+        type: 'OmfTableLayout',
+        elements: [
+          {
+            type: 'OmfTableRow',
+            label: 'Feature 1',
+            elements: [{ type: 'Control', scope: '#/properties/feature1' }],
+          },
+          {
+            type: 'OmfTableRow',
+            label: 'Feature 2',
+            elements: [{ type: 'Control', scope: '#/properties/feature2' }],
+            rule: {
+              effect: 'SHOW',
+              condition: { scope: '#/properties/feature1', schema: { const: 'PRESENT' } },
+            },
+          },
+        ],
+      },
+    },
+  } as never;
+
+  it('prints every conditional section on a BLANK form', () => {
+    // A blank sheet is printed to be filled in by hand. Applying rules against
+    // no data would print Feature 1 alone and make the paper form unusable.
+    const out = renderPrintHtml(stepwise);
+    expect(out).toContain('Feature 1');
+    expect(out).toContain('Feature 2');
+  });
+
+  it('omits a section the response never triggered', () => {
+    // A completed submission is a clinical record: a question that was never
+    // asked must not appear on it as if it had been.
+    const out = renderPrintHtml(stepwise, { data: { feature1: 'ABSENT' } });
+    expect(out).toContain('Feature 1');
+    expect(out).not.toContain('Feature 2');
+  });
+
+  it('prints it once the response triggers it', () => {
+    const out = renderPrintHtml(stepwise, { data: { feature1: 'PRESENT', feature2: 'ABSENT' } });
+    expect(out).toContain('Feature 2');
+  });
+
+  it('honours an explicit override in both directions', () => {
+    const forced = renderPrintHtml(stepwise, { data: { feature1: 'ABSENT' }, rules: 'ignore' });
+    expect(forced).toContain('Feature 2');
+
+    const blankApplied = renderPrintHtml(stepwise, { rules: 'apply' });
+    expect(blankApplied).not.toContain('Feature 2');
+  });
+
+  it('gates a Group and a Control the same way, not just a table row', () => {
+    const def = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          trigger: { type: 'string', title: 'Trigger' },
+          detail: { type: 'string', title: 'Detail field' },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Control', scope: '#/properties/trigger' },
+            {
+              type: 'Group',
+              label: 'Follow-up section',
+              elements: [{ type: 'Control', scope: '#/properties/detail' }],
+              rule: {
+                effect: 'SHOW',
+                condition: { scope: '#/properties/trigger', schema: { const: 'YES' } },
+              },
+            },
+          ],
+        },
+      },
+    } as never;
+
+    expect(renderPrintHtml(def, { data: { trigger: 'NO' } })).not.toContain('Follow-up section');
+    expect(renderPrintHtml(def, { data: { trigger: 'YES' } })).toContain('Follow-up section');
+  });
+
+  it('still prints a DISABLE-ruled field — enablement has no meaning on paper', () => {
+    const def = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          trigger: { type: 'string', title: 'Trigger' },
+          locked: { type: 'string', title: 'Locked field' },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Control', scope: '#/properties/trigger' },
+            {
+              type: 'Control',
+              scope: '#/properties/locked',
+              rule: {
+                effect: 'DISABLE',
+                condition: { scope: '#/properties/trigger', schema: { const: 'YES' } },
+              },
+            },
+          ],
+        },
+      },
+    } as never;
+
+    expect(renderPrintHtml(def, { data: { trigger: 'YES' } })).toContain('Locked field');
+  });
+});

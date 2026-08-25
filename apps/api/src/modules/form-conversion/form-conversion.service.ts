@@ -388,6 +388,29 @@ export class FormConversionService {
           'field always-visible, and do NOT drop it.\n\n';
       }
 
+      // Whole SECTIONS the mock-up reveals progressively (CAM-ICU's Features
+      // 2-4). They were spared from the hidden-content strip, so the model can
+      // see them — but they arrive looking like ordinary rows, and emitted that
+      // way the form asks every question at once instead of one at a time. The
+      // script that gates them is never executed, so the trigger has to come
+      // from the form's own instructions.
+      if (extracted.scriptToggledSections.length > 0) {
+        userPrompt +=
+          'PROGRESSIVE DISCLOSURE: this mock-up hides these sections and reveals them with ' +
+          'JavaScript as earlier answers are given: ' +
+          extracted.scriptToggledSections.map((t) => `"${t.label}"`).join(', ') +
+          '. They are in the markup below and are REAL sections — emit every field in them. ' +
+          'Give each one a rule so it appears only when its trigger answer is given:\n' +
+          '  "rule": { "effect": "SHOW", "condition": { "scope": "#/properties/<the controlling ' +
+          'property>", "schema": { "const": "<that answer\'s enum CODE>" } } }\n' +
+          'On an OmfTableLayout the rule goes on the "OmfTableRow" itself, not on the Controls ' +
+          'inside it, so the whole row appears at once. The scripts were removed and never run, ' +
+          "so read the trigger from the form's OWN instructions (a scoring rule or hint line such " +
+          'as "assess Feature 2 only if Feature 1 is present"). Where the source does not say ' +
+          'what reveals a section, emit it WITHOUT a rule and add an UNCERTAIN_SECTION_BOUNDARY ' +
+          'warning naming it — always-visible is recoverable, dropped is not.\n\n';
+      }
+
       // Config the mock-up kept in its scripts: option lists, threshold bands,
       // reference tables. Only present when the uploader opted in. It is
       // attacker-controlled exactly like the markup, so it is framed the same

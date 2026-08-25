@@ -2,7 +2,7 @@
   "name": "@openmedform/form-core",
   "version": "1.4.0",
   "private": false,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "description": "Framework-independent form engine core: JSON Schema (2020-12) validation, $ref/scope resolution, data binding, conditional-rule evaluation, i18n, the control-registry contract, and response serialization. No Angular/React dependencies.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

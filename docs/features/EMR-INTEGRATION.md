@@ -113,7 +113,10 @@ See `packages/renderer/README.md` for full API reference.
 The same exported JSON also produces a **print-accurate A4 document** — for a paper copy in-app or a
 server-generated PDF — via `@openmedform/form-print-engine` (`renderPrintHtml(definition, { data })`).
 The engine is framework-agnostic (browser, Node, React, Angular) and does not bundle a rasterizer, so
-you choose your own (Playwright/Chromium or WeasyPrint) for PDF. In the OpenMedForm app a **Print
+you choose your own (Playwright/Chromium or WeasyPrint) for PDF. Conditional sections are honoured:
+printing **with** `data` omits a section the response never triggered, printing a blank form keeps
+every section so it can be filled in by hand
+([details](../integration/THIRD-PARTY-GUIDE.md#the-one-function-you-need)). In the OpenMedForm app a **Print
 preview** button is available on the form Preview and Fill screens (JSON Forms engine). Full snippets
 (browser print preview + server-side PDF) are in the
 [Third-Party Integration Guide §6](../integration/THIRD-PARTY-GUIDE.md#6-print--pdf-optional).

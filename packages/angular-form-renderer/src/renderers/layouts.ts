@@ -14,11 +14,14 @@
  * - the only containers with live, data-driven state (scored Group subtotals and
  *   the score summary) subscribe to the store and call markForCheck themselves;
  * - `childProps` returns a memoized reference so re-checks don't churn outlets.
+ * - OmfTableLayout subscribes to the store when any of its ROWS carries a rule,
+ *   because a row is the layout itself and never reaches an outlet that could
+ *   resolve the rule for it.
  * Known limitation: JSON Forms `rule`-driven visibility/enablement or cross-field
- * validation on a NON-edited control in a sibling branch may not refresh until
- * that control is next interacted with (the @jsonforms/angular base control does
- * not markForCheck). Current forms carry no conditional rules; if that changes,
- * the leaf control wrappers would need their own markForCheck on state updates.
+ * validation on a NON-edited leaf CONTROL in a sibling branch may not refresh
+ * until that control is next interacted with (the @jsonforms/angular base
+ * control does not markForCheck). Containers — layouts, groups and table rows —
+ * are covered by the subscriptions above.
  */
 
 import {
@@ -40,7 +43,14 @@ import {
   uiTypeIs,
   type UISchemaElement,
 } from '@jsonforms/core';
-import { collectScoreItems, computeScore } from '@openmedform/form-core';
+import {
+  collectScoreItems,
+  computeScore,
+  filterVisibleElements,
+  hasElementRules,
+  type VisibleElement,
+} from '@openmedform/form-core';
+import type { UiRule } from '@openmedform/form-schema-types';
 import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 import { FIELD_STYLES } from '../styles';
 import { RuleAwareRenderer } from '../rule-visibility';
@@ -265,6 +275,13 @@ interface OmfTableColumn {
 interface OmfTableRowShape {
   label?: string;
   elements?: UISchemaElement[];
+  /**
+   * A row may carry a JSON Forms rule of its own, so a table can reveal rows in
+   * turn (CAM-ICU: assess Feature 2 only once Feature 1 is present). The row is
+   * the layout here — it never reaches a <jsonforms-outlet> — so the rule is
+   * evaluated by form-core below rather than by the framework.
+   */
+  rule?: UiRule;
 }
 
 /**
@@ -304,22 +321,26 @@ interface OmfTableRowShape {
           </thead>
         }
         <tbody>
-          @for (row of rows; track $index) {
+          @for (entry of visibleRows; track entry.index) {
             <tr>
               @if (hasColumns) {
-                @if (row.label !== undefined) {
-                  <td class="omf-row-label">{{ row.label }}</td>
+                @if (entry.element.label !== undefined) {
+                  <td class="omf-row-label">{{ entry.element.label }}</td>
                 }
-                @for (element of row.elements ?? []; track $index) {
-                  <td class="omf-table-cell" [style.text-align]="cellAlign(row, $index)">
-                    <jsonforms-outlet [renderProps]="cellProps(element, true)"></jsonforms-outlet>
+                @for (element of entry.element.elements ?? []; track $index) {
+                  <td class="omf-table-cell" [style.text-align]="cellAlign(entry.element, $index)">
+                    <jsonforms-outlet
+                      [renderProps]="cellProps(element, true, entry.enabled)"
+                    ></jsonforms-outlet>
                   </td>
                 }
               } @else {
-                <td class="omf-row-label omf-row-label-shaded">{{ row.label }}</td>
+                <td class="omf-row-label omf-row-label-shaded">{{ entry.element.label }}</td>
                 <td class="omf-table-stack">
-                  @for (element of row.elements ?? []; track $index) {
-                    <jsonforms-outlet [renderProps]="cellProps(element, false)"></jsonforms-outlet>
+                  @for (element of entry.element.elements ?? []; track $index) {
+                    <jsonforms-outlet
+                      [renderProps]="cellProps(element, false, entry.enabled)"
+                    ></jsonforms-outlet>
                   }
                 </td>
               }
@@ -365,7 +386,47 @@ interface OmfTableRowShape {
     `,
   ],
 })
-export class OmfTableLayoutComponent extends OmfLayoutBase {
+export class OmfTableLayoutComponent extends OmfLayoutBase implements OnInit, OnDestroy {
+  private readonly tableForms = inject(JsonFormsAngularService);
+  private readonly tableCdr = inject(ChangeDetectorRef);
+  private rowSub?: Subscription;
+
+  /**
+   * Cached per (element, stripLabel, enabled). The <jsonforms-outlet>
+   * [renderProps] setter only fires on reference change, so a stable object
+   * keeps a re-check from re-running the outlet's dispatch — while a row whose
+   * rule just disabled it still gets a new reference and re-dispatches.
+   */
+  private readonly cellCache = new Map<UISchemaElement, Map<string, OwnPropsOfRenderer>>();
+
+  /** Rows surviving their own rules, with their original index for tracking. */
+  visibleRows: VisibleElement<OmfTableRowShape>[] = [];
+
+  override ngOnInit(): void {
+    // The layout's own rule (RuleAwareRenderer) is independent of its rows'.
+    super.ngOnInit();
+    this.visibleRows = filterVisibleElements(this.rows, {}, this.ruleEnabled);
+    // No row carries a rule on most tables; skip the state subscription there.
+    if (!hasElementRules(this.rows)) return;
+
+    this.rowSub = this.tableForms.$state
+      .pipe(
+        map((state) => state?.jsonforms?.core?.data),
+        distinctUntilChanged(),
+      )
+      .subscribe((data) => {
+        const next = filterVisibleElements(this.rows, data ?? {}, this.ruleEnabled);
+        if (rowSignature(next) === rowSignature(this.visibleRows)) return;
+        this.visibleRows = next;
+        this.tableCdr.markForCheck();
+      });
+  }
+
+  override ngOnDestroy(): void {
+    this.rowSub?.unsubscribe();
+    super.ngOnDestroy();
+  }
+
   get columns(): OmfTableColumn[] {
     const c = readOmf(this.uischema)?.['columns'];
     return Array.isArray(c) ? (c as OmfTableColumn[]) : [];
@@ -380,10 +441,35 @@ export class OmfTableLayoutComponent extends OmfLayoutBase {
     return this.columns[index + (row.label !== undefined ? 1 : 0)]?.align ?? 'left';
   }
   /** Suppress the control's own label in column mode; the header names it. */
-  cellProps(element: UISchemaElement, stripLabel: boolean): OwnPropsOfRenderer {
-    return this.childProps(
-      stripLabel ? ({ ...element, label: false } as unknown as UISchemaElement) : element,
-    );
+  cellProps(
+    element: UISchemaElement,
+    stripLabel: boolean,
+    enabled: boolean,
+  ): OwnPropsOfRenderer {
+    let byFlags = this.cellCache.get(element);
+    if (!byFlags) {
+      byFlags = new Map();
+      this.cellCache.set(element, byFlags);
+    }
+    const key = `${this.path ?? ''}|${stripLabel ? 1 : 0}|${enabled ? 1 : 0}`;
+    let cached = byFlags.get(key);
+    if (!cached) {
+      cached = {
+        uischema: stripLabel
+          ? ({ ...element, label: false } as unknown as UISchemaElement)
+          : element,
+        schema: this.schema,
+        path: this.path,
+        enabled,
+      };
+      byFlags.set(key, cached);
+    }
+    return cached;
   }
+}
+
+/** Cheap identity for a resolved row set, so an unchanged one is not re-assigned. */
+function rowSignature(rows: VisibleElement<OmfTableRowShape>[]): string {
+  return rows.map((r) => `${r.index}:${r.enabled ? 1 : 0}`).join(',');
 }
 export const omfTableTester = rankWith(STANDARD_RANK, uiTypeIs('OmfTableLayout'));

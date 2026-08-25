@@ -56,4 +56,15 @@ describe('getPdfToJsonFormsPrompt', () => {
     expect(prompt).toContain('Treat each source page independently');
     expect(prompt).toContain('Do not invent columns');
   });
+  it('teaches a rule on an OmfTableRow for a stepwise assessment', () => {
+    // The CAM-ICU regression: Features 2-4 are separate table rows revealed one
+    // at a time. Without this the model puts the rule on the Controls inside a
+    // row (leaving an empty row on screen) or omits it and asks everything at
+    // once.
+    const prompt = getPdfToJsonFormsPrompt();
+
+    expect(prompt).toContain('A rule may also sit on a LAYOUT element');
+    expect(prompt).toContain('the rule belongs on the ROW and never on the Controls inside it');
+    expect(prompt).toContain('a gated step is a real step');
+  });
 });
