@@ -167,7 +167,7 @@ CHROMIUM_PATH=/usr/bin/chromium
 | `HTML_RENDER_DISABLED=1` | Turns rendering off entirely and silences the startup warning. |
 | `TRUST_PROXY_HOPS` | Number of proxy hops in front of the API (default `0` = none). Must be `1` behind Cloud Run, or rate limiting sees the load balancer's address for every caller and puts everyone in one bucket. |
 | `HTML_PROBE_DISABLED=1` | Keeps rendering but stops the sandbox pressing a mock-up's "Add …" controls. Costs click-built fields and the measured repeating-group split; see [PDF-TO-FORM](../features/PDF-TO-FORM.md#pressing-the-page-interaction-probing). |
-| `CONVERSION_MAX_FIELDS` / `CONVERSION_MAX_TABLE_ROWS` / `CONVERSION_MAX_TOKENS` / `CONVERSION_MAX_SOURCE_CHARS` | AI-conversion size caps and output-token budget (defaults 120 / 120 / 32 768 / 24 000). They **move together**; raise only for providers with a large output ceiling. See [PDF-TO-FORM](../features/PDF-TO-FORM.md#size-and-complexity-limits). |
+| `CONVERSION_MAX_FIELDS` / `CONVERSION_MAX_TABLE_ROWS` / `CONVERSION_MAX_TOKENS` / `CONVERSION_MAX_SOURCE_CHARS` | AI-conversion size caps and output-token budget (defaults 160 / 160 / 40 960 / 32 000). They **move together**; raise only for providers with a large output ceiling. See [PDF-TO-FORM](../features/PDF-TO-FORM.md#size-and-complexity-limits). |
 
 Everything else converts fine without it — this only affects mock-ups whose
 fields do not exist in the markup. See

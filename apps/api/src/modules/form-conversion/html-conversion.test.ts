@@ -163,18 +163,18 @@ describe('assertConversionOutputComplete', () => {
     });
 
     it('rejects past the default limit, naming the limit', () => {
-      expect(guardFor(manyFields(150))).toThrow(/limit 120/);
+      expect(guardFor(manyFields(200))).toThrow(/limit 160/);
     });
 
     it('honors a raised CONVERSION_MAX_FIELDS', () => {
       process.env.CONVERSION_MAX_FIELDS = '240';
-      expect(guardFor(manyFields(150))).not.toThrow();
+      expect(guardFor(manyFields(200))).not.toThrow();
       expect(guardFor(manyFields(300))).toThrow(/limit 240/);
     });
 
     it('falls back to the default when the env var is not a number', () => {
       process.env.CONVERSION_MAX_FIELDS = 'lots';
-      expect(guardFor(manyFields(150))).toThrow(/limit 120/);
+      expect(guardFor(manyFields(200))).toThrow(/limit 160/);
     });
 
     it('clamps to the floor so a typo cannot zero the pipeline', () => {
@@ -318,6 +318,153 @@ describe('script-config opt-in (POST /conversions)', () => {
   });
 });
 
+
+describe('script-populated containers', () => {
+  const render = vi.mocked(renderHtmlToDomWithOutcome);
+
+  /**
+   * The Sepsis screening sheet in miniature: a static form that ALSO writes a
+   * whole checklist out of a script array, next to an ordinary "+ Add Row" log.
+   * The field count is high, so nothing used to trigger a render and the
+   * checklist reached the model as two column headings.
+   */
+  const sepsis = `
+    <div class="row"><label>Consultant Name</label><input type="text" name="consultant"></div>
+    <div class="row"><label>Date</label><input type="date" name="date"></div>
+    <section>
+      <h3>Clinical Suspicion of Sepsis — Signs Observed</h3>
+      <div class="wrap"><table><thead><tr><th>Parameter</th><th>Patient's Condition</th></tr></thead>
+        <tbody id="sepsis-signs-body"></tbody></table></div>
+    </section>
+    <section>
+      <h3>Hourly Vitals</h3>
+      <div class="wrap"><table><thead><tr><th>Time</th><th>HR</th><th>MAP</th></tr></thead>
+        <tbody id="vitals-body"></tbody></table></div>
+      <button type="button">+ Add Row</button>
+    </section>
+    <script>
+      ['Chills, rigors', 'CRT > 3 seconds'].forEach(function (sign) {
+        document.getElementById('sepsis-signs-body').appendChild(document.createElement('tr'));
+      });
+    </script>`;
+
+  /** What that page looks like once its script has run. */
+  const sepsisRendered = sepsis
+    .replace(
+      '<tbody id="sepsis-signs-body"></tbody>',
+      `<tbody id="sepsis-signs-body">
+         <tr><td>Chills, rigors</td><td><select><option>Present</option><option>Absent</option></select></td></tr>
+         <tr><td>CRT > 3 seconds</td><td><select><option>Present</option><option>Absent</option></select></td></tr>
+       </tbody>`,
+    )
+    .replace(
+      '<tbody id="vitals-body"></tbody>',
+      '<tbody id="vitals-body"><tr><td><input type="time"></td><td><input></td><td><input></td></tr></tbody>',
+    );
+
+  it('renders a page that builds fields at runtime even when the markup is full of them', async () => {
+    render.mockClear();
+    render.mockResolvedValue({ status: 'rendered', html: sepsisRendered });
+
+    const warnings: string[] = [];
+    const result = await extractSource(sepsis, warnings);
+
+    expect(render).toHaveBeenCalledOnce();
+    expect(result.cleanedHtml).toContain('Chills, rigors');
+    expect(warnings.join(' ')).toMatch(/builds part of its form with JavaScript/);
+  });
+
+  it('keeps the repeating-log hint the render erased', async () => {
+    // Running the page put a blank row in the vitals <tbody>, which is the very
+    // evidence the recordTable hint is read from. Losing it would trade a whole
+    // hourly chart for the rows the render recovered elsewhere.
+    render.mockClear();
+    render.mockResolvedValue({ status: 'rendered', html: sepsisRendered });
+
+    const result = await extractSource(sepsis, []);
+
+    expect(extractFormHtml(sepsisRendered).repeatingTables).toEqual([]);
+    expect(result.repeatingTables).toHaveLength(1);
+    expect(result.repeatingTables[0].addLabel).toBe('+ Add Row');
+  });
+
+  it('says so when the browser is unavailable and the fields stay unread', async () => {
+    render.mockClear();
+    render.mockResolvedValue({ status: 'unavailable', detail: 'no chromium' });
+
+    const warnings: string[] = [];
+    const result = await extractSource(sepsis, warnings);
+
+    expect(result.cleanedHtml).not.toContain('Chills, rigors');
+    expect(warnings.join(' ')).toMatch(/#sepsis-signs-body/);
+    expect(warnings.join(' ')).toMatch(/nothing was invented/);
+  });
+
+  it('stays quiet once the render has filled the container', async () => {
+    render.mockClear();
+    render.mockResolvedValue({ status: 'rendered', html: sepsisRendered });
+
+    const warnings: string[] = [];
+    await extractSource(sepsis, warnings);
+
+    expect(warnings.join(' ')).not.toMatch(/#sepsis-signs-body/);
+  });
+
+  it('discounts the blank log rows the render added from the size budget', async () => {
+    // The restored hint means the log converts to ONE recordTable holding a
+    // single row's worth of fields, so charging the budget for three identical
+    // blank rows would reject a sheet the model can comfortably emit.
+    render.mockClear();
+    const threeRows = sepsisRendered.replace(
+      '<tbody id="vitals-body"><tr><td><input type="time"></td><td><input></td><td><input></td></tr></tbody>',
+      `<tbody id="vitals-body">
+         <tr><td><input type="time"></td><td><input></td><td><input></td></tr>
+         <tr><td><input type="time"></td><td><input></td><td><input></td></tr>
+         <tr><td><input type="time"></td><td><input></td><td><input></td></tr>
+       </tbody>`,
+    );
+    render.mockResolvedValue({ status: 'rendered', html: threeRows });
+
+    const result = await extractSource(sepsis, []);
+    const rendered = extractFormHtml(threeRows).stats;
+
+    // Two of the three vitals rows (6 fields) are discounted; the recovered
+    // checklist is not.
+    expect(result.stats.fields).toBe(rendered.fields - 6);
+    expect(result.stats.tableRows).toBe(rendered.tableRows - 2);
+    expect(result.cleanedHtml).toContain('Chills, rigors');
+  });
+
+  it('never discounts an ordinary data table', async () => {
+    render.mockClear();
+    // Same page, but the render leaves the vitals log empty — the hint is not
+    // restored, so nothing is discounted and the counts are the render's own.
+    const emptyLog = sepsisRendered.replace(
+      /<tbody id="vitals-body">[\s\S]*?<\/tbody>/,
+      '<tbody id="vitals-body"></tbody>',
+    );
+    render.mockResolvedValue({ status: 'rendered', html: emptyLog });
+
+    const result = await extractSource(sepsis, []);
+
+    expect(result.stats.fields).toBe(extractFormHtml(emptyLog).stats.fields);
+  });
+
+  it('does not render an ordinary add-a-row log on its own', async () => {
+    // Its markup already describes it: header row + add control = recordTable.
+    render.mockClear();
+    const log = `
+      <input type="text" name="patient">
+      <table><thead><tr><th>Time</th><th>HR</th></tr></thead><tbody id="vitals-body"></tbody></table>
+      <button type="button">+ Add Row</button>
+      <script>document.getElementById('vitals-body').appendChild(row());</script>`;
+
+    const result = await extractSource(log, []);
+
+    expect(render).not.toHaveBeenCalled();
+    expect(result.repeatingTables).toHaveLength(1);
+  });
+});
 
 describe('interaction probing', () => {
   const render = vi.mocked(renderHtmlToDomWithOutcome);

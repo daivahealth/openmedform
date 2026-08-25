@@ -220,6 +220,6 @@ Setup notes:
   [PDF-TO-FORM](../features/PDF-TO-FORM.md#mock-ups-that-build-their-form-with-javascript).
 - **Conversion size caps** are env-tunable on the API service:
   `CONVERSION_MAX_FIELDS`, `CONVERSION_MAX_TABLE_ROWS`, `CONVERSION_MAX_TOKENS`,
-  `CONVERSION_MAX_SOURCE_CHARS` (defaults 120 / 120 / 32 768 / 24 000; they
+  `CONVERSION_MAX_SOURCE_CHARS` (defaults 160 / 160 / 40 960 / 32 000; they
   move together). Raise only when every configured provider can emit the larger
   output — see [PDF-TO-FORM](../features/PDF-TO-FORM.md#size-and-complexity-limits).

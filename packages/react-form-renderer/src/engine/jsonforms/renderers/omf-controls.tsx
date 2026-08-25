@@ -32,6 +32,7 @@ import {
 import type { UiRule } from '@openmedform/form-schema-types';
 import {
   collectScoreItems,
+  showsSectionSubtotal,
   computeScore,
   filterVisibleElements,
   resolveEnumOptions,
@@ -370,10 +371,15 @@ function OmfGroup(props: LayoutProps) {
   const data = ctx.core?.data ?? {};
 
   // Live section subtotal: sum this box's own scored (omf.points) descendants
-  // against the whole-form data. Memoized so the tree walk runs only when the
-  // schema changes and the sum only when data changes — not on every JsonForms
-  // state emission (validation/focus/…) that re-renders this component.
-  const scoreItems = useMemo(() => collectScoreItems(group as never), [group]);
+  // against the whole-form data — but only where a total belongs, which is the
+  // innermost scoring section unless the definition says otherwise (see
+  // showsSectionSubtotal). Memoized so the tree walk runs only when the schema
+  // changes and the sum only when data changes — not on every JsonForms state
+  // emission (validation/focus/…) that re-renders this component.
+  const scoreItems = useMemo(
+    () => (showsSectionSubtotal(group as never) ? collectScoreItems(group as never) : []),
+    [group],
+  );
   const subtotal = useMemo(
     () => (scoreItems.length ? computeScore(scoreItems, data).total : undefined),
     [scoreItems, data],
@@ -385,9 +391,6 @@ function OmfGroup(props: LayoutProps) {
   const accent = typeof omf?.accentColor === 'string' ? (omf.accentColor as string) : undefined;
   const rawIcon = typeof omf?.icon === 'string' ? (omf.icon as string) : undefined;
   const legend = Array.isArray(omf?.pointLegend) ? (omf!.pointLegend as number[]) : undefined;
-  // The author opted this section out of its automatic subtotal badge.
-  // Scoring is unaffected — the items still feed the grand total.
-  const hideTotal = omf?.hideSectionTotal === true;
   const borderColor = accent ?? 'var(--omf-color-border, #c8cdd4)';
   // Avoid a double glyph when the AI also embedded the icon in the label text.
   const labelText = typeof group.label === 'string' ? group.label : '';
@@ -467,7 +470,7 @@ function OmfGroup(props: LayoutProps) {
               ))}
             </span>
           ) : null}
-          {subtotal !== undefined && !hideTotal ? (
+          {subtotal !== undefined ? (
             <span
               style={{
                 flex: '0 0 auto',

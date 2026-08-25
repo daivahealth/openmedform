@@ -45,6 +45,7 @@ import {
 } from '@jsonforms/core';
 import {
   collectScoreItems,
+  showsSectionSubtotal,
   computeScore,
   filterVisibleElements,
   hasElementRules,
@@ -160,7 +161,7 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
                 }
               </span>
             }
-            @if (subtotal !== null && !hideSectionTotal) {
+            @if (subtotal !== null) {
               <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
             }
           </div>
@@ -201,10 +202,6 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
     const c = readOmf(this.uischema)?.['accentColor'];
     return typeof c === 'string' ? c : null;
   }
-  /** Author opted out of the automatic subtotal badge; scoring unaffected. */
-  get hideSectionTotal(): boolean {
-    return readOmf(this.uischema)?.['hideSectionTotal'] === true;
-  }
   get icon(): string | null {
     const i = readOmf(this.uischema)?.['icon'];
     if (typeof i !== 'string') return null;
@@ -226,8 +223,15 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
 
   ngOnInit(): void {
     super.ngOnInit(); // rule subscription
-    const items = this.uischema ? collectScoreItems(this.uischema as never) : [];
-    if (items.length === 0) return; // non-scored boxes never subscribe.
+    // Only the section a total BELONGS to computes one — the innermost scoring
+    // box, unless the definition overrides it (see showsSectionSubtotal). An
+    // ancestor of scoring sections used to draw a Σ of its children's points,
+    // which no paper form does.
+    const items =
+      this.uischema && showsSectionSubtotal(this.uischema as never)
+        ? collectScoreItems(this.uischema as never)
+        : [];
+    if (items.length === 0) return; // boxes with no total of their own never subscribe.
     // Recompute the subtotal only when the response data changes — not on every
     // $state emission (validation/config/focus), which multiplied across every
     // scored group was a perf hot-spot.

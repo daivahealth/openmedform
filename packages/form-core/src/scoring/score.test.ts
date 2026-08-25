@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { collectScoreItems, computeScore, scoreUiSchema, stratify } from './score';
-import type { UiSchema } from '@openmedform/form-schema-types';
+import { collectScoreItems, computeScore, scoreUiSchema, showsSectionSubtotal, stratify } from './score';
+import type { UiSchema, UiSchemaElement } from '@openmedform/form-schema-types';
 
 const ui: UiSchema = {
   schemaVersion: '1.0',
@@ -66,5 +66,66 @@ describe('form-core scoring', () => {
     const r = scoreUiSchema(ui, data, bands);
     expect(r.total).toBe(4);
     expect(r.riskLabel).toBe('Moderate');
+  });
+});
+
+describe('showsSectionSubtotal', () => {
+  // The Sepsis sheet: two scoring boxes (qSOFA, SIRS) inside "Scoring Systems"
+  // inside the screening section. The paper totals qSOFA and SIRS, nothing else.
+  const qsofa = {
+    type: 'Group',
+    label: 'qSOFA',
+    elements: [
+      { type: 'Control', scope: '#/properties/qsofa/properties/hypotension', options: { omf: { points: 1 } } },
+    ],
+  } as UiSchemaElement;
+  const scoringSystems = {
+    type: 'Group',
+    label: 'Scoring Systems',
+    elements: [qsofa],
+  } as UiSchemaElement;
+  const screening = {
+    type: 'Group',
+    label: 'Sepsis Screening Tool',
+    elements: [{ type: 'Control', scope: '#/properties/consultant' }, scoringSystems],
+  } as UiSchemaElement;
+
+  it('draws the chip on the innermost scoring section', () => {
+    expect(showsSectionSubtotal(qsofa)).toBe(true);
+  });
+
+  it('leaves every ancestor of a scoring section quiet', () => {
+    expect(showsSectionSubtotal(scoringSystems)).toBe(false);
+    expect(showsSectionSubtotal(screening)).toBe(false);
+  });
+
+  it('says no for a section with nothing scored in it at all', () => {
+    expect(
+      showsSectionSubtotal({
+        type: 'Group',
+        label: 'Demographics',
+        elements: [{ type: 'Control', scope: '#/properties/name' }],
+      } as UiSchemaElement),
+    ).toBe(false);
+  });
+
+  it('honours an explicit showSectionTotal on an outer box that really totals', () => {
+    expect(
+      showsSectionSubtotal({ ...scoringSystems, options: { omf: { showSectionTotal: true } } } as UiSchemaElement),
+    ).toBe(true);
+  });
+
+  it('lets hideSectionTotal win over everything', () => {
+    expect(
+      showsSectionSubtotal({
+        ...qsofa,
+        options: { omf: { hideSectionTotal: true, showSectionTotal: true } },
+      } as UiSchemaElement),
+    ).toBe(false);
+  });
+
+  it('does not change what scoring itself collects', () => {
+    // The chip is display only: every item still feeds the grand total.
+    expect(collectScoreItems(screening)).toHaveLength(1);
   });
 });
