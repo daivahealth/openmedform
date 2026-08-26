@@ -166,6 +166,12 @@ export interface HtmlExtractResult {
    */
   scriptToggledSections: ScriptToggledSectionHint[];
   /**
+   * Visible elements whose TEXT the mock-up's script computes at runtime — a
+   * result banner, a live total. The markup only carries a placeholder; see
+   * `ScriptComputedTextHint`.
+   */
+  scriptComputedText: ScriptComputedTextHint[];
+  /**
    * Named literal config parsed out of the mock-up's scripts — option lists,
    * threshold bands, reference tables. Always empty unless the upload opted in
    * via `extractScriptConfig`.
@@ -271,6 +277,9 @@ export function extractFormHtml(
     html,
   );
   for (const el of revealSections) reveal.add(el);
+  // Elements the script does not reveal but REWRITES: their text in the markup
+  // is whatever they said before the page ran, never a real label.
+  const scriptComputedText = findScriptComputedText(root, html);
 
   let strippedTags = 0;
   for (const el of root.querySelectorAll('*')) {
@@ -355,6 +364,15 @@ export function extractFormHtml(
         'not from the script.',
     );
   }
+  if (scriptComputedText.length > 0) {
+    warnings.push(
+      `${scriptComputedText.length} element(s) have their text COMPUTED by this mock-up's script ` +
+        `(${scriptComputedText.map((c) => `${c.selector}: "${c.placeholder}"`).join(', ')}). ` +
+        'The text shown is only the placeholder the markup shipped with, not a real label — the ' +
+        'scripts were never run. The outcomes were rebuilt from the form\'s own stated rules and ' +
+        'their wording is the converter\'s, so check it reads the way your unit expects.',
+    );
+  }
   if (commentsRemoved > 0) {
     warnings.push(`Removed ${commentsRemoved} HTML comment(s).`);
   }
@@ -384,6 +402,7 @@ export function extractFormHtml(
     transposedMatrices,
     conditionalFields,
     scriptToggledSections,
+    scriptComputedText,
     scriptConfig: scriptConfig.entries,
   };
 }
@@ -729,15 +748,24 @@ function scriptText(html: string): string {
   return combined;
 }
 
-/** Selectors a script toggles the visibility of, in source order. */
-function toggledSelectors(scripts: string): string[] {
-  // Pass 1: variable -> selector, so a toggle far from the lookup still resolves.
+/**
+ * Variable name -> the selector it was bound to, so a later use far from the
+ * lookup still resolves (`const row2 = getElementById('cam-row-2')` … 40 lines
+ * on … `row2.style.display = ''`). Shared by both script detectors below.
+ */
+function boundSelectors(scripts: string): Map<string, string> {
   const bound = new Map<string, string>();
   for (const m of scripts.matchAll(LOOKUP_ASSIGN)) {
     const name = m[1];
     const selector = m[2] !== undefined ? `#${m[2]}` : m[3];
     if (name && selector) bound.set(name, selector);
   }
+  return bound;
+}
+
+/** Selectors a script toggles the visibility of, in source order. */
+function toggledSelectors(scripts: string): string[] {
+  const bound = boundSelectors(scripts);
 
   const selectors: string[] = [];
   const add = (selector: string | undefined) => {
@@ -866,6 +894,107 @@ function unhide(el: HTMLElement): void {
     if (kept) el.setAttribute('class', kept);
     else el.removeAttribute('class');
   }
+}
+
+/**
+ * An element whose TEXT the mock-up's script writes at runtime — a computed
+ * result banner, a live total, a derived risk level.
+ *
+ * The markup carries only whatever the element happened to say before the
+ * script first ran. On the CAM-ICU worksheet that is
+ * "Overall result: select all four features to calculate", while every real
+ * outcome ("CAM-ICU POSITIVE (Delirium Present) …") is assigned inside
+ * `calcCam()`. Emitting the placeholder as if it were a label is worse than
+ * emitting nothing: it reads as a real instruction and is wrong in every state
+ * the form can reach — this one even tells the nurse to answer four features on
+ * a form designed to need three.
+ *
+ * Reported so the converter can tell the model the text is a placeholder and to
+ * rebuild the outcomes as rule-gated Labels instead.
+ */
+export interface ScriptComputedTextHint {
+  /** How the script addresses it, e.g. '#cam-result'. */
+  selector: string;
+  /** The placeholder currently in the markup, for the model to recognise. */
+  placeholder: string;
+}
+
+/** At most this many computed-text elements are reported per document. */
+const MAX_COMPUTED_TEXT = 12;
+
+/**
+ * Cap on a reported placeholder. Unlike the hidden-section carve-out this adds
+ * NO new text to the prompt — the element is visible, so its placeholder is
+ * already in the cleaned HTML — but a runaway string would still be noise.
+ */
+const MAX_PLACEHOLDER_CHARS = 160;
+
+/** `banner.textContent = …` / `.innerText` / `.innerHTML` on a bound variable. */
+const VAR_TEXT_WRITE =
+  /([A-Za-z_$][\w$]*)\s*\.\s*(?:textContent|innerText|innerHTML)\s*=/g;
+
+/** The one-liner form: `document.getElementById('x').textContent = …`. */
+const DIRECT_TEXT_WRITE =
+  /document\s*\.\s*(?:getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)|querySelector\s*\(\s*['"]([^'"]+)['"]\s*\))\s*\.\s*(?:textContent|innerText|innerHTML)\s*=/g;
+
+/** Selectors whose text content a script rewrites, in source order. */
+function rewrittenTextSelectors(scripts: string): string[] {
+  const bound = boundSelectors(scripts);
+  const selectors: string[] = [];
+  const add = (selector: string | undefined) => {
+    if (selector && !selectors.includes(selector)) selectors.push(selector);
+  };
+
+  for (const m of scripts.matchAll(VAR_TEXT_WRITE)) add(bound.get(m[1] ?? ''));
+  for (const m of scripts.matchAll(DIRECT_TEXT_WRITE)) {
+    add(m[1] !== undefined ? `#${m[1]}` : m[2]);
+  }
+  return selectors;
+}
+
+/**
+ * Find visible elements whose text the page's own script computes.
+ *
+ * Same resolution as `findScriptToggledSections` and the same limit: scripts
+ * are read for the WRITE TARGET only, never for the logic that produces the
+ * value. What the outcomes are, and what triggers each one, has to come from
+ * the form's own visible text — on CAM-ICU the rule is stated in plain sight
+ * ("POSITIVE only if Feature 1 is present AND Feature 2 is present AND
+ * (Feature 3 is present OR Feature 4 is present)"), which is exactly what the
+ * model is pointed at.
+ *
+ * Unlike the hidden-section carve-out this opens no channel at all: these
+ * elements are VISIBLE, so their text is already in the cleaned HTML. Nothing
+ * new reaches the model; the element is simply identified as computed.
+ */
+function findScriptComputedText(root: HTMLElement, html: string): ScriptComputedTextHint[] {
+  const scripts = scriptText(html);
+  if (!scripts.trim()) return [];
+
+  const hints: ScriptComputedTextHint[] = [];
+  for (const selector of rewrittenTextSelectors(scripts)) {
+    if (hints.length >= MAX_COMPUTED_TEXT) break;
+
+    let el: HTMLElement | null = null;
+    try {
+      el = root.querySelector(selector);
+    } catch {
+      continue;
+    }
+    if (!el) continue;
+    // A hidden one is the toggled-section case (or stripped); not this.
+    if (isHidden(el)) continue;
+    // A result banner is OUTPUT. An element wrapping inputs is a container the
+    // script happens to write into, and replacing it would cost real fields.
+    if (el.querySelectorAll('input, select, textarea').length > 0) continue;
+
+    const placeholder = el.text.replace(/\s+/g, ' ').trim();
+    if (!placeholder || placeholder.length > MAX_PLACEHOLDER_CHARS) continue;
+    if (hints.some((h) => h.selector === selector)) continue;
+
+    hints.push({ selector, placeholder });
+  }
+  return hints;
 }
 
 /** Containers a browser would populate at runtime; we never execute the page. */

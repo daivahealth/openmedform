@@ -128,6 +128,40 @@ never asked does not belong in the record). `renderPrintHtml`'s `rules: 'apply' 
 'ignore'` overrides either default. Only visibility applies — `ENABLE`/`DISABLE`
 have no meaning on paper, so a disabled field still prints.
 
+### Computed outcomes
+
+A condition's `scope` may be `#`, which resolves to the **whole response** rather
+than one field, so its `schema` can combine several answers with ordinary JSON
+Schema — `properties` + `required` for AND, `anyOf` for OR. That is how a form
+states a derived clinical result without any expression language: one `Label`
+per outcome, each carrying the condition for its own case.
+
+```jsonc
+{ "type": "Label", "text": "Overall result: CAM-ICU POSITIVE (Delirium Present)",
+  "rule": { "effect": "SHOW", "condition": { "scope": "#", "schema": {
+    "type": "object",
+    "properties": { "feature1": { "const": "PRESENT" }, "feature2": { "const": "PRESENT" } },
+    "required": ["feature1", "feature2"],
+    "anyOf": [
+      { "properties": { "feature3": { "const": "PRESENT" } }, "required": ["feature3"] },
+      { "properties": { "feature4": { "const": "PRESENT" } }, "required": ["feature4"] }
+    ] } } } }
+```
+
+Two rules to get right:
+
+- **List every field the case depends on in `required`.** Without it an empty
+  response satisfies `properties` vacuously and every outcome shows at once.
+- **Keep outcomes mutually exclusive** — exactly one may match any response.
+
+This is for a result the source states in *prose*. A numeric total mapped to
+risk levels is `scoreSummary` with `omf.bands`, and scoring stays authoritative
+on the server either way — an outcome Label is display, never the record.
+
+Conversion emits these automatically when a mock-up computes a result banner in
+JavaScript; see
+[Computed result text](PDF-TO-FORM.md#computed-result-text-a-banner-the-script-writes).
+
 ## Removing Forms
 
 The forms list (`/forms`) offers two removal actions:

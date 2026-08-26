@@ -813,6 +813,51 @@ JSON schema values, the whole subtree still passes the tag and attribute
 allow-lists, and the prompt frames the markup as untrusted source material. Every
 adversarial case in the table is covered by a test in `html-extract.test.ts`.
 
+### Computed result text (a banner the script writes)
+
+Progressive disclosure recovers the *questions*. A worksheet that also computes
+an **answer** hides that somewhere the converter must not read — the script.
+CAM-ICU ships one placeholder in its markup:
+
+```html
+<div id="cam-result" class="result-banner neutral">Overall result: select all four features to calculate</div>
+```
+
+while every real outcome is assigned at runtime (`banner.textContent = 'Overall
+result: CAM-ICU POSITIVE (Delirium Present) …'`). Emitted verbatim, that
+placeholder becomes a label that is wrong in **every** state the form can reach
+— this one even tells the nurse to answer four features on a form designed to
+need three. Worse than a gap, because it reads as a real instruction.
+
+`findScriptComputedText()` reports visible elements whose text a script writes,
+resolved the same way as the visibility toggles and with the same hard limit:
+**the write target only, never the logic that produces the value.** The element
+must be visible and must contain no inputs — a script writing into a wrapper is
+not a result banner, and treating it as one would cost the fields inside it.
+
+This opens no injection channel at all: the elements are visible, so their text
+is already in the cleaned HTML. Nothing new reaches the model; the element is
+simply identified as computed.
+
+**Where the outcome comes from.** Not the script — the form's own words. CAM-ICU
+states its rule in plain sight, in markup the model already receives:
+
+> CAM-ICU is POSITIVE only if Feature 1 is present AND Feature 2 is present AND
+> (Feature 3 is present OR Feature 4 is present).
+
+The model is told to drop the placeholder and rebuild that as one `Label` per
+outcome, each gated by a root-scope condition — see
+[Computed outcomes](FORM-BUILDER.md#computed-outcomes) for the shape and the two
+rules that make it behave (`required` on every field the case depends on, and
+mutually exclusive outcomes).
+
+**The wording is the converter's, so it is flagged.** The source's own phrasing
+lived in the script and was never run, so the model composes the outcome text
+from the form's title and rule sentence. That is a real judgement on a clinical
+form, so it comes with an `UNCLEAR_LABEL` warning naming the result element, and
+a conversion warning telling the reviewer to check it reads the way the unit
+expects. **Read the outcome labels before publishing a converted worksheet.**
+
 ### Reading config from scripts (opt-in)
 
 Scripts are stripped before anything reaches the model. That is the right

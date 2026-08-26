@@ -114,3 +114,73 @@ describe('hasElementRules', () => {
     expect(hasElementRules([{}, { rule: spo2Low }])).toBe(true);
   });
 });
+
+describe('root-scope conditions (multi-field outcomes)', () => {
+  /**
+   * A condition scope of `#` resolves to the whole response, so one rule can
+   * combine several fields — which is what a computed clinical outcome needs.
+   * CAM-ICU is POSITIVE iff Feature 1 AND Feature 2 AND (Feature 3 OR Feature 4).
+   *
+   * `required` matters as much as `properties`: without it an unanswered form
+   * satisfies `properties` vacuously and every outcome shows at once.
+   */
+  const camPositive: UiRule = {
+    effect: 'SHOW',
+    condition: {
+      scope: '#',
+      schema: {
+        type: 'object',
+        properties: { feature1: { const: 'PRESENT' }, feature2: { const: 'PRESENT' } },
+        required: ['feature1', 'feature2'],
+        anyOf: [
+          { properties: { feature3: { const: 'PRESENT' } }, required: ['feature3'] },
+          { properties: { feature4: { const: 'PRESENT' } }, required: ['feature4'] },
+        ],
+      },
+    },
+  };
+
+  const shows = (data: unknown) => evaluateElementState({ rule: camPositive }, data).visible;
+
+  it('is hidden until the form is actually answered', () => {
+    expect(shows({})).toBe(false);
+    expect(shows({ feature1: 'PRESENT', feature2: 'PRESENT' })).toBe(false);
+  });
+
+  it('shows on either qualifying path', () => {
+    expect(shows({ feature1: 'PRESENT', feature2: 'PRESENT', feature3: 'PRESENT' })).toBe(true);
+    expect(
+      shows({ feature1: 'PRESENT', feature2: 'PRESENT', feature3: 'ABSENT', feature4: 'PRESENT' }),
+    ).toBe(true);
+  });
+
+  it('stays hidden when any conjunct fails', () => {
+    expect(shows({ feature1: 'ABSENT' })).toBe(false);
+    expect(shows({ feature1: 'PRESENT', feature2: 'ABSENT' })).toBe(false);
+    expect(
+      shows({ feature1: 'PRESENT', feature2: 'PRESENT', feature3: 'ABSENT', feature4: 'ABSENT' }),
+    ).toBe(false);
+  });
+
+  it('reads nested properties through the root scope too', () => {
+    const nested: UiRule = {
+      effect: 'SHOW',
+      condition: {
+        scope: '#',
+        schema: {
+          type: 'object',
+          properties: {
+            assessment: {
+              type: 'object',
+              properties: { spo2: { type: 'integer', maximum: 91 } },
+              required: ['spo2'],
+            },
+          },
+          required: ['assessment'],
+        },
+      },
+    };
+    expect(evaluateElementState({ rule: nested }, { assessment: { spo2: 88 } }).visible).toBe(true);
+    expect(evaluateElementState({ rule: nested }, { assessment: { spo2: 98 } }).visible).toBe(false);
+  });
+});

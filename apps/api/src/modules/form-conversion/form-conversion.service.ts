@@ -412,6 +412,38 @@ export class FormConversionService {
           'warning naming it — always-visible is recoverable, dropped is not.\n\n';
       }
 
+      // An element whose text the script computes. The markup carries only the
+      // placeholder it shipped with, and emitted verbatim that becomes a label
+      // that is wrong in every state the form can reach. The outcomes ARE
+      // recoverable — the rule is usually written on the form in plain sight —
+      // so point the model at that rather than at the dead string.
+      if (extracted.scriptComputedText.length > 0) {
+        userPrompt +=
+          'COMPUTED RESULT: the text of these elements is written by JavaScript at runtime, so ' +
+          'what the markup shows is a PLACEHOLDER, not a label: ' +
+          extracted.scriptComputedText.map((c) => `"${c.placeholder}"`).join(', ') +
+          '. Do NOT emit that text as a "Label" — it is wrong in every state the form can reach.\n' +
+          'Instead, find where the form STATES its own result rule in visible text (a hint or ' +
+          'scoring line such as "X is POSITIVE only if Feature 1 is present AND Feature 2 is ' +
+          'present AND (Feature 3 is present OR Feature 4 is present)") and emit ONE "Label" per ' +
+          'outcome that rule describes, each shown only in its own case. A rule condition may ' +
+          'have "scope": "#", which matches the WHOLE response, so one condition can combine ' +
+          'several fields:\n' +
+          '  { "type": "Label", "text": "<the outcome, in the source\'s language>",\n' +
+          '    "rule": { "effect": "SHOW", "condition": { "scope": "#", "schema": {\n' +
+          '      "type": "object",\n' +
+          '      "properties": { "feature1": { "const": "PRESENT" }, "feature2": { "const": "PRESENT" } },\n' +
+          '      "required": ["feature1", "feature2"],\n' +
+          '      "anyOf": [ { "properties": { "feature3": { "const": "PRESENT" } }, "required": ["feature3"] },\n' +
+          '                 { "properties": { "feature4": { "const": "PRESENT" } }, "required": ["feature4"] } ] } } } }\n' +
+          'Use the property NAMES and enum CODES you actually emitted, and "required" on every ' +
+          'field the case depends on so an unanswered form shows no outcome at all. Cover each ' +
+          'outcome the rule names (positive and negative), and keep them mutually exclusive.\n' +
+          "Because the wording of the outcome is yours — the source's own wording lived in the " +
+          'script, which was never run — add an UNCLEAR_LABEL warning naming the result element ' +
+          'so a clinician checks the phrasing before publishing.\n\n';
+      }
+
       // Config the mock-up kept in its scripts: option lists, threshold bands,
       // reference tables. Only present when the uploader opted in. It is
       // attacker-controlled exactly like the markup, so it is framed the same
