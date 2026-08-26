@@ -323,6 +323,70 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     expect(document.querySelectorAll('tbody > tr').length).toBe(1);
   });
 
+  it('shows a computed-outcome Label only when its multi-field rule matches', () => {
+    // The CAM-ICU result banner. Its text lived only in the source page's
+    // script, so the outcome is rebuilt as one Label per case, each gated by a
+    // root-scope ("#") condition combining several answers.
+    const outcome = (text: string, schema: object) => ({
+      type: 'Label',
+      text,
+      rule: { effect: 'SHOW', condition: { scope: '#', schema } },
+    });
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          feature1: { type: 'string', title: 'Feature 1', enum: ['PRESENT', 'ABSENT'] },
+          feature2: { type: 'string', title: 'Feature 2', enum: ['PRESENT', 'ABSENT'] },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Control', scope: '#/properties/feature1' },
+            { type: 'Control', scope: '#/properties/feature2' },
+            outcome('CAM-ICU POSITIVE (Delirium Present)', {
+              type: 'object',
+              properties: { feature1: { const: 'PRESENT' }, feature2: { const: 'PRESENT' } },
+              required: ['feature1', 'feature2'],
+            }),
+            outcome('CAM-ICU NEGATIVE (No Delirium)', {
+              type: 'object',
+              required: ['feature1'],
+              anyOf: [
+                { properties: { feature1: { const: 'ABSENT' } }, required: ['feature1'] },
+                { properties: { feature2: { const: 'ABSENT' } }, required: ['feature2'] },
+              ],
+            }),
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    // Unanswered: neither outcome claims a result.
+    expect(screen.queryByText(/CAM-ICU POSITIVE/)).toBeNull();
+    expect(screen.queryByText(/CAM-ICU NEGATIVE/)).toBeNull();
+
+    const [f1, f2] = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+    fireEvent.change(f1, { target: { value: 'PRESENT' } });
+    // One conjunct satisfied is not an outcome.
+    expect(screen.queryByText(/CAM-ICU POSITIVE/)).toBeNull();
+
+    fireEvent.change(f2, { target: { value: 'PRESENT' } });
+    expect(screen.getByText(/CAM-ICU POSITIVE/)).toBeTruthy();
+    expect(screen.queryByText(/CAM-ICU NEGATIVE/)).toBeNull();
+
+    // …and the outcomes stay mutually exclusive as answers change.
+    fireEvent.change(f2, { target: { value: 'ABSENT' } });
+    expect(screen.getByText(/CAM-ICU NEGATIVE/)).toBeTruthy();
+    expect(screen.queryByText(/CAM-ICU POSITIVE/)).toBeNull();
+  });
+
   it('preserves line breaks in a multi-line bulleted Label', () => {
     const def: JsonFormsFormDefinition = {
       ...rrtSbarReference,

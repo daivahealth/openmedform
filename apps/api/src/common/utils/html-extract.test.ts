@@ -771,3 +771,99 @@ describe('extractFormHtml — script-toggled (progressive-disclosure) sections',
     expect(scriptToggledSections.length).toBeLessThanOrEqual(12);
   });
 });
+
+describe('extractFormHtml — script-computed result text', () => {
+  /**
+   * The CAM-ICU banner: one placeholder in the markup, every real outcome
+   * assigned inside the script.
+   */
+  const banner = (
+    placeholder = 'Overall result: select all four features to calculate',
+    script = `
+      const el = document.getElementById('cam-result');
+      function calc(){ el.textContent = 'Overall result: CAM-ICU POSITIVE'; }
+      document.querySelector('select').addEventListener('change', calc);`,
+    extra = '',
+  ) => `
+    <select><option>Present</option><option>Absent</option></select>
+    <div id="cam-result">${placeholder}</div>
+    ${extra}
+    <script>${script}</script>`;
+
+  it('reports the element and the placeholder it shipped with', () => {
+    const { scriptComputedText } = extractFormHtml(banner());
+
+    expect(scriptComputedText).toEqual([
+      {
+        selector: '#cam-result',
+        placeholder: 'Overall result: select all four features to calculate',
+      },
+    ]);
+  });
+
+  it('resolves a write made inline rather than through a variable', () => {
+    const { scriptComputedText } = extractFormHtml(
+      banner(
+        undefined,
+        `document.getElementById('cam-result').innerHTML = 'x';
+         document.querySelector('select').addEventListener('change', () => {});`,
+      ),
+    );
+    expect(scriptComputedText[0]?.selector).toBe('#cam-result');
+  });
+
+  it('says in a warning that the wording is the converter\'s to check', () => {
+    const { warnings } = extractFormHtml(banner());
+    const text = warnings.join(' ');
+    expect(text).toMatch(/text COMPUTED by this mock-up's script/);
+    expect(text).toContain('#cam-result');
+    expect(text).toMatch(/check it reads the way your unit expects/);
+  });
+
+  it('leaves the placeholder in the markup — the model needs to see it in place', () => {
+    // It is removed by the MODEL, which is told it is a placeholder; stripping
+    // it here would lose where on the form the result belongs.
+    const { cleanedHtml } = extractFormHtml(banner());
+    expect(cleanedHtml).toContain('Overall result: select all four features');
+  });
+
+  it('ignores an element the script never writes to', () => {
+    const { scriptComputedText } = extractFormHtml(
+      banner(undefined, `document.querySelector('select').addEventListener('change', () => {});`),
+    );
+    expect(scriptComputedText).toEqual([]);
+  });
+
+  it('ignores an empty element — there is no misleading placeholder to fix', () => {
+    const { scriptComputedText } = extractFormHtml(`
+      <select><option>a</option></select>
+      <span id="status"></span>
+      <script>
+        const el = document.getElementById('status');
+        el.textContent = 'Saved.';
+        document.querySelector('select').addEventListener('change', () => {});
+      </script>`);
+    expect(scriptComputedText).toEqual([]);
+  });
+
+  it('never claims a container that holds real fields', () => {
+    // A script that writes into a wrapper is not a result banner, and treating
+    // it as one would cost the fields inside it.
+    const { scriptComputedText } = extractFormHtml(`
+      <div id="wrap">Totals <input type="text" name="total"></div>
+      <select><option>a</option></select>
+      <script>
+        const w = document.getElementById('wrap');
+        w.innerHTML = 'rebuilt';
+        document.querySelector('select').addEventListener('change', () => {});
+      </script>`);
+    expect(scriptComputedText).toEqual([]);
+  });
+
+  it('does not report a HIDDEN element — that is the toggled-section case', () => {
+    const { scriptComputedText } = extractFormHtml(
+      banner('placeholder text').replace('<div id="cam-result">', '<div id="cam-result" style="display:none">'),
+    );
+    expect(scriptComputedText).toEqual([]);
+  });
+});

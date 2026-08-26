@@ -16,7 +16,7 @@ see. So most rows below are, at heart, "a shape the detectors cannot see yet."
 | 1 | ~~Structure detection is `<table>`-only~~ — **fixed**: div/CSS-grid layouts are detected from rendered geometry | Resolved | — (requires Chromium; without it, markup-only detection as before) | [#72](https://github.com/daivahealth/openmedform/issues/72) ✅ |
 | 2 | ~~PDFs and images get no structural hints~~ — **fixed**: a vision pre-pass reads the page's table structures and emits the same hints | Resolved | — (hints are read off the page, so they are a careful reading rather than a proof; HTML remains the most reliable source) | [#73](https://github.com/daivahealth/openmedform/issues/73) ✅ |
 | 3 | ~~Hidden conditional fields are stripped~~ — **fixed**: "Other → Please specify…" and script-revealed sections now convert with a SHOW rule | Resolved | — (only those two patterns are spared; other hidden content is still stripped, and a revealed section's *condition* is inferred from the form's text, so check it in review) | [#74](https://github.com/daivahealth/openmedform/issues/74) ✅ |
-| 4 | Scripted behaviour — **partly fixed**: declarative config (option lists, thresholds, reference tables) converts with an explicit opt-in; imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; add computed/enable-disable rules in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
+| 4 | Scripted behaviour — **partly fixed**: declarative config converts with an explicit opt-in, and script-revealed sections and computed result banners are rebuilt from the form's own stated rules; other imperative behaviour still does not | Low | Tick "Read option lists from this mock-up's scripts"; check the rules and outcome wording in review; add anything else in the designer | [#75](https://github.com/daivahealth/openmedform/issues/75) ◐ |
 | 5 | ~~Click-built content missed; matrix group-boundaries inferred~~ — **fixed**: a bounded sandbox probe presses add-controls and measures the split | Resolved | — (requires Chromium; `HTML_PROBE_DISABLED=1` reverts to a single read) | [#76](https://github.com/daivahealth/openmedform/issues/76) ✅ |
 | 6 | Size caps: 160 fields / 160 table rows / 32k chars / 2 MB per HTML upload (defaults; deployment-configurable via `CONVERSION_MAX_*` env vars) | By design | Split into one file per section, or the operator raises the caps for capable providers | — |
 | 7 | Fidelity is structural, not pixel-exact | By design | Print engine reconstructs A4 from the Print Schema | — |
@@ -130,10 +130,20 @@ is told to gate it with a rule on the `OmfTableRow`. See
 [Progressive disclosure](PDF-TO-FORM.md#progressive-disclosure-script-revealed-sections)
 for the full table of what is spared and what is not.
 
-**The reveal condition is inferred, not extracted.** Scripts are parsed for the
-toggle *target* only, never for logic and never executed, so what reveals a
-section comes from the form's own visible instructions. On a stepwise form,
-check the rules in review.
+**Computed result text** is the same story one step on. A worksheet that
+computes an outcome keeps every real result string inside its script and ships
+only the placeholder its markup started with — CAM-ICU's reads "select all four
+features to calculate", which is wrong in every state the form can reach.
+`findScriptComputedText` identifies those elements so the placeholder is dropped
+rather than emitted as a label, and the outcomes are rebuilt from the rule the
+form states in prose, as one `Label` per case gated by a root-scope condition.
+
+**Conditions are inferred, not extracted — in both cases.** Scripts are read for
+the toggle or write *target* only, never for logic and never executed. What
+reveals a section, and what each outcome means, comes from the form's own visible
+instructions. The outcome *wording* is the converter's, since the source's lived
+in the script, so it ships with an `UNCLEAR_LABEL` warning. On a stepwise or
+scored form, check the rules and the outcome text in review.
 
 Anything else with `display:none` is removed and reported exactly as before.
 

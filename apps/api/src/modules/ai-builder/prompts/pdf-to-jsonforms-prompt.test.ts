@@ -67,4 +67,20 @@ describe('getPdfToJsonFormsPrompt', () => {
     expect(prompt).toContain('the rule belongs on the ROW and never on the Controls inside it');
     expect(prompt).toContain('a gated step is a real step');
   });
+  it('teaches root-scope conditions for a computed outcome', () => {
+    // The CAM-ICU result banner: its text lived only in the page's script, so
+    // the outcome has to be rebuilt from the rule the form states in prose.
+    // Without this the model has no way to express "F1 AND F2 AND (F3 OR F4)"
+    // and falls back to emitting the dead placeholder string as a Label.
+    const prompt = getPdfToJsonFormsPrompt();
+
+    expect(prompt).toContain('MULTI-FIELD CONDITIONS');
+    expect(prompt).toContain('a condition "scope" of "#" matches the WHOLE response object');
+    expect(prompt).toContain('"anyOf" for OR');
+    // required, or an unfilled form shows every outcome at once.
+    expect(prompt).toContain('shows no outcome at all rather than a false one');
+    expect(prompt).toContain('Outcomes must be mutually exclusive');
+    // A numeric instrument must not be dragged into this shape.
+    expect(prompt).toContain('a numeric total mapped to risk bands is "scoreSummary"');
+  });
 });

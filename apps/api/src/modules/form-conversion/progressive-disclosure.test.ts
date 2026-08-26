@@ -44,9 +44,14 @@ const HTML_SOURCE = `
   </tr>
 </tbody></table>
 <div>CAM-ICU is POSITIVE only if Feature 1 is present AND Feature 2 is present.</div>
+<div id="cam-result">Overall result: select all four features to calculate</div>
 <script>
   const row2 = document.getElementById('cam-row-2');
-  function calcCam(){ row2.style.display = ''; }
+  const banner = document.getElementById('cam-result');
+  function calcCam(){
+    row2.style.display = '';
+    banner.textContent = 'Overall result: CAM-ICU POSITIVE (Delirium Present)';
+  }
   document.querySelectorAll('.cam-feat').forEach(s => s.addEventListener('change', calcCam));
 </script>`;
 
@@ -140,5 +145,41 @@ describe('script-revealed sections reach the model', () => {
     const messages = warningRows.map((w) => w.message).join(' ');
     expect(messages).toMatch(/hidden until this mock-up's script reveals them/);
     expect(messages).toContain('#cam-row-2');
+  });
+});
+
+describe('script-computed result text', () => {
+  it('tells the model the banner is a placeholder, not a label', async () => {
+    const { run, prompt } = harness();
+
+    await run();
+
+    const text = prompt();
+    expect(text).toContain('COMPUTED RESULT');
+    expect(text).toContain('"Overall result: select all four features to calculate"');
+    expect(text).toContain('Do NOT emit that text as a "Label"');
+  });
+
+  it('points it at the rule the form states in prose, via a root-scope condition', async () => {
+    const { run, prompt } = harness();
+
+    await run();
+
+    const text = prompt();
+    expect(text).toContain('"scope": "#"');
+    expect(text).toContain('which matches the WHOLE response');
+    // The rule sentence the model has to read is in the source it was handed.
+    expect(text).toContain('CAM-ICU is POSITIVE only if Feature 1 is present');
+  });
+
+  it('asks for a warning, because the outcome wording is the converter\'s', async () => {
+    const { run, prompt, warningRows } = harness();
+
+    await run();
+
+    expect(prompt()).toContain('add an UNCLEAR_LABEL warning');
+    const messages = warningRows.map((w) => w.message).join(' ');
+    expect(messages).toMatch(/text COMPUTED by this mock-up's script/);
+    expect(messages).toContain('#cam-result');
   });
 });
