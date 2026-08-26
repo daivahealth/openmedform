@@ -31,6 +31,7 @@ import {
 } from '@jsonforms/react';
 import type { UiRule } from '@openmedform/form-schema-types';
 import {
+  accentTint,
   collectScoreItems,
   elementBands,
   showsSectionSubtotal,
@@ -535,17 +536,47 @@ function OmfLabel(props: LayoutProps) {
   if (!visible) return null;
   const text = (uischema as { text?: string }).text ?? '';
   if (!text.trim()) return null;
+
+  // With an accent colour a Label is a CALLOUT — the bordered, tinted, bold
+  // banner a paper form uses for a result or a warning ("Overall result:
+  // CAM-ICU POSITIVE"). Without one it stays the plain instruction block it
+  // has always been, so no existing Label changes.
+  const omf = readOmf(uischema);
+  const accent = typeof omf?.accentColor === 'string' ? (omf.accentColor as string) : undefined;
+  const rawIcon = typeof omf?.icon === 'string' ? (omf.icon as string) : undefined;
+  const icon = rawIcon && !text.includes(rawIcon) ? rawIcon : undefined;
+
+  const base = {
+    whiteSpace: 'pre-line' as const,
+    fontSize: 'var(--omf-font-size-body, 14px)',
+    lineHeight: 1.6,
+    marginBottom: 'var(--omf-field-gap, 12px)',
+  };
+
+  if (!accent) {
+    return <div style={{ ...base, color: 'var(--omf-color-label, #3a4552)' }}>{text}</div>;
+  }
+
   return (
     <div
+      role="status"
       style={{
-        whiteSpace: 'pre-line',
-        fontSize: 'var(--omf-font-size-body, 14px)',
-        color: 'var(--omf-color-label, #3a4552)',
-        lineHeight: 1.6,
-        marginBottom: 'var(--omf-field-gap, 12px)',
+        ...base,
+        display: 'flex',
+        gap: 8,
+        color: accent,
+        fontWeight: 700,
+        // A tint the accent cannot produce (a CSS variable, a named colour)
+        // leaves the callout with its border and text alone, which still reads
+        // as a callout — better than falling back to an unrelated colour.
+        background: accentTint(accent) ?? 'transparent',
+        border: `2px solid ${accent}`,
+        borderRadius: 'var(--omf-border-radius, 4px)',
+        padding: 'var(--omf-control-padding, 8px) 12px',
       }}
     >
-      {text}
+      {icon ? <span style={{ flex: '0 0 auto', lineHeight: 1.6 }}>{icon}</span> : null}
+      <span style={{ flex: '1 1 auto' }}>{text}</span>
     </div>
   );
 }

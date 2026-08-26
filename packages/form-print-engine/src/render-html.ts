@@ -17,6 +17,7 @@ import type {
   UiSchemaElement,
 } from '@openmedform/form-schema-types';
 import {
+  accentTintOpaque,
   collectScoreItems,
   computeScore,
   elementBands,
@@ -107,6 +108,7 @@ function pageCss(print: PrintSchema): string {
     `.omf-group { border: 0.3mm solid #000; padding: 3mm; margin-bottom: 4mm; }`,
     `.omf-group > legend { font-weight: bold; font-size: 11pt; padding: 0 2mm; }`,
     `.omf-section-score { font-weight: normal; font-size: 9.5pt; }`,
+    `.omf-callout { border: 0.5mm solid; border-radius: 1mm; padding: 2mm 3mm; margin: 2mm 0; font-weight: bold; white-space: pre-line; print-color-adjust: exact; -webkit-print-color-adjust: exact; }`,
     // pre-line preserves source line breaks so a multi-line / dash-bulleted
     // instruction Label prints one item per line instead of running together.
     `.omf-section-label { font-weight: bold; margin: 2mm 0; white-space: pre-line; }`,
@@ -136,13 +138,39 @@ function renderElement(el: UiSchemaElement, ctx: RenderCtx): string {
         el.label ? `<legend>${esc(String(el.label))}${sectionScore(el, ctx)}</legend>` : ''
       }${children(el, ctx)}</fieldset>`;
     case 'Label':
-      return `<div class="omf-section-label">${esc((el as { text?: string }).text ?? '')}</div>`;
+      return renderLabel(el);
     case 'Control':
       return renderControl(el as UiControlLike, ctx);
     default:
       // Custom Omf* layout elements: render their children if any.
       return children(el, ctx);
   }
+}
+
+/**
+ * Static text, or — with an accent colour — the bordered, tinted CALLOUT a
+ * paper form uses for a result or a warning.
+ *
+ * The tint is mixed against white rather than laid on with alpha: print
+ * pipelines routinely drop alpha compositing, and a callout whose background
+ * silently disappears takes its meaning with it. `print-color-adjust` asks the
+ * browser to keep it when the user prints backgrounds off; a printer that
+ * still drops it leaves the border and bold text, which read as a callout on
+ * their own.
+ */
+function renderLabel(el: UiSchemaElement): string {
+  const text = esc((el as { text?: string }).text ?? '');
+  const omf = (el as { options?: { omf?: { accentColor?: unknown } } }).options?.omf;
+  const accent = typeof omf?.accentColor === 'string' ? omf.accentColor : undefined;
+  if (!accent) return `<div class="omf-section-label">${text}</div>`;
+
+  const tint = accentTintOpaque(accent);
+  const style = [
+    `color:${accent}`,
+    `border-color:${accent}`,
+    ...(tint ? [`background:${tint}`] : []),
+  ].join('; ');
+  return `<div class="omf-callout" style="${esc(style)}">${text}</div>`;
 }
 
 /**

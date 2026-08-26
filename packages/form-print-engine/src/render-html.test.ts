@@ -302,3 +302,47 @@ describe('renderPrintHtml — section score and verdict', () => {
     expect(out).not.toContain('Positive');
   });
 });
+
+describe('renderPrintHtml — callout labels', () => {
+  const withLabel = (options?: Record<string, unknown>) =>
+    ({
+      ...rrtSbarReference,
+      dataSchema: { type: 'object', properties: {} },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Label', text: 'Overall result: CAM-ICU POSITIVE', ...(options ? { options } : {}) },
+          ],
+        },
+      },
+    }) as never;
+
+  it('prints an accented Label as a bordered, tinted callout', () => {
+    const out = renderPrintHtml(withLabel({ omf: { accentColor: '#b3392c' } }));
+
+    expect(out).toContain('<div class="omf-callout"');
+    expect(out).toContain('color:#b3392c');
+    // Opaque tint, not rgba: print pipelines routinely drop alpha compositing,
+    // and a callout whose background vanishes takes its meaning with it.
+    expect(out).toContain('background:rgb(249, 239, 238)');
+    expect(out).not.toContain('rgba(');
+    expect(out).toContain('print-color-adjust: exact');
+  });
+
+  it('leaves a Label without an accent as plain text', () => {
+    // The callout CSS is always in the stylesheet; what matters is which class
+    // the element actually carries.
+    const out = renderPrintHtml(withLabel());
+    expect(out).toContain('<div class="omf-section-label">Overall result');
+    expect(out).not.toContain('<div class="omf-callout"');
+  });
+
+  it('keeps border and text when the accent yields no tint', () => {
+    const out = renderPrintHtml(withLabel({ omf: { accentColor: 'var(--bad)' } }));
+    expect(out).toContain('<div class="omf-callout"');
+    expect(out).toContain('border-color:var(--bad)');
+    expect(out).not.toContain('background:rgb');
+  });
+});

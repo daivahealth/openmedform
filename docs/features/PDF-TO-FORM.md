@@ -875,6 +875,15 @@ mean dataflow analysis of an untrusted script, so instead the element is noted
 as handed to a function, and that is trusted only when the same script writes
 element text somewhere.
 
+**Styling.** Each outcome gets an `omf.accentColor` so it renders as the banner
+the source drew rather than as body text — see
+[Callouts](FORM-BUILDER.md#callouts-an-accented-label). The colour comes from
+what the result *means* (positive/abnormal red, negative/normal green), because
+a banner coloured through a stylesheet class cannot pass its colour on: `<style>`
+is stripped as non-content, so the converter sees `class="result-banner pos"`
+and never the declarations behind it. An inline `style="color:#b3392c"` does
+convert.
+
 **The wording is the converter's, so it is flagged.** The source's own phrasing
 lived in the script and was never run, so the model composes the outcome text
 from the form's title and rule sentence. That is a real judgement on a clinical

@@ -11,6 +11,7 @@
  * - schema      — scope/pointer + $ref resolution against the Data Schema
  * - binding     — read/write response values by data path or UI scope
  * - rules       — conditional SHOW/HIDE/ENABLE/DISABLE evaluation
+ * - style       — accent-colour maths shared by both renderers and print
  * - i18n        — translation-bundle resolution
  * - registry    — control-registry contract shared by both renderers
  * - serialization — empty-draft / prune / submit-payload helpers
@@ -23,6 +24,7 @@ export * from './schema/enum-options';
 export * from './terminology/coded-items';
 export * from './binding/data-path';
 export * from './rules/evaluate-rule';
+export * from './style/accent';
 export * from './i18n/translate';
 export * from './registry/control-registry';
 export * from './serialization/response';

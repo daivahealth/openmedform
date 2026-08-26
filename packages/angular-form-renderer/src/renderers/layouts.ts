@@ -44,6 +44,7 @@ import {
   type UISchemaElement,
 } from '@jsonforms/core';
 import {
+  accentTint,
   collectScoreItems,
   showsSectionSubtotal,
   elementBands,
@@ -281,12 +282,56 @@ export const groupTester = rankWith(STANDARD_RANK, uiTypeIs('Group'));
   // white-space: pre-line preserves the source line breaks so a multi-line /
   // dash-bulleted instruction block stays one item per line (matching the paper)
   // instead of collapsing into a single run-on line. See the React OmfLabel.
-  template: `@if (visible) { <p class="omf-group-title" style="white-space: pre-line">{{ text }}</p> }`,
-  styles: [FIELD_STYLES],
+  // With an accent colour a Label is a CALLOUT — the bordered, tinted, bold
+  // banner a paper form uses for a result or a warning. Without one it stays
+  // the plain instruction block it has always been, so no existing Label
+  // changes. Mirrors the React OmfLabel exactly, tint included (form-core).
+  template: `
+    @if (visible) {
+      @if (accentColor) {
+        <p
+          role="status"
+          class="omf-callout"
+          [style.color]="accentColor"
+          [style.background]="tint"
+          [style.border-color]="accentColor"
+        >{{ icon ? icon + ' ' : '' }}{{ text }}</p>
+      } @else {
+        <p class="omf-group-title" style="white-space: pre-line">{{ text }}</p>
+      }
+    }`,
+  styles: [
+    FIELD_STYLES,
+    `
+    .omf-callout {
+      white-space: pre-line;
+      font-size: var(--omf-font-size-body, 14px);
+      line-height: 1.6;
+      margin-bottom: var(--omf-field-gap, 12px);
+      font-weight: 700;
+      border: 2px solid;
+      border-radius: var(--omf-border-radius, 4px);
+      padding: var(--omf-control-padding, 8px) 12px;
+    }
+    `,
+  ],
 })
 export class LabelComponent extends RuleAwareRenderer<LabelElement> {
   get text(): string {
     return this.uischema?.text ?? '';
+  }
+  get accentColor(): string | null {
+    const c = readOmf(this.uischema)?.['accentColor'];
+    return typeof c === 'string' ? c : null;
+  }
+  /** Undefined for a non-hex accent: border and text still read as a callout. */
+  get tint(): string | null {
+    return accentTint(this.accentColor ?? undefined) ?? null;
+  }
+  get icon(): string | null {
+    const i = readOmf(this.uischema)?.['icon'];
+    if (typeof i !== 'string') return null;
+    return this.text.includes(i) ? null : i;
   }
 }
 export const labelTester = rankWith(STANDARD_RANK, and(uiTypeIs('Label')));
