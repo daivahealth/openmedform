@@ -83,4 +83,18 @@ describe('getPdfToJsonFormsPrompt', () => {
     // A numeric instrument must not be dragged into this shape.
     expect(prompt).toContain('a numeric total mapped to risk bands is "scoreSummary"');
   });
+  it('routes a scored threshold to section bands, not to a Label rule', () => {
+    // The Sepsis sheet: qSOFA and SIRS each print their own "Positive if >= 2"
+    // beside their own total. Without this the model either invents a
+    // form-wide scoreSummary that adds the two instruments together, or emits
+    // the dead "Pending" placeholder its script would have replaced.
+    const prompt = getPdfToJsonFormsPrompt();
+
+    expect(prompt).toContain('SCORED THRESHOLDS');
+    expect(prompt).toContain('put "bands" on that block\'s Group');
+    expect(prompt).toContain('you must NOT total them together');
+    expect(prompt).toContain('stratifies the WHOLE form');
+    // The other half of the routing: a typed number has no section total.
+    expect(prompt).toContain('there is no section total to band');
+  });
 });

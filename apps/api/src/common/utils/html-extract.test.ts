@@ -867,3 +867,67 @@ describe('extractFormHtml — script-computed result text', () => {
     expect(scriptComputedText).toEqual([]);
   });
 });
+
+describe('extractFormHtml — computed text reached through a helper', () => {
+  /**
+   * The Sepsis sheet's shape: the flag element is never bound to a variable, it
+   * is handed straight to a helper that writes through its PARAMETER.
+   */
+  const sepsis = (script: string) => `
+    <label><input type="checkbox" class="qsofa"> Hypotension</label>
+    <span id="qsofa-flag" class="result-banner neutral">Pending</span>
+    <script>${script}</script>`;
+
+  const helper = `
+    function setFlag(el, positive){
+      el.className = 'result-banner ' + (positive ? 'pos' : 'neg');
+      el.textContent = positive ? 'Positive' : 'Negative';
+    }
+    function calcQsofa(){
+      const score = document.querySelectorAll('.qsofa:checked').length;
+      setFlag(document.getElementById('qsofa-flag'), score >= 2);
+    }
+    document.querySelectorAll('.qsofa').forEach(b => b.addEventListener('change', calcQsofa));`;
+
+  it('resolves an element passed inline as a call argument', () => {
+    const { scriptComputedText } = extractFormHtml(sepsis(helper));
+
+    expect(scriptComputedText).toEqual([{ selector: '#qsofa-flag', placeholder: 'Pending' }]);
+  });
+
+  it('ignores a call argument when the script never writes element text', () => {
+    // The gate: handing an element to a function is not by itself evidence that
+    // its text is computed.
+    const { scriptComputedText } = extractFormHtml(
+      sepsis(`
+        function highlight(el){ el.style.outline = '1px solid red'; }
+        highlight(document.getElementById('qsofa-flag'));`),
+    );
+
+    expect(scriptComputedText).toEqual([]);
+  });
+
+  it('still resolves the bound-variable and inline-write forms alongside it', () => {
+    // One real sheet mixes all three styles; missing any of them leaves some
+    // flags converted and others stale.
+    const { scriptComputedText } = extractFormHtml(`
+      <select><option>a</option></select>
+      <span id="via-arg">Pending</span>
+      <span id="via-var">Pending</span>
+      <span id="via-inline">Pending</span>
+      <script>
+        function setFlag(el){ el.textContent = 'Positive'; }
+        setFlag(document.getElementById('via-arg'));
+        const v = document.getElementById('via-var');
+        v.textContent = 'Positive';
+        document.getElementById('via-inline').textContent = 'Positive';
+        document.querySelector('select').addEventListener('change', () => {});
+      </script>`);
+
+    expect(scriptComputedText.map((c) => c.selector).sort()).toEqual([
+      '#via-arg',
+      '#via-inline',
+      '#via-var',
+    ]);
+  });
+});

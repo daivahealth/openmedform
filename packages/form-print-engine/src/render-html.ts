@@ -17,7 +17,11 @@ import type {
   UiSchemaElement,
 } from '@openmedform/form-schema-types';
 import {
+  collectScoreItems,
+  computeScore,
+  elementBands,
   evaluateElementState,
+  showsSectionSubtotal,
   resolveSchemaAtScope,
   resolveEnumOptions,
   resolveMultiEnumOptions,
@@ -64,6 +68,7 @@ export function renderPrintHtml(
     dataSchema: def.dataSchema,
     data: options.data ?? {},
     applyRules: (options.rules ?? (options.data ? 'apply' : 'ignore')) === 'apply',
+    hasData: options.data !== undefined,
   };
   const body = renderElement((def.uiSchema as UiSchema).layout, ctx);
   return `<!doctype html>
@@ -81,6 +86,12 @@ interface RenderCtx {
   data: Record<string, unknown>;
   /** Whether a conditional `rule` may remove an element from the sheet. */
   applyRules: boolean;
+  /**
+   * Whether a response was supplied. A section subtotal is printed only then:
+   * on a BLANK sheet every score is 0, and "Σ 0 — Negative" beside an unfilled
+   * qSOFA box is not a neutral placeholder, it is a wrong clinical reading.
+   */
+  hasData: boolean;
 }
 
 function pageCss(print: PrintSchema): string {
@@ -95,6 +106,7 @@ function pageCss(print: PrintSchema): string {
     `.omf-v { display: block; }`,
     `.omf-group { border: 0.3mm solid #000; padding: 3mm; margin-bottom: 4mm; }`,
     `.omf-group > legend { font-weight: bold; font-size: 11pt; padding: 0 2mm; }`,
+    `.omf-section-score { font-weight: normal; font-size: 9.5pt; }`,
     // pre-line preserves source line breaks so a multi-line / dash-bulleted
     // instruction Label prints one item per line instead of running together.
     `.omf-section-label { font-weight: bold; margin: 2mm 0; white-space: pre-line; }`,
@@ -121,7 +133,7 @@ function renderElement(el: UiSchemaElement, ctx: RenderCtx): string {
       return `<div class="omf-h">${children(el, ctx)}</div>`;
     case 'Group':
       return `<fieldset class="omf-group">${
-        el.label ? `<legend>${esc(String(el.label))}</legend>` : ''
+        el.label ? `<legend>${esc(String(el.label))}${sectionScore(el, ctx)}</legend>` : ''
       }${children(el, ctx)}</fieldset>`;
     case 'Label':
       return `<div class="omf-section-label">${esc((el as { text?: string }).text ?? '')}</div>`;
@@ -131,6 +143,24 @@ function renderElement(el: UiSchemaElement, ctx: RenderCtx): string {
       // Custom Omf* layout elements: render their children if any.
       return children(el, ctx);
   }
+}
+
+/**
+ * A scored section's own subtotal and verdict, for the legend.
+ *
+ * Same decision as the renderers — form-core's `showsSectionSubtotal` picks the
+ * innermost scoring box — and the same `omf.bands` stratify it, so a printed
+ * qSOFA reads "Σ 2 — Positive" exactly as the screen does. Blank sheets print
+ * neither: see `RenderCtx.hasData`.
+ */
+function sectionScore(el: UiSchemaElement, ctx: RenderCtx): string {
+  if (!ctx.hasData) return '';
+  if (!showsSectionSubtotal(el as never)) return '';
+  const items = collectScoreItems(el as never);
+  if (items.length === 0) return '';
+  const score = computeScore(items, ctx.data, elementBands(el as never));
+  const verdict = score.riskLabel ? ` — ${esc(score.riskLabel)}` : '';
+  return `<span class="omf-section-score"> · Σ ${score.total}${verdict}</span>`;
 }
 
 function children(el: UiSchemaElement, ctx: RenderCtx): string {

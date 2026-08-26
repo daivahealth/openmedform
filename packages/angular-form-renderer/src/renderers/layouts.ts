@@ -46,6 +46,7 @@ import {
 import {
   collectScoreItems,
   showsSectionSubtotal,
+  elementBands,
   computeScore,
   filterVisibleElements,
   hasElementRules,
@@ -164,6 +165,14 @@ export const horizontalLayoutTester = rankWith(STANDARD_RANK, uiTypeIs('Horizont
             @if (subtotal !== null) {
               <span class="omf-point-badge" [style.color]="accentColor || '#3a4552'" title="Section subtotal">Σ {{ subtotal }}</span>
             }
+            @if (riskLabel) {
+              <span
+                class="omf-point-badge"
+                [style.color]="riskColor || '#3a4552'"
+                [style.border-color]="riskColor || null"
+                title="Section result"
+              >{{ riskLabel }}</span>
+            }
           </div>
         }
         <div class="omf-group-body">
@@ -190,6 +199,14 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
   private sub?: Subscription;
   /** Live section subtotal; null when this box has no scored descendants. */
   subtotal: number | null = null;
+  /**
+   * Verdict for this section's own subtotal, from `omf.bands` on the Group —
+   * qSOFA is positive at >= 2 of 3, SIRS at >= 2 of 4, and a form-level
+   * scoreSummary would add them into a number that means nothing. Null when the
+   * section declares no bands, leaving the chip as the number alone.
+   */
+  riskLabel: string | null = null;
+  riskColor: string | null = null;
 
   get groupLabel(): string {
     const l = (this.uischema as { label?: unknown })?.label;
@@ -232,6 +249,7 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
         ? collectScoreItems(this.uischema as never)
         : [];
     if (items.length === 0) return; // boxes with no total of their own never subscribe.
+    const bands = elementBands(this.uischema as never);
     // Recompute the subtotal only when the response data changes — not on every
     // $state emission (validation/config/focus), which multiplied across every
     // scored group was a perf hot-spot.
@@ -241,7 +259,10 @@ export class GroupLayoutComponent extends OmfLayoutBase implements OnInit, OnDes
         distinctUntilChanged(),
       )
       .subscribe((data) => {
-        this.subtotal = computeScore(items, data ?? {}).total;
+        const score = computeScore(items, data ?? {}, bands);
+        this.subtotal = score.total;
+        this.riskLabel = score.riskLabel ?? null;
+        this.riskColor = score.riskColor ?? null;
         this.cdr.markForCheck(); // OnPush: the async subtotal update must mark the view.
       });
   }

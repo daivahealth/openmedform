@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { collectScoreItems, computeScore, scoreUiSchema, showsSectionSubtotal, stratify } from './score';
+import {
+  collectScoreItems,
+  computeScore,
+  elementBands,
+  scoreUiSchema,
+  showsSectionSubtotal,
+  stratify,
+} from './score';
 import type { UiSchema, UiSchemaElement } from '@openmedform/form-schema-types';
 
 const ui: UiSchema = {
@@ -127,5 +134,72 @@ describe('showsSectionSubtotal', () => {
   it('does not change what scoring itself collects', () => {
     // The chip is display only: every item still feeds the grand total.
     expect(collectScoreItems(screening)).toHaveLength(1);
+  });
+});
+
+describe('section bands (a per-instrument verdict)', () => {
+  /**
+   * The Sepsis sheet carries qSOFA (out of 3, positive at >= 2) and SIRS (out
+   * of 4, positive at >= 2) side by side. Each verdict rides on its OWN
+   * section subtotal — a form-level scoreSummary would add them together into
+   * a number that means nothing clinically.
+   */
+  const BANDS = [
+    { maxScore: 1, label: 'Negative', color: '#2e7d4f' },
+    { minScore: 2, label: 'Positive', color: '#b3392c' },
+  ];
+  const qsofa = {
+    type: 'Group',
+    label: 'qSOFA',
+    options: { omf: { bands: BANDS } },
+    elements: [
+      { type: 'Control', scope: '#/properties/q/properties/hypotension', options: { omf: { points: 1 } } },
+      { type: 'Control', scope: '#/properties/q/properties/ams', options: { omf: { points: 1 } } },
+      { type: 'Control', scope: '#/properties/q/properties/tachypnoea', options: { omf: { points: 1 } } },
+    ],
+  } as UiSchemaElement;
+
+  const verdict = (data: unknown) =>
+    computeScore(collectScoreItems(qsofa), data, elementBands(qsofa));
+
+  it('reads bands off the Group, not only off a scoreSummary control', () => {
+    expect(elementBands(qsofa)).toEqual(BANDS);
+  });
+
+  it('stratifies the section subtotal, not the whole-form total', () => {
+    expect(verdict({ q: { hypotension: true, ams: true } })).toMatchObject({
+      total: 2,
+      riskLabel: 'Positive',
+      riskColor: '#b3392c',
+    });
+    expect(verdict({ q: { hypotension: true } })).toMatchObject({
+      total: 1,
+      riskLabel: 'Negative',
+    });
+  });
+
+  it('leaves the chip a bare number when a section declares no bands', () => {
+    const unbanded = { ...(qsofa as Record<string, unknown>), options: undefined } as UiSchemaElement;
+    const score = computeScore(collectScoreItems(unbanded), { q: { hypotension: true } }, elementBands(unbanded));
+    expect(score.total).toBe(1);
+    expect(score.riskLabel).toBeUndefined();
+  });
+
+  it('scores two instruments on one sheet independently', () => {
+    const sirs = {
+      type: 'Group',
+      label: 'SIRS',
+      options: { omf: { bands: BANDS } },
+      elements: [
+        { type: 'Control', scope: '#/properties/s/properties/temp', options: { omf: { points: 1 } } },
+        { type: 'Control', scope: '#/properties/s/properties/hr', options: { omf: { points: 1 } } },
+      ],
+    } as UiSchemaElement;
+    const data = { q: { hypotension: true, ams: true }, s: { temp: true } };
+
+    expect(verdict(data).riskLabel).toBe('Positive');
+    expect(
+      computeScore(collectScoreItems(sirs), data, elementBands(sirs)).riskLabel,
+    ).toBe('Negative');
   });
 });
