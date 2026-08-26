@@ -1,6 +1,6 @@
 {
   "name": "@openmedform/form-schema-types",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": false,
   "license": "Apache-2.0",
   "description": "Framework-independent contract types for OpenMedForm (Data / UI / Print schema, FormDefinition, FormInstance).",
