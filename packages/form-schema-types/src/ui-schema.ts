@@ -94,6 +94,14 @@ export interface OmfOptions {
    * Accent colour (hex, e.g. '#c0392b') for a boxed clinical section. The
    * renderer draws the section border and header icon/text in this colour to
    * reproduce colour-coded paper domains (e.g. a red CARDIOVASCULAR box).
+   *
+   * On a `Label` it makes the text a CALLOUT instead: bordered, bold and washed
+   * with a tint of the accent — the banner a paper form uses for a result or a
+   * warning ("Overall result: CAM-ICU POSITIVE"). A Label WITHOUT an accent is
+   * unchanged plain instruction text, so ordinary hint blocks are unaffected.
+   *
+   * Prefer hex. A colour the tint maths cannot read (a CSS variable, a named
+   * colour) still paints the border and the text — only the wash is skipped.
    */
   accentColor?: string;
   /**

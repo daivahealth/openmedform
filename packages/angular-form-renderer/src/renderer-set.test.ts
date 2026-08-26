@@ -92,3 +92,29 @@ describe('section bands', () => {
     expect(source).not.toMatch(/subtotal\s*>=\s*\d/);
   });
 });
+
+/**
+ * Callout-label parity guard.
+ *
+ * `omf.accentColor` on a Label turns it into a bordered, tinted banner. The
+ * React renderer has a mounted test; @jsonforms/angular cannot load under
+ * vitest (see above), so what is pinned here is that Angular derives its tint
+ * from the SAME form-core helper rather than computing its own — two renderers
+ * washing a clinical result banner in visibly different colours is the drift
+ * that matters, and colour maths is exactly the kind that drifts quietly.
+ */
+describe('callout labels', () => {
+  const source = readFileSync(join(__dirname, 'renderers', 'layouts.ts'), 'utf8');
+
+  it('takes its tint from form-core, not a local calculation', () => {
+    expect(source).toContain('accentTint(this.accentColor');
+    // No hand-rolled colour maths.
+    expect(source).not.toMatch(/parseInt\([^)]*16\)/);
+    expect(source).not.toMatch(/rgba\(\$\{/);
+  });
+
+  it('falls back to the plain label when no accent is set', () => {
+    expect(source).toContain('@if (accentColor)');
+    expect(source).toContain('class="omf-group-title"');
+  });
+});

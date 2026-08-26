@@ -443,6 +443,66 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     expect(screen.queryByText('Negative')).toBeNull();
   });
 
+  it('renders a Label with an accent colour as a bordered, tinted callout', () => {
+    // The CAM-ICU result banner: bold, red-bordered, washed with a tint of the
+    // accent. Plain body text loses the "this is the answer" reading the paper
+    // form gives it.
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: { type: 'object', properties: {} },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Label', text: 'Plain instruction text' },
+            {
+              type: 'Label',
+              text: 'Overall result: CAM-ICU POSITIVE (Delirium Present)',
+              options: { omf: { accentColor: '#b3392c' } },
+            },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    const callout = screen.getByRole('status');
+    expect(callout.textContent).toContain('CAM-ICU POSITIVE');
+    const style = callout.getAttribute('style') ?? '';
+    expect(style).toContain('rgba(179, 57, 44, 0.08)'); // tint from form-core
+    expect(style).toMatch(/border: 2px solid/);
+    expect(style).toMatch(/font-weight: 700/);
+
+    // The Label without an accent is untouched — no border, no callout role.
+    const plain = screen.getByText('Plain instruction text');
+    expect(plain.getAttribute('style') ?? '').not.toContain('border');
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+
+  it('keeps a callout readable when the accent is not a hex colour', () => {
+    // A CSS variable cannot yield a tint; border and bold text still carry it.
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: { type: 'object', properties: {} },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'VerticalLayout',
+          elements: [
+            { type: 'Label', text: 'Escalate now', options: { omf: { accentColor: 'var(--bad)' } } },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+    const style = screen.getByRole('status').getAttribute('style') ?? '';
+    expect(style).toContain('border: 2px solid var(--bad)');
+    expect(style).toContain('background: transparent');
+  });
+
   it('preserves line breaks in a multi-line bulleted Label', () => {
     const def: JsonFormsFormDefinition = {
       ...rrtSbarReference,

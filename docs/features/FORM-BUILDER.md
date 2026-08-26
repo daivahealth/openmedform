@@ -88,6 +88,35 @@ Positive`. A **blank** sheet prints neither number nor verdict, because "Σ 0 �
 Negative" beside a box nobody has answered is a wrong clinical reading, not a
 neutral placeholder.
 
+### Callouts (an accented `Label`)
+
+A `Label` carries read-only text — instructions, footnotes, bulleted blocks —
+and renders as plain body text. Give it `omf.accentColor` and it becomes a
+**callout** instead: bordered and bold in that colour, washed with a tint of it.
+That is the banner a paper form puts around a result, an alert or a warning.
+
+```jsonc
+{ "type": "Label", "text": "Overall result: CAM-ICU POSITIVE (Delirium Present)",
+  "options": { "omf": { "accentColor": "#b3392c", "icon": "⚠️" } } }
+```
+
+Same key that colours a `Group`, so there is no new vocabulary, and a Label
+**without** an accent is exactly the plain text it has always been — existing
+instruction blocks are unaffected.
+
+Prefer hex. The background wash is derived from the accent by form-core's
+`accentTint`, shared by React, Angular and print so the three cannot drift. A
+colour that maths cannot read (a CSS variable, a named colour) still paints the
+border and the text; only the wash is skipped. On paper the tint is mixed
+against white rather than laid on with alpha, since print pipelines routinely
+drop alpha compositing.
+
+**Conversion caveat.** A source that expresses its banner colour through a
+*stylesheet class* (`.result-banner.pos { color: … }`) cannot pass that colour
+on: `<style>` is stripped as non-content, so the converter sees the class name
+and never the declarations. Inline `style="color:#b3392c"` does convert. For a
+synthesised outcome the colour therefore comes from what the result *means*.
+
 ### Two shapes of scoring
 
 Which one a form uses is decided by the paper, not by preference:
@@ -182,6 +211,12 @@ per outcome, each carrying the condition for its own case.
       { "properties": { "feature4": { "const": "PRESENT" } }, "required": ["feature4"] }
     ] } } } }
 ```
+
+Give each outcome an `omf.accentColor` so it renders as the **banner** the
+source draws rather than as body text — an accented `Label` is a bordered, bold,
+tinted callout. Colour by clinical sense, not decoration: abnormal / positive /
+"action required" red, normal / negative green, cautionary amber. A `Label`
+without an accent is unchanged plain instruction text.
 
 Two rules to get right:
 
