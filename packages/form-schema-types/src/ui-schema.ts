@@ -168,9 +168,18 @@ export interface OmfOptions {
    */
   optionCoding?: Record<string, OmfCoding[]>;
   /**
-   * Risk-stratification bands for a scoreSummary element: the total maps to the
-   * band whose [minScore, maxScore] range contains it (both bounds inclusive
-   * and optional). Mirrors a paper "score → risk level" table.
+   * Risk-stratification bands: a total maps to the band whose
+   * [minScore, maxScore] range contains it (both bounds inclusive and
+   * optional). Mirrors a paper "score → risk level" table.
+   *
+   * Valid on a `scoreSummary` control, where they stratify the WHOLE form's
+   * total, and on a scored `Group`, where they stratify that section's own
+   * subtotal and render as a verdict beside its "Σ n" chip.
+   *
+   * The Group form is what a screening sheet carrying several independent
+   * instruments needs. A Sepsis sheet scores qSOFA out of 3 and SIRS out of 4,
+   * each with its own "Positive if ≥ 2" line; one form-level `scoreSummary`
+   * would add them together into a number that means nothing clinically.
    */
   bands?: Array<{ minScore?: number; maxScore?: number; label: string; color?: string }>;
   /**

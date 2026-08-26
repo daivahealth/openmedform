@@ -65,3 +65,30 @@ describe('OmfTableLayout row rules', () => {
     expect(source).toContain('hasElementRules(this.rows)');
   });
 });
+
+/**
+ * Section-verdict parity guard.
+ *
+ * `omf.bands` on a scored Group stratify that section's own subtotal, so a
+ * Sepsis sheet shows "Σ 2 Positive" on qSOFA and its own verdict on SIRS. The
+ * React renderer has a mounted test for this; @jsonforms/angular cannot load
+ * under vitest (see above), so what is pinned here is that the Angular group
+ * derives its verdict from the SAME form-core call rather than re-deriving the
+ * threshold locally — the drift that would make one framework disagree with the
+ * other on a clinical result.
+ */
+describe('section bands', () => {
+  const source = readFileSync(join(__dirname, 'renderers', 'layouts.ts'), 'utf8');
+
+  it('reads the section bands through form-core and passes them to computeScore', () => {
+    expect(source).toContain('elementBands(this.uischema');
+    expect(source).toContain('computeScore(items, data ?? {}, bands)');
+  });
+
+  it('renders the verdict from the computed band, not a local comparison', () => {
+    expect(source).toContain('score.riskLabel');
+    expect(source).toContain('@if (riskLabel)');
+    // No hand-rolled threshold: the band table is the only source of a verdict.
+    expect(source).not.toMatch(/subtotal\s*>=\s*\d/);
+  });
+});

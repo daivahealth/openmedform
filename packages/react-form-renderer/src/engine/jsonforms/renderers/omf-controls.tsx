@@ -32,6 +32,7 @@ import {
 import type { UiRule } from '@openmedform/form-schema-types';
 import {
   collectScoreItems,
+  elementBands,
   showsSectionSubtotal,
   computeScore,
   filterVisibleElements,
@@ -380,10 +381,17 @@ function OmfGroup(props: LayoutProps) {
     () => (showsSectionSubtotal(group as never) ? collectScoreItems(group as never) : []),
     [group],
   );
-  const subtotal = useMemo(
-    () => (scoreItems.length ? computeScore(scoreItems, data).total : undefined),
-    [scoreItems, data],
+  // Bands on the SECTION stratify that section's own subtotal, which is what a
+  // sheet carrying several independent instruments needs: qSOFA is positive at
+  // >= 2 of 3 and SIRS at >= 2 of 4, and a form-level scoreSummary would add
+  // them into a number that means nothing. Absent bands, the chip is the number
+  // alone exactly as before.
+  const sectionBands = useMemo(() => elementBands(group as never), [group]);
+  const score = useMemo(
+    () => (scoreItems.length ? computeScore(scoreItems, data, sectionBands) : undefined),
+    [scoreItems, data, sectionBands],
   );
+  const subtotal = score?.total;
 
   if (!visible) return null;
   const elements = group.elements ?? [];
@@ -484,6 +492,23 @@ function OmfGroup(props: LayoutProps) {
               title="Section subtotal"
             >
               Σ {subtotal}
+            </span>
+          ) : null}
+          {score?.riskLabel ? (
+            <span
+              style={{
+                flex: '0 0 auto',
+                marginLeft: 4,
+                padding: '1px 8px',
+                borderRadius: 999,
+                border: `1px solid ${score.riskColor ?? 'var(--omf-color-border, #c8cdd4)'}`,
+                color: score.riskColor,
+                fontSize: 'var(--omf-font-size-help, 12px)',
+                fontWeight: 700,
+              }}
+              title="Section result"
+            >
+              {score.riskLabel}
             </span>
           ) : null}
         </div>

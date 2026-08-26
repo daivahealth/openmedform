@@ -387,6 +387,62 @@ describe('JsonFormsRenderer — reference RRT/SBAR form', () => {
     expect(screen.queryByText(/CAM-ICU POSITIVE/)).toBeNull();
   });
 
+  it('shows a per-section verdict beside the subtotal from omf.bands', () => {
+    // The Sepsis sheet: qSOFA is positive at >= 2 of 3, and the verdict rides on
+    // THIS section's subtotal — a form-level scoreSummary would add qSOFA and
+    // SIRS together into a number that means nothing.
+    const def: JsonFormsFormDefinition = {
+      ...rrtSbarReference,
+      dataSchema: {
+        type: 'object',
+        properties: {
+          hypotension: { type: 'boolean', title: 'Hypotension (SBP <= 100 mmHg)' },
+          ams: { type: 'boolean', title: 'Altered mental status (GCS < 15)' },
+          tachypnoea: { type: 'boolean', title: 'Tachypnoea (RR >= 22/min)' },
+        },
+      },
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: {
+          type: 'Group',
+          label: 'qSOFA (1 pt each)',
+          options: {
+            omf: {
+              bands: [
+                { maxScore: 1, label: 'Negative', color: '#2e7d4f' },
+                { minScore: 2, label: 'Positive', color: '#b3392c' },
+              ],
+            },
+          },
+          elements: [
+            { type: 'Control', scope: '#/properties/hypotension', options: { omf: { points: 1 } } },
+            { type: 'Control', scope: '#/properties/ams', options: { omf: { points: 1 } } },
+            { type: 'Control', scope: '#/properties/tachypnoea', options: { omf: { points: 1 } } },
+          ],
+        } as never,
+      },
+    };
+
+    render(<JsonFormsRenderer definition={def} />);
+
+    // Nothing ticked: the section reads 0 and the low band.
+    expect(screen.getByText('Σ 0')).toBeTruthy();
+    expect(screen.getByText('Negative')).toBeTruthy();
+
+    const boxes = Array.from(
+      document.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    fireEvent.click(boxes[0]);
+    expect(screen.getByText('Σ 1')).toBeTruthy();
+    expect(screen.getByText('Negative')).toBeTruthy();
+
+    // Crossing the threshold flips the verdict, live.
+    fireEvent.click(boxes[1]);
+    expect(screen.getByText('Σ 2')).toBeTruthy();
+    expect(screen.getByText('Positive')).toBeTruthy();
+    expect(screen.queryByText('Negative')).toBeNull();
+  });
+
   it('preserves line breaks in a multi-line bulleted Label', () => {
     const def: JsonFormsFormDefinition = {
       ...rrtSbarReference,

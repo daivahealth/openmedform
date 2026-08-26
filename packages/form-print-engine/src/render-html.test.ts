@@ -234,3 +234,71 @@ describe('renderPrintHtml — conditional rules', () => {
     expect(renderPrintHtml(def, { data: { trigger: 'YES' } })).toContain('Locked field');
   });
 });
+
+describe('renderPrintHtml — section score and verdict', () => {
+  const qsofa = {
+    ...rrtSbarReference,
+    dataSchema: {
+      type: 'object',
+      properties: {
+        hypotension: { type: 'boolean', title: 'Hypotension' },
+        ams: { type: 'boolean', title: 'Altered mental status' },
+      },
+    },
+    uiSchema: {
+      schemaVersion: '1.0',
+      layout: {
+        type: 'Group',
+        label: 'qSOFA (1 pt each)',
+        options: {
+          omf: {
+            bands: [
+              { maxScore: 1, label: 'Negative' },
+              { minScore: 2, label: 'Positive' },
+            ],
+          },
+        },
+        elements: [
+          { type: 'Control', scope: '#/properties/hypotension', options: { omf: { points: 1 } } },
+          { type: 'Control', scope: '#/properties/ams', options: { omf: { points: 1 } } },
+        ],
+      },
+    },
+  } as never;
+
+  it('prints the subtotal and the verdict for a filled sheet', () => {
+    const out = renderPrintHtml(qsofa, { data: { hypotension: true, ams: true } });
+    expect(out).toContain('Σ 2');
+    expect(out).toContain('Positive');
+  });
+
+  it('follows the band down as well as up', () => {
+    const out = renderPrintHtml(qsofa, { data: { hypotension: true } });
+    expect(out).toContain('Σ 1');
+    expect(out).toContain('Negative');
+  });
+
+  it('prints NEITHER on a blank form', () => {
+    // "Σ 0 — Negative" beside an unfilled qSOFA box is not a neutral
+    // placeholder, it is a wrong clinical reading of a sheet nobody has
+    // answered yet.
+    const out = renderPrintHtml(qsofa);
+    expect(out).not.toContain('Σ 0');
+    expect(out).not.toContain('Negative');
+    // …but the section itself still prints, ready to fill in by hand.
+    expect(out).toContain('qSOFA (1 pt each)');
+  });
+
+  it('prints the subtotal alone when a section declares no bands', () => {
+    const noBands = {
+      ...qsofa,
+      uiSchema: {
+        schemaVersion: '1.0',
+        layout: { ...(qsofa as never as { uiSchema: { layout: Record<string, unknown> } }).uiSchema.layout, options: undefined },
+      },
+    } as never;
+    const out = renderPrintHtml(noBands, { data: { hypotension: true, ams: true } });
+    expect(out).toContain('Σ 2');
+    expect(out).not.toContain('Positive');
+  });
+});

@@ -53,6 +53,41 @@ touches the scoring itself: every item still feeds the grand total and the
 per-section breakdown. Scoring shown on screen is advisory: the server recalculates on
 submission and is authoritative.
 
+### A verdict per instrument (`omf.bands` on a Group)
+
+A screening sheet usually prints a verdict beside each instrument's total —
+qSOFA "Positive if ≥ 2" out of 3, SIRS "Positive if ≥ 2" out of 4. Put
+`omf.bands` on that instrument's Group and the section's own subtotal picks the
+matching band, which renders as a verdict chip beside `Σ n`:
+
+```jsonc
+{ "type": "Group", "label": "qSOFA (1 pt each)",
+  "options": { "omf": { "bands": [
+    { "maxScore": 1, "label": "Negative", "color": "#2e7d4f" },
+    { "minScore": 2, "label": "Positive", "color": "#b3392c" }
+  ] } },
+  "elements": [ /* one boolean Control per criterion, each with omf.points */ ] }
+```
+
+Bounds are inclusive and both optional. Bands go on the Group of the instrument
+they belong to: a sheet carrying several independent instruments gives each its
+own Group and its own bands.
+
+**Not `scoreSummary` for this.** That control stratifies the **whole form's**
+total, so on a sheet with qSOFA *and* SIRS it would add the two together into a
+number that means nothing clinically. Use it only where the source really does
+print one combined score for the entire sheet.
+
+**When the threshold is on a typed number** rather than a total of tick-boxes
+("MEWS: positive if score > 3", entered as one value), there is no section total
+to band — use a rule-gated Label instead, see
+[Computed outcomes](#computed-outcomes).
+
+The verdict prints too: a filled sheet's legend reads `qSOFA (1 pt each) · Σ 2 —
+Positive`. A **blank** sheet prints neither number nor verdict, because "Σ 0 —
+Negative" beside a box nobody has answered is a wrong clinical reading, not a
+neutral placeholder.
+
 ### Two shapes of scoring
 
 Which one a form uses is decided by the paper, not by preference:

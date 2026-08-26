@@ -439,6 +439,11 @@ export class FormConversionService {
           'Use the property NAMES and enum CODES you actually emitted, and "required" on every ' +
           'field the case depends on so an unanswered form shows no outcome at all. Cover each ' +
           'outcome the rule names (positive and negative), and keep them mutually exclusive.\n' +
+          'Pick the shape from what the verdict is computed FROM. If it is a threshold on a ' +
+          'block of scored tick-boxes ("Positive if >= 2" under a qSOFA/SIRS-style list), do NOT ' +
+          'use a Label rule — put "bands" on that block\'s Group as described above, so the ' +
+          "verdict rides on the section's own subtotal. Use rule-gated Labels for a verdict " +
+          'computed from ANSWERS rather than from a total, or from a single typed number.\n' +
           "Because the wording of the outcome is yours — the source's own wording lived in the " +
           'script, which was never run — add an UNCLEAR_LABEL warning naming the result element ' +
           'so a clinician checks the phrasing before publishing.\n\n';

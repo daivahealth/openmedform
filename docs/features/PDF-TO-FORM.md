@@ -851,6 +851,30 @@ outcome, each gated by a root-scope condition — see
 rules that make it behave (`required` on every field the case depends on, and
 mutually exclusive outcomes).
 
+**Which shape depends on what the verdict is computed from.** A threshold on a
+block of scored tick-boxes ("Positive if ≥ 2" under a qSOFA or SIRS list) is not
+a Label rule — it is `omf.bands` on that block's Group, so the verdict rides on
+the section's own subtotal. See
+[A verdict per instrument](FORM-BUILDER.md#a-verdict-per-instrument-omfbands-on-a-group).
+Rule-gated Labels are for a verdict computed from *answers* rather than a total,
+or from a single typed number.
+
+**Three ways a script reaches its element**, and conversion resolves all three,
+because one sheet routinely mixes them:
+
+| In the script | Example |
+|---|---|
+| bound to a variable | `const f = getElementById('lac6-flag')` … `f.textContent =` |
+| written inline | `getElementById('qsofa-score').textContent =` |
+| passed to a helper | `setFlag(getElementById('qsofa-flag'), score >= 2)` |
+
+The third case is why the Sepsis sheet's Positive/Negative chips were missed
+while its lactate flags converted: the write happens on the helper's
+*parameter*, which no lookup binds. Following the value into the callee would
+mean dataflow analysis of an untrusted script, so instead the element is noted
+as handed to a function, and that is trusted only when the same script writes
+element text somewhere.
+
 **The wording is the converter's, so it is flagged.** The source's own phrasing
 lived in the script and was never run, so the model composes the outcome text
 from the form's title and rule sentence. That is a real judgement on a clinical

@@ -933,6 +933,25 @@ const MAX_PLACEHOLDER_CHARS = 160;
 const VAR_TEXT_WRITE =
   /([A-Za-z_$][\w$]*)\s*\.\s*(?:textContent|innerText|innerHTML)\s*=/g;
 
+/**
+ * An element looked up INLINE as a call argument — `setFlag(getElementById('x'),
+ * …)`. The write then happens on the helper's PARAMETER (`function setFlag(el){
+ * el.textContent = … }`), which no lookup binds, so neither pattern above
+ * resolves it. The Sepsis sheet reaches all three of its Positive/Negative
+ * chips this way while its lactate flags use a bound `const` — one file, two
+ * styles, and only one of them was being seen.
+ *
+ * Following the value into the callee would be dataflow analysis of an
+ * untrusted script. This does not: it notes the element was handed to a
+ * function, and is only trusted at all when the same script writes element text
+ * SOMEWHERE (`ARGUMENT_WRITE_GATE`). Still target-only, never logic.
+ */
+const ARGUMENT_LOOKUP =
+  /[A-Za-z_$][\w$]*\s*\(\s*document\s*\.\s*(?:getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)|querySelector\s*\(\s*['"]([^'"]+)['"]\s*\))/g;
+
+/** Does this script write element text at all? Gate for `ARGUMENT_LOOKUP`. */
+const ARGUMENT_WRITE_GATE = /\.\s*(?:textContent|innerText|innerHTML)\s*=/;
+
 /** The one-liner form: `document.getElementById('x').textContent = …`. */
 const DIRECT_TEXT_WRITE =
   /document\s*\.\s*(?:getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)|querySelector\s*\(\s*['"]([^'"]+)['"]\s*\))\s*\.\s*(?:textContent|innerText|innerHTML)\s*=/g;
@@ -948,6 +967,14 @@ function rewrittenTextSelectors(scripts: string): string[] {
   for (const m of scripts.matchAll(VAR_TEXT_WRITE)) add(bound.get(m[1] ?? ''));
   for (const m of scripts.matchAll(DIRECT_TEXT_WRITE)) {
     add(m[1] !== undefined ? `#${m[1]}` : m[2]);
+  }
+  // Only where the script demonstrably writes element text somewhere; an
+  // element merely passed to a function in a script that never writes text is
+  // not a computed one.
+  if (ARGUMENT_WRITE_GATE.test(scripts)) {
+    for (const m of scripts.matchAll(ARGUMENT_LOOKUP)) {
+      add(m[1] !== undefined ? `#${m[1]}` : m[2]);
+    }
   }
   return selectors;
 }
