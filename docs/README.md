@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # OpenMedForm Documentation
 
 AI-powered clinical form builder platform.
@@ -25,6 +29,7 @@ AI-powered clinical form builder platform.
 - [Clinical Terminology](features/CLINICAL-TERMINOLOGY.md)
 - [AI Builder](features/AI-BUILDER.md)
 - [Developer Onboarding](development/DEVELOPER-ONBOARDING.md)
+- [SEO and Discoverability](development/SEO-AND-DISCOVERABILITY.md)
 - [Local Deployment Guide](deployment/LOCAL-DEPLOYMENT.md)
 - [Docker Compose](deployment/DOCKER-COMPOSE.md)
 - [GCP Cloud Run (production)](deployment/GCP-CLOUD-RUN.md)

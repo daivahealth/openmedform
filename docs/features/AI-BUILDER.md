@@ -1,3 +1,8 @@
+---
+publish: true
+description: "How OpenMedForm generates clinical form schemas from a prompt, PDF or image using multiple LLM providers."
+---
+
 # AI Builder
 
 ## Overview

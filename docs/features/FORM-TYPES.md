@@ -1,3 +1,8 @@
+---
+publish: true
+description: "The categories of clinical form OpenMedForm supports and how each is modelled."
+---
+
 # Form Types
 
 OpenMedForm supports two form types that control patient context behavior during form filling.

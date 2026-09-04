@@ -83,6 +83,31 @@ When a change is made, update the correct documentation family.
 - Do not duplicate the same content across `features`, `api`, and `deployment`.
 - Use new docs only when the topic is genuinely new and does not already have a natural home.
 
+## Published Documentation
+
+Docs under `docs/` are not purely internal. The web app renders a curated
+subset of them as public pages at `/docs` on the production domain, generated
+at build time from the markdown itself.
+
+- Every doc carries a `publish:` key in its YAML frontmatter. `publish: true`
+  means the file is served publicly on the internet.
+- **Default to `publish: false`.** A new doc is private until someone
+  deliberately opts it in. Never flip a doc to `publish: true` without saying
+  so explicitly in the final report.
+- Before writing into a doc, check its `publish:` value. Never put internal
+  hostnames, credentials (including local seed credentials), customer names,
+  infrastructure identifiers, or unreleased commercial detail into a published
+  doc.
+- Deployment runbooks (`docs/deployment/`) and internal engineering workflow
+  (`docs/development/`) are withheld by default and should stay that way.
+- A published doc carries a `description:` used as its meta description. Add
+  one when publishing a doc.
+- A published doc must not link to a withheld one. The build fails on this
+  rather than emitting a link that 404s publicly.
+- Every published doc needs an H1 — it becomes the page title.
+
+See [docs/development/SEO-AND-DISCOVERABILITY.md](docs/development/SEO-AND-DISCOVERABILITY.md).
+
 ## Repository Orientation
 
 ```text

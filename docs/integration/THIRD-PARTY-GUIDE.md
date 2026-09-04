@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Integrating OpenMedForm into a third-party product using the React, Angular or Flutter renderers."
+---
+
 # Third-Party Integration Guide
 
 How an external team designs a clinical form in OpenMedForm, downloads it, and renders it inside

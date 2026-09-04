@@ -66,6 +66,7 @@ jobs:
         run: |
           docker build -f apps/web/Dockerfile \
             --build-arg NEXT_PUBLIC_API_URL=${{ vars.API_URL }} \
+            --build-arg NEXT_PUBLIC_SITE_URL=${{ vars.SITE_URL }} \
             -t ${{ env.IMAGE_BASE }}/web:${{ github.sha }} \
             -t ${{ env.IMAGE_BASE }}/web:latest .
           docker push ${{ env.IMAGE_BASE }}/web:${{ github.sha }}

@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Authoring, versioning and publishing clinical forms, and how immutable published versions work."
+---
+
 # Form Builder
 
 ## Overview

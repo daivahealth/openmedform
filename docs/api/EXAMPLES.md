@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Worked API examples covering a full form lifecycle from creation through submission and scoring."
+---
+
 # API Examples — Full Form Flow
 
 End-to-end example requests (spec §27), from source-document conversion through
