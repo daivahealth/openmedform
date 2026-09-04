@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Authentication, role-based access control and tenant isolation in OpenMedForm."
+---
+
 # Authentication and RBAC
 
 ## Authentication

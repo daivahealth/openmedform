@@ -55,6 +55,8 @@ services:
         # API clients already include the /api prefix in their request paths.
         # Keep this at the gateway origin to avoid /api/api/forms requests.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost}
+        # Public origin, used for canonical URLs, robots.txt and sitemap.xml.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
     restart: unless-stopped
     depends_on:
       - api

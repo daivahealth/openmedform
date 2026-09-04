@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Known limitations of document-to-form conversion, with the reasoning behind each and the roadmap for addressing them."
+---
+
 # Conversion — Known Limitations and Roadmap
 
 What the AI conversion pipeline **cannot** do today, why each limit exists, what

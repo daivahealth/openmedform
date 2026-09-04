@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Architecture decision: separating data, UI and print schemas on the JSON Forms platform."
+---
+
 # ADR-003: JSON Forms platform — Data / UI / Print separation
 
 ## Status

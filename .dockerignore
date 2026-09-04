@@ -1,6 +1,8 @@
 .git
 .github
-docs
+# NOTE: docs/ is deliberately NOT ignored. The web app renders the published
+# subset of it at /docs, and that happens at build time, so the markdown must
+# be present in the build context.
 **/node_modules
 **/.next
 **/dist
