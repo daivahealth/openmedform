@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # Docker Compose Deployment
 
 ## Services

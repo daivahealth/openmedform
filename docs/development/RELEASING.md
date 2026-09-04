@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # Versioning & Releasing
 
 The publishable packages are versioned and released with [Changesets](https://github.com/changesets/changesets)

@@ -1,3 +1,8 @@
+---
+publish: true
+description: "How an uploaded PDF, image or HTML mock-up is converted into a JSON Forms schema, and what the converter can and cannot recover."
+---
+
 # PDF to Form Conversion
 
 OpenMedForm converts paper-based clinical forms — PDFs, images, and HTML

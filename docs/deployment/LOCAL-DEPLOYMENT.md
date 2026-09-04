@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # Local Deployment Guide
 
 > Step-by-step guide to set up and run OpenMedForm on your local machine.

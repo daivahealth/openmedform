@@ -1,3 +1,8 @@
+---
+publish: true
+description: "System architecture of the OpenMedForm platform: services, packages, and how they fit together."
+---
+
 # Technical Architecture
 
 ## Overview

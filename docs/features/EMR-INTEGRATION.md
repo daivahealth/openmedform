@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Embedding OpenMedForm renderers inside an existing EMR or EHR product."
+---
+
 # EMR Integration
 
 OpenMedForm integrates with external EMR/HIS systems through a JSON export/import model and an npm renderer package. The design ensures **no PII/PHI flows to OpenMedForm** — EMRs render forms in their own frontend using their own patient data.

@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Architecture decision: why the AI builder targets multiple LLM providers behind one interface."
+---
+
 # ADR-002: Multi-Provider LLM Architecture for AI Builder
 
 ## Status

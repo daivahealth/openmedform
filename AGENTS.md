@@ -69,6 +69,20 @@ OpenMedForm is an **AI-powered clinical form builder platform**. It enables heal
 - No silent drift: code and docs must not contradict each other.
 - No sprawl: no one-off summary docs, no duplicate content across doc families.
 
+## Published Documentation
+
+- `docs/` is partly public: the web app renders every doc with `publish: true`
+  in its frontmatter as a page at `/docs` on the production domain.
+- **Default to `publish: false`.** Never flip a doc to `publish: true` without
+  flagging it explicitly.
+- Check `publish:` before writing into a doc. No internal hostnames,
+  credentials (including seed credentials), customer names or infrastructure
+  identifiers in a published doc.
+- `docs/deployment/` and `docs/development/` are withheld by default.
+- Published docs need an H1 and a frontmatter `description:`, and must not link
+  to a withheld doc — the build fails on that.
+- See [docs/development/SEO-AND-DISCOVERABILITY.md](docs/development/SEO-AND-DISCOVERABILITY.md).
+
 ## Technology Stack
 
 | Component | Technology | Version |

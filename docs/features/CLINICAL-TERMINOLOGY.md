@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Binding form fields and answer options to SNOMED CT, LOINC and ICD-10 codes, and the clinician review workflow."
+---
+
 # Clinical Terminology Bindings
 
 Map form fields — and individual answer options — to standard clinical codes

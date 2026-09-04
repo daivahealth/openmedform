@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # ADR-NNN: Title
 
 ## Status
