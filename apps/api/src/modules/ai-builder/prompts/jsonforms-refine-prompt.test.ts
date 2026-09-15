@@ -23,6 +23,15 @@ describe('getJsonFormsRefineSystemPrompt', () => {
     expect(prompt).toContain('never claim more');
   });
 
+  it('makes "show previous values on a section" a single Group-level patch (ADR-006)', () => {
+    const prompt = getJsonFormsRefineSystemPrompt();
+
+    expect(prompt).toContain('is ONE patch');
+    expect(prompt).toContain('on that Group (see SERIAL OBSERVATION FORMS)');
+    expect(prompt).toContain('Do not add it to each field');
+    expect(prompt).toContain('{ "show": "none" } on that Control');
+  });
+
   it('requires every refinement to repair invalid nested Control scopes', () => {
     const prompt = getJsonFormsRefineSystemPrompt();
 

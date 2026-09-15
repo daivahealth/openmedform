@@ -31,6 +31,23 @@ describe('getPdfToJsonFormsPrompt', () => {
     expect(allowed.sort()).toEqual([...CANONICAL_CONTROLS].sort());
   });
 
+  it('teaches section-first history, units and the observation time for serial forms (ADR-006)', () => {
+    const prompt = getPdfToJsonFormsPrompt();
+
+    expect(prompt).toContain('SERIAL OBSERVATION FORMS');
+    expect(prompt).toContain('Declare that ONCE on the SECTION, not on each field');
+    expect(prompt).toContain('"history": { "show": "inline" }');
+    expect(prompt).toContain('never repeat { "show": "inline" } on the fields when the Group already says it');
+    expect(prompt).toContain('{ "show": "none" } to opt out');
+    expect(prompt).toContain('Do NOT set history on one-off sections');
+    // The keys are in the omf vocabulary line the refine prompt inherits.
+    const keys = prompt.split('\n').find((l) => l.includes('Additional omf keys'))!;
+    expect(keys).toContain('"unit"');
+    expect(keys).toContain('"history"');
+    expect(keys).toContain('"effectiveAt"');
+    expect(keys).toContain('never on the signature date');
+  });
+
   it('keeps the widget faithful to the source for scored single-selects', () => {
     // The regression this guards: the scored-select example used to hardcode
     // "control": "radio", and the model copied it — a form whose source drew
