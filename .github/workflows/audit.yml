@@ -1,0 +1,98 @@
+name: Dependency audit
+
+# Nightly production-dependency audit that opens a fix PR instead of blocking
+# merges. The audit used to be a CI gate and went red three times in one day
+# with no code change — advisories are published against whatever the registry
+# says today. Here it runs on a schedule, scripts/audit-fix.mjs proposes scoped
+# overrides, and the resulting PR goes through the normal CI (build + tests)
+# like any other change. Findings the script cannot fix safely are listed in
+# the PR for a human, and the job fails so the red shows on the Actions tab.
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # 02:30 UTC daily
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the fix branch
+      pull-requests: write # open / update the fix PR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Same PAT fallback as release.yml: the default GITHUB_TOKEN cannot
+          # open PRs when the org policy forbids Actions from doing so, and
+          # PRs it does open do not trigger CI.
+          token: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Exit code is non-zero whenever findings exist; the JSON is what we want.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high --json > audit.json || true
+
+      - name: Propose fixes
+        id: fix
+        run: |
+          set +e
+          node scripts/audit-fix.mjs --input audit.json > audit-report.md
+          echo "needs_human=$([ $? -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          set -e
+          cat audit-report.md >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- package.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Re-resolve the lockfile
+        if: steps.fix.outputs.changed == 'true'
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Re-audit with the proposed overrides
+        if: steps.fix.outputs.changed == 'true'
+        run: |
+          echo '### Audit after fixes' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          (pnpm audit --prod --audit-level=high || true) | tail -3 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          rm -f audit.json
+
+      - name: Open or update the fix PR
+        if: steps.fix.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: chore/audit-fixes-nightly
+          delete-branch: true
+          commit-message: 'chore(deps): scoped overrides for high/critical audit findings'
+          title: 'chore(deps): scoped overrides for high/critical audit findings'
+          body-path: audit-report.md
+          labels: dependencies
+          add-paths: |
+            package.json
+            pnpm-lock.yaml
+
+      - name: Fail when findings need a human
+        if: steps.fix.outputs.needs_human == 'true'
+        run: |
+          echo 'Some high/critical findings cannot be fixed by a scoped override — see the summary.' >&2
+          exit 1

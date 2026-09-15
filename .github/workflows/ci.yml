@@ -53,10 +53,8 @@ jobs:
       - name: Validate changesets
         run: node scripts/check-changesets.mjs
 
-      # A public deployment should not silently accumulate known-exploitable
-      # dependencies. Blocking at high+ because that backlog is currently zero
-      # — the moment it is not, someone has to make a decision rather than
-      # merge past it. Moderates are reported (see the summary above) but do
-      # not block, so this stays actionable rather than routinely overridden.
-      - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level=high
+      # The production-dependency audit is NOT a merge gate any more. It went
+      # red three times in one day with no code change, because advisories
+      # are published against whatever the registry says today. It now runs
+      # nightly in audit.yml, which opens a fix PR (scoped overrides) that
+      # comes back through this workflow like any other change.

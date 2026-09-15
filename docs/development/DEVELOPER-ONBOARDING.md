@@ -55,6 +55,37 @@ pnpm --filter web dev               # Frontend only
 pnpm --filter api start:dev         # Backend only
 ```
 
+## CI and the nightly dependency audit
+
+`CI` (`.github/workflows/ci.yml`) runs on every PR and push to `main`: install, Prisma client, build
+the publishable packages, tests, and the deploy-workflow / changeset validators. It does **not** run
+`pnpm audit` — that gate went red three times in one day with no code change, because advisories are
+published against whatever the registry says today.
+
+The audit runs instead as `Dependency audit` (`.github/workflows/audit.yml`), nightly at 02:30 UTC
+and on demand from the Actions tab:
+
+1. `pnpm audit --prod --audit-level=high --json` collects findings.
+2. `scripts/audit-fix.mjs` proposes fixes. For each high/critical finding on a **transitive**
+   dependency it adds a pnpm override **scoped to the installed major**, e.g. `"js-yaml@3": "^3.15.2"`,
+   after confirming the registry has such a release. Scoping is deliberate: an unscoped floor can jump
+   a major and break a consumer (js-yaml 4 removed `safeLoad`, which broke the docs build).
+3. The lockfile is re-resolved and a PR is opened on `chore/audit-fixes-nightly` (updated in place on
+   later nights) with the report as its body. That PR runs the normal CI.
+4. Findings the script will not guess at — a **direct** dependency pin (e.g. `next` in `apps/web`),
+   or a package with no patched release in its major — are listed under "Needs a human" and the job
+   fails so the red is visible.
+
+Run the fixer locally the same way:
+
+```bash
+pnpm audit --prod --audit-level=high --json > audit.json || true
+node scripts/audit-fix.mjs --input audit.json --dry-run
+```
+
+The PR needs the `CHANGESETS_TOKEN` PAT (same as `release.yml`); with the default token, PRs opened by
+Actions do not trigger CI and may be blocked by org policy.
+
 ## Monorepo Structure
 - `apps/api` — NestJS backend
 - `apps/web` — Next.js frontend
