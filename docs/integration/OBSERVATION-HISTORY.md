@@ -72,7 +72,8 @@ history carry:
 
 | Key | Purpose |
 |---|---|
-| `omf.history.show` | `'inline'` — chip under the field; `'popover'` — a small "History (n)" button only; absent — no history for this field |
+| `omf.history` on a **Group** | the default for every reading-bearing field inside the section — set it once on "Observations" instead of on each field; the nearest section wins ([ADR-006](../ADR/006-section-level-history.md)) |
+| `omf.history.show` | `'inline'` — chip under the field; `'popover'` — a small "History (n)" button only; `'none'` — opt this field out of its section; absent — inherit from the section, else no history |
 | `omf.history.count` | how many prior readings to fetch and list (default 5) |
 | `omf.history.trend` | draw a sparkline for numeric fields (default true) |
 | `omf.coding` | LOINC/SNOMED binding — **the identity of the reading over time**. Bind every field you want to trend; the **Dictionary** panel in OpenMedForm suggests and verifies codes |
@@ -80,8 +81,8 @@ history carry:
 | `omf.effectiveAt: true` | on a date/date-time field: this is when the readings were **taken** (see [§7](#7-time-the-effectiveat-rule)) |
 | `omf.recordTable.effectiveAtPath` | on a repeating table: the field inside each row holding that row's time |
 
-A field without `omf.history` renders exactly as before. A form with no history supplied renders
-exactly as before.
+A field with no `omf.history` of its own and no enclosing section that declares one renders exactly
+as before. A form with no history supplied renders exactly as before.
 
 ## 3. Two ways to supply history — pick one or both
 

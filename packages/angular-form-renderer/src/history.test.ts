@@ -25,6 +25,11 @@ describe('history scope', () => {
     expect(form).toContain('this.historyScope.configure(this.definition, this.history, this.historyProvider)');
   });
 
+  it('resolves section-level history once in the scope and reads it per field (ADR-006)', () => {
+    expect(service).toContain('config: resolveHistoryConfig(definition)');
+    expect(read('history', 'field-history.component.ts')).toContain('this.scope?.state?.config.get(this.key)');
+  });
+
   it('exposes the same two host inputs as the React renderer', () => {
     expect(form).toContain('@Input() history: HistoryEntry[] | undefined');
     expect(form).toContain('@Input() historyProvider: HistoryProvider | undefined');

@@ -167,3 +167,51 @@ describe('history — lazy provider', () => {
     expect(document.querySelectorAll('input').length).toBeGreaterThan(0);
   });
 });
+
+describe('history — section-level omf.history (ADR-006)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** history declared ONCE on the Group; spo2 opts out; avpu narrows to popover. */
+  const SECTION: JsonFormsFormDefinition = {
+    ...V3,
+    uiSchema: {
+      schemaVersion: '1.0',
+      layout: {
+        type: 'Group',
+        label: 'Observations',
+        options: { omf: { history: { show: 'inline', count: 3 } } },
+        elements: [
+          { type: 'Control', scope: '#/properties/obs/properties/heartRate', options: { omf: { coding: [LOINC_HR], unit: '/min' } } },
+          { type: 'Control', scope: '#/properties/vitals/properties/spo2', options: { omf: { unit: '%', history: { show: 'none' } } } },
+          { type: 'Control', scope: '#/properties/vitals/properties/avpu', options: { omf: { history: { show: 'popover' } } } },
+        ],
+      },
+    } as JsonFormsFormDefinition['uiSchema'],
+  };
+  const history: HistoryEntry[] = [
+    { effectiveAt: '2026-09-15T12:00:00Z', data: { vitals: { pulse: 84, spo2: 95, avpu: 'ALERT' } }, definition: V2 },
+  ];
+
+  it('a field with no omf.history of its own inherits the Group setting', () => {
+    render(<JsonFormsRenderer definition={SECTION} history={history} />);
+    expect(screen.getByRole('button', { name: /Previous 84 \/min · 2h ago/ })).toBeTruthy();
+  });
+
+  it("a field's own setting overrides: opt-out shows nothing, popover narrows the mode", () => {
+    render(<JsonFormsRenderer definition={SECTION} history={history} />);
+    expect(document.querySelectorAll('.omf-history-chip')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'History (1)' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Previous 95/ })).toBeNull();
+  });
+
+  it('the inherited count reaches the provider query', async () => {
+    const provider = vi.fn(async (): Promise<Observation[]> => []);
+    render(<JsonFormsRenderer definition={SECTION} historyProvider={provider} />);
+    await waitFor(() => expect(provider).toHaveBeenCalled());
+    expect(provider).toHaveBeenCalledWith({ coding: [LOINC_HR], path: 'obs.heartRate', limit: 3 });
+  });
+});
