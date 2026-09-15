@@ -1,3 +1,8 @@
+---
+publish: true
+description: "Architecture decision: removing the Form.io engine in favour of JSON Forms only."
+---
+
 # ADR-004: Remove the Form.io engine — JSON Forms only
 
 ## Status

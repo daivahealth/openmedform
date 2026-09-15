@@ -1,3 +1,7 @@
+---
+publish: false
+---
+
 # GCP Cloud Run Deployment
 
 Production deployment: **API + Web on Cloud Run**, **Supabase Postgres**,

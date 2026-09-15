@@ -36,3 +36,73 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Rendered documentation prose (/docs). Written against the existing design
+   tokens rather than pulling in @tailwindcss/typography, so the docs inherit
+   the app's palette and spacing scale instead of a second, parallel one. */
+.omf-doc {
+  @apply text-[15px] leading-7 text-foreground;
+}
+.omf-doc > * + * {
+  @apply mt-5;
+}
+.omf-doc h1 {
+  @apply mt-0 text-4xl font-bold tracking-tight;
+}
+.omf-doc h2 {
+  @apply mt-12 scroll-mt-24 border-b pb-2 text-2xl font-semibold tracking-tight;
+}
+.omf-doc h3 {
+  @apply mt-8 scroll-mt-24 text-xl font-semibold tracking-tight;
+}
+.omf-doc h4 {
+  @apply mt-6 scroll-mt-24 text-base font-semibold;
+}
+/* rehype-autolink-headings wraps the heading text in an anchor; it should read
+   as a heading, not as a link, until hovered. */
+.omf-doc .omf-doc-anchor {
+  @apply text-inherit no-underline hover:underline;
+}
+.omf-doc a:not(.omf-doc-anchor) {
+  @apply font-medium text-primary underline underline-offset-4;
+}
+.omf-doc ul {
+  @apply list-disc space-y-1 pl-6;
+}
+.omf-doc ol {
+  @apply list-decimal space-y-1 pl-6;
+}
+.omf-doc li > ul,
+.omf-doc li > ol {
+  @apply mt-1;
+}
+.omf-doc blockquote {
+  @apply border-l-2 border-primary/40 pl-4 text-muted-foreground;
+}
+.omf-doc code {
+  @apply rounded bg-muted px-1 py-0.5 text-[0.85em];
+}
+/* Shiki emits its own colours on the <pre>; the reset above must not repaint
+   the code inside it. */
+.omf-doc pre {
+  @apply overflow-x-auto rounded-lg border p-4 text-[13px] leading-6;
+}
+.omf-doc pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+.omf-doc hr {
+  @apply border-t;
+}
+/* Wide tables scroll inside their own container rather than widening the page. */
+.omf-doc table {
+  @apply my-6 block w-full overflow-x-auto border-collapse text-sm;
+}
+.omf-doc th {
+  @apply border px-3 py-2 text-left font-semibold;
+}
+.omf-doc td {
+  @apply border px-3 py-2 align-top;
+}
+.omf-doc img {
+  @apply max-w-full rounded-lg border;
+}

@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
 import { ArchitectureDiagram } from '@/components/marketing/architecture-diagram';
 import { IntegrationSteps, RendererInstall } from '@/components/marketing/emr-integration';
+import { StructuredData } from '@/components/marketing/structured-data';
+import { faq } from '@/lib/site';
 
 export default function LandingPage() {
   const { token, isLoading } = useAuth();
@@ -36,6 +38,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <StructuredData />
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -49,6 +52,9 @@ export default function LandingPage() {
                 <Plug className="mr-2 h-4 w-4" />
                 Integrate
               </a>
+            </Button>
+            <Button variant="ghost" asChild className="hidden sm:inline-flex">
+              <Link href="/docs">Docs</Link>
             </Button>
             <Button variant="ghost" asChild>
               <Link href="/login">Sign in</Link>
@@ -244,6 +250,25 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ. Question-shaped headings with short, self-contained answers —
+          the form search engines and assistants can lift verbatim. Mirrored as
+          FAQPage JSON-LD by <StructuredData />, from the same source. */}
+      <section className="bg-muted/30">
+        <div className="mx-auto max-w-3xl px-6 py-20">
+          <h2 className="text-center text-3xl font-bold tracking-tight">
+            Frequently asked questions
+          </h2>
+          <dl className="mt-10 space-y-4">
+            {faq.map((entry) => (
+              <div key={entry.question} className="rounded-lg border bg-card p-6">
+                <dt className="font-semibold">{entry.question}</dt>
+                <dd className="mt-2 text-sm text-muted-foreground">{entry.answer}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="mx-auto max-w-6xl px-6 py-20 text-center">
         <div className="mx-auto flex max-w-2xl flex-col items-center rounded-2xl border bg-card p-10">
@@ -268,6 +293,9 @@ export default function LandingPage() {
               <span>OpenMedForm</span>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/docs" className="transition-colors hover:text-foreground">
+                Documentation
+              </Link>
               <span>AI-powered clinical form builder platform</span>
               <a
                 href="https://github.com/daivahealth/openmedform"

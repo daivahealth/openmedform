@@ -1,5 +1,6 @@
 ---
-publish: false
+publish: true
+description: "Why repeated clinical fills are projected into coded observations, aligned by terminology binding, and shown as previous values and flowsheets in every host."
 ---
 
 # ADR-005: Observation history — projecting, aligning and displaying repeated fills

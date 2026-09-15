@@ -1,3 +1,8 @@
+---
+publish: true
+description: "The OpenMedForm data model — tenants, forms, versions, submissions and their relationships."
+---
+
 # Data Model
 
 ## Entity Relationship

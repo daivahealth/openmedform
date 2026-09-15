@@ -24,6 +24,8 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/ apps/web/
 COPY packages/ packages/
+# The published docs are rendered into static HTML at build time.
+COPY docs/ docs/
 # The filtered install also created node_modules inside each workspace
 # package (symlinks resolving workspace:* deps); .dockerignore excludes them
 # from the context copy above, so overlay them from the deps stage.
@@ -31,6 +33,10 @@ COPY --from=deps /app/packages/ packages/
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:3100
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Baked into canonical URLs, robots.txt and sitemap.xml at build time.
+ARG NEXT_PUBLIC_SITE_URL=https://openmedform.daiva.health
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 
 WORKDIR /app
 # Every first-party package ships as TS source and is transpiled by Next
