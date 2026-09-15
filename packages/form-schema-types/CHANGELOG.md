@@ -1,5 +1,7 @@
 # @openmedform/form-schema-types
 
+## 1.11.0
+
 ## 1.10.0
 
 ### Minor Changes
