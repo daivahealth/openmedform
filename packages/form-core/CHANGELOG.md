@@ -1,5 +1,40 @@
 # @openmedform/form-core
 
+## 1.12.0
+
+### Minor Changes
+
+- 769fdc6: Section-level history (ADR-006, part 1). `omf.history` may now be set on a
+  Group (or any section layout) and is inherited by the reading-bearing
+  Controls beneath it — the nearest section wins, a Control's own value
+  overrides, and `{ show: 'none' }` opts one field out. Display controls
+  (matrices, charts, summaries, signature) never inherit; a `recordTable`'s
+  record fields do.
+
+  `form-core`: `collectHistoryFields` rows carry the effective `history` and a
+  `historyInherited` flag; new `resolveHistoryConfig(definition)` returns the
+  effective setting per field key, which the renderers will read in place of the
+  raw element (part 2). `collectCodedItems` rows gain `sectionPointer`, the JSON
+  pointer of the nearest Group in the layout — the address a section-level write
+  from the Dictionary needs, since Groups have no scope.
+
+### Patch Changes
+
+- c3b4b5c: Section-level history (ADR-006, part 2). Both renderers now honour
+  `omf.history` declared on a Group: the history scope resolves each field's
+  effective setting once (`resolveHistoryConfig`) and every previous-value chip
+  reads from that map, so "show previous values on the Observations section" is
+  one setting in the definition rather than one per field. A field's own
+  `omf.history` still overrides, and `{ show: 'none' }` opts it out. Forms that
+  declare history per field behave exactly as before.
+
+  The shipped `vitalsHistoryReference` fixture now declares history once on its
+  Observations section, with two fields narrowing to a popover and SpO2 asking
+  for more rows — the shape a converted vitals chart should take.
+
+- Updated dependencies [769fdc6]
+  - @openmedform/form-schema-types@1.12.0
+
 ## 1.11.0
 
 ### Minor Changes
