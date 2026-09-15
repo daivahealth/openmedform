@@ -14,14 +14,20 @@
  * sees exactly the same mapping this panel shows.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { collectCodedItems, type CodedItemRow } from '@openmedform/form-core';
-import type { OmfCoding } from '@openmedform/form-schema-types';
+import {
+  collectCodedItems,
+  collectHistoryFields,
+  resolveSchemaAtScope,
+  type CodedItemRow,
+  type HistoryField,
+} from '@openmedform/form-core';
+import type { OmfCoding, OmfHistoryOptions } from '@openmedform/form-schema-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { BookMarked, Check, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, BookMarked, Check, History, Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 /** The systems offered for manual binding; P2/P3 add search over them. */
@@ -118,6 +124,115 @@ function useUpdateCoding(formId: string) {
       queryClient.invalidateQueries({ queryKey: ['form', formId] });
     },
   });
+}
+
+/**
+ * The Dictionary's other write (ADR-006): history on a section or a field, and
+ * a field's unit. `target.pointer` addresses a Group — Groups have no scope.
+ */
+function useUpdateFieldMeta(formId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      target: { scope: string } | { pointer: string };
+      history?: OmfHistoryOptions | null;
+      unit?: string | null;
+    }) => {
+      const { data } = await api.patch(`/api/forms/${formId}/field-meta`, input);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['form', formId] });
+    },
+  });
+}
+
+type HistoryChoice = 'inherit' | 'inline' | 'popover' | 'none';
+
+/** The `omf.history` a layout element carries itself, read by its JSON pointer. */
+function ownHistoryAtPointer(uiSchema: unknown, pointer: string | undefined): OmfHistoryOptions | undefined {
+  if (pointer === undefined) return undefined;
+  let node: unknown = (uiSchema as { layout?: unknown })?.layout ?? uiSchema;
+  for (const seg of pointer.split('/').filter(Boolean)) {
+    if (!node || typeof node !== 'object') return undefined;
+    node = seg === 'elements' ? (node as { elements?: unknown }).elements : Array.isArray(node) ? node[Number(seg)] : undefined;
+  }
+  const h = (node as { options?: { omf?: { history?: OmfHistoryOptions } } } | undefined)?.options?.omf?.history;
+  return h && typeof h.show === 'string' ? h : undefined;
+}
+
+const HISTORY_LABEL: Record<Exclude<HistoryChoice, 'inherit'>, string> = {
+  inline: 'Inline',
+  popover: 'Popover',
+  none: 'Off',
+};
+
+/**
+ * "Previous values" selector. On a section header it writes the Group's
+ * `omf.history`; on a field it writes an override, "Inherit" clearing it so the
+ * section's setting (shown in the option label) applies again.
+ */
+function HistorySelect({
+  value,
+  inheritedFrom,
+  onChange,
+  busy,
+  compact,
+}: {
+  value: HistoryChoice;
+  /** What "Inherit" would resolve to, for the option label. */
+  inheritedFrom?: OmfHistoryOptions;
+  onChange: (choice: HistoryChoice) => void;
+  busy: boolean;
+  compact?: boolean;
+}) {
+  const inheritLabel = inheritedFrom
+    ? `Inherit (${HISTORY_LABEL[inheritedFrom.show === 'none' ? 'none' : inheritedFrom.show]})`
+    : compact
+      ? 'Inherit'
+      : 'Not set';
+  return (
+    <label className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Previous values: whether this shows the patient's earlier readings while filling (ADR-006).">
+      <History className="h-3 w-3" />
+      {!compact && <span>Previous values</span>}
+      <select
+        className="h-6 rounded border bg-background px-1 text-xs text-foreground disabled:opacity-50"
+        value={value}
+        disabled={busy}
+        onChange={(e) => onChange(e.target.value as HistoryChoice)}
+      >
+        <option value="inherit">{inheritLabel}</option>
+        <option value="inline">Inline</option>
+        <option value="popover">Popover</option>
+        <option value="none">Off</option>
+      </select>
+    </label>
+  );
+}
+
+/** Unit box for a numeric field — UCUM code, shown as its symbol on the form. */
+function UnitInput({ value, onCommit, busy }: { value: string; onCommit: (unit: string) => void; busy: boolean }) {
+  const [draft, setDraft] = useState(value);
+  // A refreshed definition (after any write) re-seeds the draft.
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <label className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="UCUM unit code, e.g. mm[Hg], Cel, /min, %. Shown as its symbol (mmHg, °C).">
+      Unit
+      <Input
+        className="h-6 w-24 px-1 text-xs"
+        placeholder="mm[Hg]"
+        value={draft}
+        disabled={busy}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft.trim() !== value) onCommit(draft.trim());
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </label>
+  );
 }
 
 function CodingChip({
@@ -346,6 +461,7 @@ function BindingList({
 
 export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: DictionaryPanelProps) {
   const update = useUpdateCoding(formId);
+  const meta = useUpdateFieldMeta(formId);
   const suggest = useSuggestCodes(formId);
   const { data: systems = [] } = useTerminologySystems();
   const [openAdd, setOpenAdd] = useState<string | null>(null);
@@ -354,6 +470,21 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
     () => (uiSchema ? collectCodedItems(uiSchema as never, dataSchema) : []),
     [uiSchema, dataSchema],
   );
+
+  // Effective history per field after section inheritance (ADR-006), keyed by
+  // the index-free data path — the same resolution the renderers use.
+  const historyByPath = useMemo(() => {
+    if (!uiSchema) return new Map<string, HistoryField>();
+    return new Map(
+      collectHistoryFields({ dataSchema: dataSchema as never, uiSchema: uiSchema as never }).map((f) => [f.key, f]),
+    );
+  }, [uiSchema, dataSchema]);
+
+  const isNumeric = (scope: string): boolean => {
+    const schema = dataSchema ? resolveSchemaAtScope(dataSchema as never, scope) : undefined;
+    const t = schema?.type;
+    return t === 'number' || t === 'integer' || (Array.isArray(t) && (t.includes('number') || t.includes('integer')));
+  };
 
   const mapped = rows.filter(
     (r) => r.coding.length > 0 || r.options?.some((o) => o.coding.length > 0),
@@ -407,18 +538,70 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
           </p>
         )}
         {rows.map((row) => {
+          const field = historyByPath.get(row.path);
+          const sectionOwn = ownHistoryAtPointer(uiSchema, row.sectionPointer);
           const sectionHeader =
             row.section !== lastSection ? (
-              <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
-                {row.section}
-              </p>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  {row.section}
+                </p>
+                {row.sectionPointer !== undefined && (
+                  <HistorySelect
+                    value={sectionOwn ? sectionOwn.show : 'inherit'}
+                    onChange={(choice) =>
+                      meta.mutate({
+                        target: { pointer: row.sectionPointer as string },
+                        history: choice === 'inherit' ? null : { show: choice },
+                      })
+                    }
+                    busy={meta.isPending}
+                  />
+                )}
+              </div>
             ) : null;
           lastSection = row.section;
+          const ownHistory = field && field.history && !field.historyInherited ? field.history : undefined;
+          const effectiveOn = field?.history && field.history.show !== 'none';
+          const unverified = effectiveOn && !row.coding.some((c) => c.verified);
           return (
             <div key={row.scope} className="space-y-1">
               {sectionHeader}
               <div className="rounded-md border p-2">
-                <p className="mb-1 text-sm font-medium">{row.label}</p>
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {row.label}
+                    {unverified && (
+                      <span
+                        className="ml-1 inline-flex items-center text-amber-600"
+                        title="Previous values are on for this field but it has no verified code. Its history will break the next time the field is renamed or moved — bind it."
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <HistorySelect
+                      compact
+                      value={ownHistory ? ownHistory.show : 'inherit'}
+                      inheritedFrom={field?.historyInherited ? field.history : undefined}
+                      onChange={(choice) =>
+                        meta.mutate({
+                          target: { scope: row.scope },
+                          history: choice === 'inherit' ? null : { show: choice },
+                        })
+                      }
+                      busy={meta.isPending}
+                    />
+                    {isNumeric(row.scope) && (
+                      <UnitInput
+                        value={field?.unit ?? ''}
+                        busy={meta.isPending}
+                        onCommit={(unit) => meta.mutate({ target: { scope: row.scope }, unit: unit || null })}
+                      />
+                    )}
+                  </div>
+                </div>
                 <BindingList
                   target={{ scope: row.scope, current: row.coding }}
                   update={update}
@@ -457,11 +640,17 @@ export function ClinicalDictionaryPanel({ formId, dataSchema, uiSchema }: Dictio
             {update.error instanceof Error ? update.error.message : 'Could not save the binding.'}
           </p>
         )}
+        {meta.isError && (
+          <p className="text-xs text-destructive">
+            {(meta.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+              'Could not save the history setting.'}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2 border-t px-4 py-2 text-xs text-muted-foreground">
         <BookMarked className="h-3.5 w-3.5" />
-        Approving marks a code as clinically verified; it is stored in the form definition and
-        audited.
+        Approving marks a code as clinically verified. Codes, previous-values settings and units are
+        stored in the form definition and audited.
       </div>
     </div>
   );
