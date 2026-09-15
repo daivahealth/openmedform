@@ -10,6 +10,7 @@ import { ChangeDetectionStrategy, Component, Input, type OnChanges } from '@angu
 import type { FormDefinitionSchemas, HistoryEntry, Observation } from '@openmedform/form-schema-types';
 import {
   buildFlowsheet,
+  displayUnit,
   formatClock,
   formatDay,
   formatObservationValue,
@@ -54,7 +55,7 @@ import { FLOWSHEET_STYLES, tokenStyleObject } from './styles';
                   <tr class="omf-flowsheet-row">
                     <th scope="row" class="omf-flowsheet-param">
                       {{ row.label }}
-                      @if (row.unit && !row.mixedUnits) { <span class="omf-flowsheet-unit">{{ row.unit }}</span> }
+                      @if (row.unit && !row.mixedUnits) { <span class="omf-flowsheet-unit">{{ unitOf(row.unit) }}</span> }
                     </th>
                     @for (cell of row.cells; track $index) {
                       <td>
@@ -126,5 +127,8 @@ export class FlowsheetComponent implements OnChanges {
   }
   text(o: Observation, withUnit: boolean): string {
     return formatObservationValue(o, { unit: withUnit });
+  }
+  unitOf(ucum: string): string {
+    return displayUnit(ucum);
   }
 }

@@ -13,6 +13,7 @@ import { cssVariables } from '@openmedform/form-design-tokens';
 import type { FormDefinitionSchemas, HistoryEntry, Observation } from '@openmedform/form-schema-types';
 import {
   buildFlowsheet,
+  displayUnit,
   formatClock,
   formatDay,
   formatObservationValue,
@@ -198,7 +199,7 @@ function SectionRows({
           >
             {row.label}
             {row.unit && !row.mixedUnits ? (
-              <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--omf-color-label, #3a4552)' }}>{row.unit}</span>
+              <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--omf-color-label, #3a4552)' }}>{displayUnit(row.unit)}</span>
             ) : null}
           </th>
           {row.cells.map((cell, ci) => (

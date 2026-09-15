@@ -47,6 +47,10 @@ export default function FormFillPage() {
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const autoStarted = useRef(false);
+  // Set the moment Submit is pressed. The renderer can emit one more onChange
+  // during the submit re-render, which used to arm the 3-second autosave and
+  // fire a PUT against an already-completed record (a 400 in the console).
+  const submitting = useRef(false);
 
   // Previous values under history-enabled fields, read from this patient's
   // earlier completed submissions (ADR-005). Nothing when there is no MRN.
@@ -77,9 +81,10 @@ export default function FormFillPage() {
 
   const handleChange = useCallback(
     (data: object) => {
-      if (!submissionId) return;
+      if (!submissionId || submitting.current) return;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
+        if (submitting.current) return;
         updateSubmission.mutate({ data });
       }, 3000);
     },
@@ -88,12 +93,19 @@ export default function FormFillPage() {
 
   const handleSubmit = useCallback(
     async (submissionData: object) => {
-      if (!submissionId) return;
+      if (!submissionId || submitting.current) return;
+      submitting.current = true;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       const data = (submissionData as { data?: object }).data ?? submissionData;
-      await updateSubmission.mutateAsync({ data });
-      await completeSubmission.mutateAsync();
-      setCompleted(true);
+      try {
+        await updateSubmission.mutateAsync({ data });
+        await completeSubmission.mutateAsync();
+        setCompleted(true);
+      } catch (err) {
+        // Let the clinician try again; autosave may resume too.
+        submitting.current = false;
+        throw err;
+      }
     },
     [submissionId, updateSubmission, completeSubmission],
   );
@@ -139,6 +151,7 @@ export default function FormFillPage() {
               setSubmissionId(null);
               setPatientContext({});
               autoStarted.current = false;
+              submitting.current = false;
             }}
           >
             Fill Again

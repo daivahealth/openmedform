@@ -24,6 +24,58 @@ export interface FormatValueOptions {
 }
 
 /**
+ * UCUM code → the symbol a clinician expects to read. UCUM is what `omf.unit`
+ * stores and what FHIR wants (`valueQuantity.code`); `[degF]` on a ward chart
+ * is not. Only display changes — the stored unit is never altered, and an
+ * unknown code passes through unchanged so nothing is ever hidden.
+ */
+const UCUM_DISPLAY: Record<string, string> = {
+  Cel: '°C',
+  '[degF]': '°F',
+  'mm[Hg]': 'mmHg',
+  '/min': '/min',
+  '{beats}/min': 'bpm',
+  '{breaths}/min': '/min',
+  '%': '%',
+  kg: 'kg',
+  g: 'g',
+  cm: 'cm',
+  m: 'm',
+  'kg/m2': 'kg/m²',
+  'mg/dL': 'mg/dL',
+  'mmol/L': 'mmol/L',
+  'umol/L': 'µmol/L',
+  'meq/L': 'mEq/L',
+  'g/dL': 'g/dL',
+  'g/L': 'g/L',
+  'ng/mL': 'ng/mL',
+  'ug/L': 'µg/L',
+  'U/L': 'U/L',
+  'IU/L': 'IU/L',
+  kPa: 'kPa',
+  'L/min': 'L/min',
+  mL: 'mL',
+  'mL/h': 'mL/h',
+  'mL/kg/h': 'mL/kg/h',
+  fL: 'fL',
+  pg: 'pg',
+  '10*9/L': '×10⁹/L',
+  '10*12/L': '×10¹²/L',
+  '10*3/uL': '×10³/µL',
+  '10*6/uL': '×10⁶/µL',
+  '[in_i]': 'in',
+  '[lb_av]': 'lb',
+  '[oz_av]': 'oz',
+  '{score}': '',
+};
+
+/** The display symbol for a UCUM unit code; the code itself when there is no mapping. */
+export function displayUnit(ucum: string | undefined): string {
+  if (!ucum) return '';
+  return ucum in UCUM_DISPLAY ? UCUM_DISPLAY[ucum] : ucum;
+}
+
+/**
  * The value as a clinician reads it: the option label for a coded answer,
  * Yes/No for a boolean, the number (or text) otherwise, with the unit.
  */
@@ -32,7 +84,8 @@ export function formatObservationValue(obs: Observation, opts: FormatValueOption
   if (obs.valueLabel) return obs.valueLabel;
   if (typeof obs.value === 'boolean') return obs.value ? 'Yes' : 'No';
   const text = String(obs.value);
-  return withUnit && obs.unit ? `${text} ${obs.unit}` : text;
+  const unit = withUnit ? displayUnit(obs.unit) : '';
+  return unit ? `${text} ${unit}` : text;
 }
 
 const MINUTE = 60_000;
