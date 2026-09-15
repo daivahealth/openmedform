@@ -103,26 +103,26 @@ model User {
 // ─── Form ────────────────────────────────────────────────────────────────────
 
 model Form {
-  id               String     @id @default(uuid()) @db.Uuid
-  tenantId         String     @map("tenant_id") @db.Uuid
-  name             String     @db.VarChar(255)
-  slug             String     @db.VarChar(255)
-  description      String?    @db.Text
-  category         String?    @db.VarChar(100)
-  tags             String[]   @default([])
-  formType         FormType   @default(PATIENT) @map("form_type")
-  status           FormStatus @default(DRAFT)
+  id                  String      @id @default(uuid()) @db.Uuid
+  tenantId            String      @map("tenant_id") @db.Uuid
+  name                String      @db.VarChar(255)
+  slug                String      @db.VarChar(255)
+  description         String?     @db.Text
+  category            String?     @db.VarChar(100)
+  tags                String[]    @default([])
+  formType            FormType    @default(PATIENT) @map("form_type")
+  status              FormStatus  @default(DRAFT)
   /// When the form was archived. Archived forms are hidden from the default
   /// list, and this is the clock a retention policy would run off.
-  archivedAt       DateTime?  @map("archived_at") @db.Timestamp(6)
+  archivedAt          DateTime?   @map("archived_at") @db.Timestamp(6)
   /// The status to put back on unarchive. Recorded rather than guessed: a
   /// form archived while awaiting review should come back to REVIEW, not to
   /// DRAFT, and that is not derivable after the fact.
   statusBeforeArchive FormStatus? @map("status_before_archive")
-  currentVersionId String?    @unique @map("current_version_id") @db.Uuid
-  createdById      String     @map("created_by_id") @db.Uuid
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  currentVersionId    String?     @unique @map("current_version_id") @db.Uuid
+  createdById         String      @map("created_by_id") @db.Uuid
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   tenant         Tenant        @relation(fields: [tenantId], references: [id])
   createdBy      User          @relation("FormCreator", fields: [createdById], references: [id])
@@ -184,20 +184,73 @@ model Submission {
   patientContext Json?            @map("patient_context")
   signedAt       DateTime?        @map("signed_at") @db.Timestamp(6)
   signedBy       String?          @map("signed_by") @db.VarChar(255)
+  /// The CLINICAL time of the response — when the readings were taken, as
+  /// opposed to `createdAt` (when the row was written). Set on completion from
+  /// the client's `effectiveAt`, else from a Control flagged `omf.effectiveAt`
+  /// in the version's UI schema, else `createdAt`. Every history sort and
+  /// flowsheet column keys on this (ADR-005).
+  effectiveAt    DateTime?        @map("effective_at") @db.Timestamp(6)
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id])
-  form        Form        @relation(fields: [formId], references: [id])
-  formVersion FormVersion @relation(fields: [formVersionId], references: [id])
-  submittedBy User        @relation(fields: [submittedById], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  form         Form          @relation(fields: [formId], references: [id])
+  formVersion  FormVersion   @relation(fields: [formVersionId], references: [id])
+  submittedBy  User          @relation(fields: [submittedById], references: [id])
+  observations Observation[]
 
   @@index([tenantId, formId])
   @@index([tenantId, patientMrn])
+  @@index([tenantId, patientMrn, effectiveAt])
   @@index([formVersionId])
   @@index([status])
   @@index([createdAt])
   @@map("submission")
+}
+
+// ─── Observation ─────────────────────────────────────────────────────────────
+
+/// One scalar reading flattened out of a completed submission (ADR-005). A
+/// READ MODEL, not a source of truth: fully derivable from `submission.data`
+/// plus the pinned form version, rebuilt on every complete (delete-by-
+/// submission, then insert) and by `scripts/backfill-observations.ts`. It exists
+/// so "this patient's last five heart rates" is one indexed query instead of
+/// N submissions × M schema versions of JSON digging in application code.
+///
+/// `row` is the full form-core `Observation` (coding list, option binding,
+/// unit, label, source…) so the API can hand it to a renderer unchanged; the
+/// scalar columns beside it are the query keys. Cascades with its submission,
+/// so the permanent-delete path needs no extra step.
+model Observation {
+  id            BigInt   @id @default(autoincrement())
+  tenantId      String   @map("tenant_id") @db.Uuid
+  submissionId  String   @map("submission_id") @db.Uuid
+  formId        String   @map("form_id") @db.Uuid
+  formVersionId String   @map("form_version_id") @db.Uuid
+  patientMrn    String?  @map("patient_mrn") @db.VarChar(50)
+  encounterId   String?  @map("encounter_id") @db.VarChar(100)
+  /// Dotted data path in the response, indices included (`hourly.2.hr`).
+  path          String   @db.VarChar(500)
+  /// Primary terminology binding of the field, when it has one (LOINC/SNOMED).
+  codeSystem    String?  @map("code_system") @db.VarChar(200)
+  code          String?  @db.VarChar(100)
+  label         String   @db.VarChar(500)
+  valueNum      Float?   @map("value_num")
+  valueText     String?  @map("value_text") @db.Text
+  valueBool     Boolean? @map("value_bool")
+  unit          String?  @db.VarChar(50)
+  effectiveAt   DateTime @map("effective_at") @db.Timestamp(6)
+  /// The complete Observation as form-core defines it.
+  row           Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, patientMrn, code, effectiveAt])
+  @@index([tenantId, patientMrn, path, effectiveAt])
+  @@index([tenantId, patientMrn, formId, effectiveAt])
+  @@index([submissionId])
+  @@map("observation")
 }
 
 // ─── AI Provider Config ─────────────────────────────────────────────────────
@@ -396,16 +449,16 @@ model AiUsage {
   /// survive the form being deleted.
   formId   String? @map("form_id") @db.Uuid
 
-  provider     String   @db.VarChar(50)
-  model        String   @db.VarChar(100)
-  operation    String   @db.VarChar(50)
-  inputTokens  Int      @default(0) @map("input_tokens")
+  provider          String   @db.VarChar(50)
+  model             String   @db.VarChar(100)
+  operation         String   @db.VarChar(50)
+  inputTokens       Int      @default(0) @map("input_tokens")
   /// Of inputTokens, how many the provider served from its prompt cache
   /// (billed at a deep discount). 0 when the provider reports no caching.
-  cachedInputTokens Int @default(0) @map("cached_input_tokens")
-  outputTokens Int      @default(0) @map("output_tokens")
-  totalTokens  Int      @default(0) @map("total_tokens")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  cachedInputTokens Int      @default(0) @map("cached_input_tokens")
+  outputTokens      Int      @default(0) @map("output_tokens")
+  totalTokens       Int      @default(0) @map("total_tokens")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   @@index([tenantId])
   @@index([userId])

@@ -38,6 +38,7 @@ function setup(existing = record()) {
     {} as never,
     audit as never,
     {} as never,
+    {} as never,
   );
   return { service, prisma, audit };
 }

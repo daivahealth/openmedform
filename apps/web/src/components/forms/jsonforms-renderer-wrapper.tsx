@@ -1,7 +1,7 @@
 'use client';
 
 import { JsonFormsRenderer } from '@openmedform/react-form-renderer';
-import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+import type { HistoryEntry, HistoryProvider, JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 
 /** A form version as returned by the API. */
 export interface ApiVersion {
@@ -28,6 +28,10 @@ interface Props {
   data?: Record<string, unknown>;
   readOnly?: boolean;
   onChange?: (data: Record<string, unknown>) => void;
+  /** Prior fills for the same patient (ADR-005). */
+  history?: HistoryEntry[];
+  /** Lazy per-field history lookup — see hooks/use-observations.ts. */
+  historyProvider?: HistoryProvider;
 }
 
 const FALLBACK_UI = { schemaVersion: '1.0', layout: { type: 'VerticalLayout', elements: [] } };
@@ -72,7 +76,15 @@ export function toJsonFormsDefinition(
  * Renders a form from the API shape by assembling a FormDefinition and
  * delegating to the shared React renderer.
  */
-export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChange }: Props) {
+export function JsonFormsRendererWrapper({
+  form,
+  version,
+  data,
+  readOnly,
+  onChange,
+  history,
+  historyProvider,
+}: Props) {
   const definition = toJsonFormsDefinition(form, version);
 
   return (
@@ -81,6 +93,8 @@ export function JsonFormsRendererWrapper({ form, version, data, readOnly, onChan
       data={data}
       readOnly={readOnly}
       onChange={onChange}
+      history={history}
+      historyProvider={historyProvider}
     />
   );
 }

@@ -10,6 +10,7 @@ import { ScoringService, ScoringRules } from '../scoring/scoring.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { SchemaValidationService } from '../validation/schema-validation.service';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { ObservationService } from '../observation/observation.service';
 
 /** Actor context for auditable submission actions. */
 export interface SubmissionActor {
@@ -31,6 +32,7 @@ export class SubmissionService {
     private readonly scoringService: ScoringService,
     private readonly audit: AuditService,
     private readonly validation: SchemaValidationService,
+    private readonly observations: ObservationService,
   ) {}
 
   async create(
@@ -67,6 +69,7 @@ export class SubmissionService {
         data: {},
         patientMrn,
         encounterId,
+        ...(dto.effectiveAt ? { effectiveAt: new Date(dto.effectiveAt) } : {}),
         ...(dto.patientContext
           ? { patientContext: dto.patientContext as unknown as Prisma.InputJsonValue }
           : {}),
@@ -131,6 +134,7 @@ export class SubmissionService {
     tenantId: string,
     id: string,
     data: Record<string, unknown>,
+    effectiveAt?: string,
   ) {
     const submission = await this.findOne(tenantId, id);
 
@@ -140,7 +144,10 @@ export class SubmissionService {
 
     return this.prisma.submission.update({
       where: { id: submission.id },
-      data: { data: data as unknown as Prisma.InputJsonValue },
+      data: {
+        data: data as unknown as Prisma.InputJsonValue,
+        ...(effectiveAt ? { effectiveAt: new Date(effectiveAt) } : {}),
+      },
     });
   }
 
@@ -179,10 +186,34 @@ export class SubmissionService {
       }
     }
 
+    // The clinical time of the response is fixed at completion: the client's
+    // explicit value, else a Control flagged `omf.effectiveAt`, else now-ish
+    // (createdAt). History and flowsheets sort on it (ADR-005).
+    const effectiveAt = this.observations.resolveEffectiveAt({
+      ...submission,
+      formVersion: version ?? null,
+    });
+    updateData.effectiveAt = effectiveAt;
+
     const updated = await this.prisma.submission.update({
       where: { id: submission.id },
       data: updateData,
     });
+
+    // Observation read model: one row per scalar answer, so "this patient's
+    // last five heart rates" is one indexed query. Derived data — rebuildable
+    // by scripts/backfill-observations.ts — so a failure here must not undo a
+    // completed clinical record.
+    try {
+      await this.observations.replaceForSubmission({
+        ...submission,
+        effectiveAt,
+        formVersion: version ?? null,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`observation projection failed for submission ${submission.id}`, err);
+    }
 
     await this.audit.record({
       tenantId,

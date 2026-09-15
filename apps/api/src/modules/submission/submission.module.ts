@@ -3,9 +3,10 @@ import { SubmissionController } from './submission.controller';
 import { SubmissionService } from './submission.service';
 import { PdfExportService } from './pdf-export.service';
 import { ScoringModule } from '../scoring/scoring.module';
+import { ObservationModule } from '../observation/observation.module';
 
 @Module({
-  imports: [ScoringModule],
+  imports: [ScoringModule, ObservationModule],
   controllers: [SubmissionController],
   providers: [SubmissionService, PdfExportService],
   exports: [SubmissionService],

@@ -100,6 +100,33 @@ tampering). Each edit creates a new version. JSON Forms only — see [ADR-004](.
 | patient_context | JSONB | Full patient context for patient forms |
 | signed_at | TIMESTAMP | |
 | signed_by | VARCHAR(255) | |
+| effective_at | TIMESTAMP | Clinical time of the response — when the readings were **taken**, not saved. Set at completion from the client's `effectiveAt`, else a Control flagged `omf.effectiveAt`, else `created_at`. History sorts on it (ADR-005) |
+
+Index `(tenant_id, patient_mrn, effective_at)` serves per-patient history.
+
+### observation
+One scalar reading flattened out of a completed submission (ADR-005). A **read model**: fully
+derivable from `submission.data` + the pinned version, rebuilt on every complete
+(delete-by-submission, then insert) and by `apps/api/scripts/backfill-observations.ts`. Exists so
+"this patient's last five heart rates" is one indexed query. Cascades with its submission.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | BIGSERIAL PK | |
+| tenant_id | UUID | Scope of every query |
+| submission_id | UUID FK | → submission, ON DELETE CASCADE |
+| form_id, form_version_id | UUID | Provenance |
+| patient_mrn, encounter_id | VARCHAR | Copied from the submission; the history key |
+| path | VARCHAR(500) | Dotted data path, record indices included (`hourly.2.hr`) |
+| code_system, code | VARCHAR | Primary terminology binding of the field (`omf.coding[0]`), when bound |
+| label | VARCHAR(500) | |
+| value_num / value_text / value_bool | FLOAT / TEXT / BOOLEAN | Exactly one set |
+| unit | VARCHAR(50) | UCUM from `omf.unit` |
+| effective_at | TIMESTAMP | Clinical time (per record for a `recordTable` with `effectiveAtPath`) |
+| row | JSONB | The full form-core `Observation` (all codings, option binding, label, source) — returned to renderers unchanged |
+
+Indexes: `(tenant_id, patient_mrn, code, effective_at)`, `(tenant_id, patient_mrn, path, effective_at)`,
+`(tenant_id, patient_mrn, form_id, effective_at)`, `(submission_id)`.
 
 ### form_asset
 Binary assets referenced by a form version (logos, reference images). Log-style

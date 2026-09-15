@@ -5,7 +5,7 @@ publish: false
 # ADR-005: Observation history — projecting, aligning and displaying repeated fills
 
 ## Status
-Accepted (2026-09-15). Workstreams 1–5 implemented (types, core, React and Angular renderers, integration docs); 6–7 pending.
+Accepted (2026-09-15). Workstreams 1–6 implemented (types, core, React and Angular renderers, integration docs, API read model + web); 7 pending.
 
 ## Context
 
@@ -203,8 +203,9 @@ The grid itself is built by `buildFlowsheet()` in `form-core`, so both renderers
 
 The web app's fill screen passes a `historyProvider` backed by a new API read model:
 
-- `Submission.effectiveAt` (defaults to `createdAt`; a definition may name a date/time field to
-  drive it). Every history sort uses `effectiveAt`.
+- `Submission.effectiveAt`: the client's explicit value (`effectiveAt` on create/update), else a
+  Control flagged `omf.effectiveAt: true`, else `createdAt`; fixed at completion. Every history sort
+  uses it.
 - An `Observation` table, populated in `SubmissionService.complete()` via the same
   `projectObservations` (delete-by-submission then insert; fully rebuildable by a backfill script).
   Tenant-scoped, Prisma-only, indexed on `(tenant_id, patient_mrn, code, effective_at)`.
@@ -234,6 +235,11 @@ in-app-only history path that integrators do not get.
   vital-sign units is a possible follow-up, not part of this decision.
 - `historyProvider` adds an async path to renderers that were synchronous; loading and error states
   must be handled without blocking input.
+- The API cannot consume `form-core` (ESM) from its CommonJS runtime — the same constraint that made
+  scoring and validation self-contained — so `apps/api/src/modules/observation/observation-projection.ts`
+  is a port of `projectObservations`. A parity test runs both over the same fixtures, so the "one
+  walker" rule holds in behaviour; the cost is that form-core changes must be ported. A dual
+  (CJS+ESM) build of form-core would remove the duplication and is the preferred follow-up.
 - The FHIR helper couples us lightly to R4 shapes. It is a leaf convenience, so R5 can be added
   beside it.
 - Scheduling / missed-round detection is explicitly not solved here.

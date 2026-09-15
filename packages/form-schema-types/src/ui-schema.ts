@@ -203,6 +203,13 @@ export interface OmfOptions {
   /** Previous-value / trend display for this field. See OmfHistoryOptions. */
   history?: OmfHistoryOptions;
   /**
+   * This date/date-time Control holds the CLINICAL time of the whole response
+   * — when the observations were taken, as opposed to when the form was saved.
+   * The OpenMedForm API reads it to set `Submission.effectiveAt`; a host doing
+   * its own storage should do the same. At most one per form; the first wins.
+   */
+  effectiveAt?: boolean;
+  /**
    * Risk-stratification bands: a total maps to the band whose
    * [minScore, maxScore] range contains it (both bounds inclusive and
    * optional). Mirrors a paper "score → risk level" table.
