@@ -50,6 +50,12 @@ shows), grouped by section, with per-option rows under enum controls:
   to verified (green). Provenance is kept: an approved AI suggestion stays
   `source: 'ai', verified: true`.
 - **Remove** — deletes a binding.
+- **Previous values** — on each **section header**, whether the fields in that section show the
+  patient's earlier readings while filling (Inline · Popover · Off), written as `omf.history` on the
+  Group; on each **field row**, the same control showing the effective value ("Inherit (Inline)")
+  with an override, and a **Unit** box (UCUM) for numeric fields. An amber warning marks a field whose
+  previous values are on but whose binding is not verified — its history breaks the next time the
+  field is renamed or moved. See [ADR-006](../ADR/006-section-level-history.md).
 - **Add code** — manual binding. For LOINC, a search box offers real codes
   from the loaded table (name, synonym, or exact-code lookup); picking one
   fills code + display. Stored as `source: 'human', verified: true`.

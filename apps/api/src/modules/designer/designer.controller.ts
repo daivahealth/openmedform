@@ -174,6 +174,78 @@ export class DesignerController {
   }
 
   /**
+   * Per-field / per-section history and unit (ADR-006). Exactly one target:
+   * `{ scope }` for a Control, `{ pointer }` for a layout element such as a
+   * Group (`/elements/0`). `history: null` / `unit: null` clear.
+   */
+  @Patch(':id/field-meta')
+  async updateFieldMeta(
+    @CurrentUser() user: RequestUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      target?: { scope?: string; pointer?: string };
+      history?: { show?: string; count?: number; trend?: boolean } | null;
+      unit?: string | null;
+    },
+    @Ip() ip: string,
+  ) {
+    const t = body?.target;
+    const hasScope = typeof t?.scope === 'string' && t.scope.length > 0;
+    const hasPointer = typeof t?.pointer === 'string';
+    if (hasScope === hasPointer) {
+      throw new BadRequestException('target must be exactly one of { scope } or { pointer }');
+    }
+    if (hasPointer && !/^(\/elements\/\d+)*$/.test(t!.pointer as string)) {
+      throw new BadRequestException('pointer must be a path of /elements/N segments');
+    }
+    if (body.history === undefined && body.unit === undefined) {
+      throw new BadRequestException('provide history and/or unit');
+    }
+
+    let history: { show: 'inline' | 'popover' | 'none'; count?: number; trend?: boolean } | null | undefined;
+    if (body.history === null) history = null;
+    else if (body.history !== undefined) {
+      const h = body.history;
+      if (h.show !== 'inline' && h.show !== 'popover' && h.show !== 'none') {
+        throw new BadRequestException("history.show must be 'inline', 'popover' or 'none'");
+      }
+      if (h.count !== undefined && (!Number.isInteger(h.count) || h.count < 1 || h.count > 50)) {
+        throw new BadRequestException('history.count must be an integer from 1 to 50');
+      }
+      if (h.trend !== undefined && typeof h.trend !== 'boolean') {
+        throw new BadRequestException('history.trend must be a boolean');
+      }
+      history = {
+        show: h.show,
+        ...(h.count !== undefined ? { count: h.count } : {}),
+        ...(h.trend !== undefined ? { trend: h.trend } : {}),
+      };
+    }
+
+    let unit: string | null | undefined;
+    if (body.unit === null) unit = null;
+    else if (body.unit !== undefined) {
+      if (typeof body.unit !== 'string' || body.unit.length > 50) {
+        throw new BadRequestException('unit must be a string of at most 50 characters');
+      }
+      unit = body.unit.trim();
+    }
+
+    return this.designer.updateFieldMeta(
+      user.tenantId,
+      id,
+      {
+        target: hasScope ? { scope: t!.scope as string } : { pointer: t!.pointer as string },
+        ...(history !== undefined ? { history } : {}),
+        ...(unit !== undefined ? { unit } : {}),
+      },
+      ip,
+      user.userId,
+    );
+  }
+
+  /**
    * The refine conversation for a form — the chat panel's history. Read-only;
    * rows are written by the refine flow itself, so the transcript can only
    * ever say what actually happened.

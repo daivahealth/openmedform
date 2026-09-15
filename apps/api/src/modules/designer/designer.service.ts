@@ -399,26 +399,7 @@ export class DesignerService {
       else omf.coding = input.coding;
     }
 
-    const versionData = { uiSchema: uiSchema as unknown as Prisma.InputJsonValue };
-    const savedVersion = latest.publishedAt
-      ? await this.prisma.formVersion.create({
-          data: {
-            formId: form.id,
-            version: latest.version + 1,
-            dataSchema: latest.dataSchema as Prisma.InputJsonValue,
-            printSchema: latest.printSchema as Prisma.InputJsonValue,
-            translations: latest.translations as Prisma.InputJsonValue,
-            conversionMetadata: latest.conversionMetadata as Prisma.InputJsonValue,
-            scoringRules: latest.scoringRules as Prisma.InputJsonValue,
-            ...versionData,
-          },
-        })
-      : await this.prisma.formVersion.update({ where: { id: latest.id }, data: versionData });
-
-    await this.prisma.form.update({
-      where: { id: form.id },
-      data: { currentVersionId: savedVersion.id },
-    });
+    const savedVersion = await this.saveUiSchema(form.id, latest, uiSchema);
 
     await this.audit.record({
       tenantId,
@@ -437,6 +418,142 @@ export class DesignerService {
     });
 
     return { version: savedVersion.version, uiSchema };
+  }
+
+  /**
+   * The Dictionary panel's OTHER write path (ADR-006): per-field or per-section
+   * history and unit. `target.scope` addresses a Control; `target.pointer`
+   * addresses a layout element — a Group has no scope — by its JSON pointer
+   * within `uiSchema.layout` (`/elements/0`). `null` clears a key.
+   */
+  async updateFieldMeta(
+    tenantId: string,
+    formId: string,
+    input: {
+      target: { scope: string } | { pointer: string };
+      history?: { show: 'inline' | 'popover' | 'none'; count?: number; trend?: boolean } | null;
+      unit?: string | null;
+    },
+    ipAddress?: string | null,
+    userId?: string,
+  ) {
+    const form = await this.prisma.form.findFirst({
+      where: { id: formId, tenantId },
+      include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
+    });
+    if (!form) throw new NotFoundException(`Form ${formId} not found`);
+    const latest = form.versions[0];
+    if (!latest?.uiSchema) throw new BadRequestException('Form has no definition to edit');
+
+    const uiSchema = structuredClone(latest.uiSchema) as Record<string, unknown>;
+    const layout = (uiSchema.layout ?? uiSchema) as Record<string, unknown>;
+    const element =
+      'scope' in input.target
+        ? this.findControlByScope(layout, input.target.scope)
+        : this.findElementByPointer(layout, input.target.pointer);
+    if (!element) {
+      const where = 'scope' in input.target ? `scope "${input.target.scope}"` : `pointer "${input.target.pointer}"`;
+      throw new BadRequestException(`No element with ${where} exists on this form`);
+    }
+    if ('pointer' in input.target && input.unit !== undefined) {
+      throw new BadRequestException('unit belongs to a field, not a section');
+    }
+
+    const options = (element.options ??= {}) as Record<string, unknown>;
+    const omf = (options.omf ??= {}) as Record<string, unknown>;
+    if (input.history !== undefined) {
+      if (input.history === null) delete omf.history;
+      else omf.history = input.history;
+    }
+    if (input.unit !== undefined) {
+      if (input.unit === null || input.unit === '') delete omf.unit;
+      else omf.unit = input.unit;
+    }
+    if (Object.keys(omf).length === 0) delete options.omf;
+    if (Object.keys(options).length === 0) delete element.options;
+
+    const savedVersion = await this.saveUiSchema(form.id, latest, uiSchema);
+
+    await this.audit.record({
+      tenantId,
+      userId,
+      ipAddress,
+      action: 'form.field-meta.update',
+      resourceType: 'form_version',
+      resourceId: savedVersion.id,
+      details: {
+        formId: form.id,
+        target: input.target,
+        ...(input.history !== undefined ? { history: input.history } : {}),
+        ...(input.unit !== undefined ? { unit: input.unit } : {}),
+        forkedNewDraft: !!latest.publishedAt,
+      },
+    });
+
+    return { version: savedVersion.version, uiSchema };
+  }
+
+  /**
+   * Persist an edited UI schema: a draft is updated in place, a published
+   * version forks a new draft (published versions are immutable), and the
+   * form's current version follows.
+   */
+  private async saveUiSchema(
+    formId: string,
+    latest: {
+      id: string;
+      version: number;
+      publishedAt: Date | null;
+      dataSchema: unknown;
+      printSchema: unknown;
+      translations: unknown;
+      conversionMetadata: unknown;
+      scoringRules: unknown;
+    },
+    uiSchema: Record<string, unknown>,
+  ) {
+    const versionData = { uiSchema: uiSchema as unknown as Prisma.InputJsonValue };
+    const savedVersion = latest.publishedAt
+      ? await this.prisma.formVersion.create({
+          data: {
+            formId,
+            version: latest.version + 1,
+            dataSchema: latest.dataSchema as Prisma.InputJsonValue,
+            printSchema: latest.printSchema as Prisma.InputJsonValue,
+            translations: latest.translations as Prisma.InputJsonValue,
+            conversionMetadata: latest.conversionMetadata as Prisma.InputJsonValue,
+            scoringRules: latest.scoringRules as Prisma.InputJsonValue,
+            ...versionData,
+          },
+        })
+      : await this.prisma.formVersion.update({ where: { id: latest.id }, data: versionData });
+
+    await this.prisma.form.update({
+      where: { id: formId },
+      data: { currentVersionId: savedVersion.id },
+    });
+    return savedVersion;
+  }
+
+  /** Walk a JSON pointer of `/elements/N` segments from the layout root. */
+  private findElementByPointer(
+    root: Record<string, unknown>,
+    pointer: string,
+  ): Record<string, unknown> | null {
+    if (pointer === '' || pointer === '/') return root;
+    const segments = pointer.replace(/^\//, '').split('/');
+    let node: unknown = root;
+    for (const segment of segments) {
+      if (!node || typeof node !== 'object') return null;
+      if (segment === 'elements') {
+        node = (node as Record<string, unknown>).elements;
+      } else if (/^\d+$/.test(segment) && Array.isArray(node)) {
+        node = node[Number(segment)];
+      } else {
+        return null;
+      }
+    }
+    return node && typeof node === 'object' && !Array.isArray(node) ? (node as Record<string, unknown>) : null;
   }
 
   /** Depth-first search for the Control carrying a scope. */
