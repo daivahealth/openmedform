@@ -5,7 +5,7 @@ publish: false
 # ADR-005: Observation history — projecting, aligning and displaying repeated fills
 
 ## Status
-Accepted (2026-09-15). Workstreams 1–2 implemented; 3–7 pending.
+Accepted (2026-09-15). Workstreams 1–3 implemented (types, core, React renderer); 4–7 pending.
 
 ## Context
 
@@ -193,6 +193,11 @@ does, with no per-host configuration.
   identical.
 
 Both surfaces read only `--omf-*` design tokens.
+
+Two conventions on the otherwise opaque `Observation.source` bag are read by the display code:
+`source.author` (shown in the popover and the flowsheet column head) and `source.superseded: true`
+(a reading a later correction replaced — struck through in the flowsheet, excluded from trends).
+The grid itself is built by `buildFlowsheet()` in `form-core`, so both renderers draw one model.
 
 ### 5. The OpenMedForm app is just another host
 

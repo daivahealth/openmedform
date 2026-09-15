@@ -36,6 +36,8 @@ export * from './observation/project';
 export * from './observation/align';
 export * from './observation/trend';
 export * from './observation/fhir';
+export * from './observation/format';
+export * from './observation/flowsheet';
 
 export { rrtSbarReference } from './fixtures/rrt-sbar.reference';
 export {

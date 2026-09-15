@@ -10,7 +10,7 @@
  * host now renders its own submit control and calls its own handler.
  */
 
-import type { FormDefinition } from '@openmedform/form-schema-types';
+import type { FormDefinition, HistoryEntry, HistoryProvider } from '@openmedform/form-schema-types';
 import { JsonFormsRenderer } from './engine/jsonforms/JsonFormsRenderer';
 
 export interface FormRendererProps {
@@ -20,15 +20,21 @@ export interface FormRendererProps {
   readOnly?: boolean;
   /** Fires on every edit, with any current validation errors. */
   onChange?: (data: Record<string, unknown>, errors?: unknown[]) => void;
+  /** Prior fills for the same patient; see JsonFormsRendererProps.history (ADR-005). */
+  history?: HistoryEntry[];
+  /** Lazy per-field history lookup; see JsonFormsRendererProps.historyProvider. */
+  historyProvider?: HistoryProvider;
 }
 
-export function FormRenderer({ definition, data, readOnly, onChange }: FormRendererProps) {
+export function FormRenderer({ definition, data, readOnly, onChange, history, historyProvider }: FormRendererProps) {
   return (
     <JsonFormsRenderer
       definition={definition}
       data={data}
       readOnly={readOnly}
       onChange={onChange}
+      history={history}
+      historyProvider={historyProvider}
     />
   );
 }

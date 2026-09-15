@@ -142,6 +142,44 @@ export function PatientForm({ initialData }: { initialData?: Record<string, unkn
 
 ---
 
+### Previous values and flowsheets (optional)
+
+Forms filled repeatedly for one patient — vitals every two hours, a pain score each round — can
+show each field's **previous values** while the clinician charts the new one, and a **flowsheet** of
+the day. OpenMedForm never holds your patient data, so the history comes from you, two ways:
+
+```tsx
+import { JsonFormsRenderer, Flowsheet } from '@openmedform/react-form-renderer';
+import type { HistoryEntry, Observation } from '@openmedform/form-schema-types';
+
+// 1. Batch: prior fills you already have. Pass the definition a fill was made
+//    against when it differs from the one you are rendering; readings line up
+//    by LOINC/SNOMED binding first, data path second.
+const history: HistoryEntry[] = priorFills.map((f) => ({
+  effectiveAt: f.observedAt,        // when the reading was TAKEN, not saved
+  data: f.response,
+  definition: f.definitionVersion,  // omit if identical
+  author: f.nurseName,
+}));
+
+// 2. Lazy: answer per-field lookups from your own store. You close over the
+//    patient; the renderer never sees an identifier.
+const historyProvider = async (q: { coding?: { system: string; code: string }[]; path: string; limit: number }) =>
+  myStore.observations({ patientId, code: q.coding?.[0]?.code, path: q.path, limit: q.limit });
+
+<JsonFormsRenderer definition={definition} data={data} onChange={setData}
+  history={history} historyProvider={historyProvider} />
+
+<Flowsheet definition={definition} entries={history} title="Today's observations" />
+```
+
+- Which fields show a chip is decided in the **form definition** (`omf.history` on the field), so it
+  is the same in every host. Fields without it are unchanged.
+- To fill your own observation store at save time, call `projectObservations(definition, data,
+  { effectiveAt })` from `@openmedform/form-core`; `toFhirObservation(row)` gives a FHIR R4
+  `Observation` if that is what you keep. Both ends of the history flow then share one shape.
+- Units are shown, never converted: a reading in a different unit from the current field is flagged.
+
 ## 4. Validate before you save
 
 Validation comes from the **same Ajv 2020-12 instance** OpenMedForm uses, so client and your server

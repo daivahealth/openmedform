@@ -42,6 +42,7 @@ import {
 } from '@openmedform/form-core';
 import { FieldFrame, inputStyle } from './field-frame';
 import { OMF_CONTROL_RANK, omfControlIs, readOmf } from '../testers';
+import { FieldHistory } from '../history/field-history';
 
 // --- point-value colour coding (shared) -------------------------------------
 // Mirrors the paper legend where each point value has its own colour. Used by
@@ -99,6 +100,7 @@ function OmfTextarea(props: ControlProps) {
         style={{ ...inputStyle, resize: 'vertical' }}
         onChange={(e) => handleChange(path, e.target.value || undefined)}
       />
+      <FieldHistory path={path} uischema={uischema} value={data} label={label} />
     </FieldFrame>
   );
 }
@@ -153,6 +155,7 @@ function OmfRadio(props: ControlProps) {
           </span>
           <div style={{ display: 'flex', gap: 16, flex: '0 0 auto' }}>{optionEls}</div>
         </div>
+        <FieldHistory path={path} uischema={uischema} value={data} label={label} />
         {errors ? (
           <div style={{ fontSize: 'var(--omf-font-size-help, 12px)', color: 'var(--omf-color-invalid, #c0392b)' }}>{errors}</div>
         ) : null}
@@ -165,6 +168,7 @@ function OmfRadio(props: ControlProps) {
       <div style={{ display: 'flex', flexDirection: inline ? 'row' : 'column', gap: inline ? 16 : 4, flexWrap: 'wrap' }}>
         {optionEls}
       </div>
+      <FieldHistory path={path} uischema={uischema} value={data} label={label} />
     </FieldFrame>
   );
 }
@@ -259,7 +263,7 @@ function inputType(schema: { type?: string | string[]; format?: string }): strin
 }
 
 function OmfInput(props: ControlProps) {
-  const { id, label, data, enabled, visible, required, errors, path, handleChange, schema } = props;
+  const { id, label, data, enabled, visible, required, errors, path, handleChange, schema, uischema } = props;
   if (!visible) return null;
   const type = inputType(schema);
   return (
@@ -276,6 +280,7 @@ function OmfInput(props: ControlProps) {
           else handleChange(path, raw || undefined);
         }}
       />
+      <FieldHistory path={path} uischema={uischema} value={data} label={label} />
     </FieldFrame>
   );
 }
@@ -317,6 +322,7 @@ function OmfSelect(props: ControlProps) {
           </option>
         ))}
       </select>
+      <FieldHistory path={path} uischema={uischema} value={data} label={label} />
     </FieldFrame>
   );
 }
@@ -351,6 +357,7 @@ function OmfCheckbox(props: ControlProps) {
         </label>
         {typeof points === 'number' ? <PointBadge points={points} /> : null}
       </div>
+      <FieldHistory path={path} uischema={uischema} value={data} label={label} />
       {errors ? (
         <div style={{ fontSize: 'var(--omf-font-size-help, 12px)', color: 'var(--omf-color-invalid, #c0392b)' }}>
           {errors}
