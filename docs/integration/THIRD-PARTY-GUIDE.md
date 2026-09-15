@@ -181,7 +181,7 @@ const historyProvider = async (q: { coding?: { system: string; code: string }[];
 - Which fields show a chip is decided in the **form definition** (`omf.history` on the field), so it
   is the same in every host. Fields without it are unchanged.
 - How to store readings so they can be queried back, how a FHIR server answers the provider, and how
-  readings from older form versions line up: [§7](#7-observation-history-optional).
+  readings from older form versions line up: [Observation History in your EMR/EHR](OBSERVATION-HISTORY.md).
 
 ## 4. Validate before you save
 
@@ -220,7 +220,7 @@ captured against, even after the form is revised (new versions are immutable in 
 
 For a form that is filled **repeatedly for one patient** (vitals every two hours), also record when
 the readings were **taken** (`effectiveAt`) separately from when the row was saved, and consider
-storing the individual readings as well as the blob — see [§7](#7-observation-history-optional).
+storing the individual readings as well as the blob — see [Observation History in your EMR/EHR](OBSERVATION-HISTORY.md).
 
 To render translated labels for a given language, resolve display strings from `definition.translations`
 at view time — never store translated text as the value.
@@ -327,7 +327,7 @@ bulleted instruction blocks keep their line breaks.
 
 `renderFlowsheetHtml(definition, options)` prints a patient's readings across time — parameters down
 the left, one column per occurrence, newest first — as an A4 **landscape** document. It draws the
-same grid the screen `Flowsheet` draws (see [§7](#7-observation-history-optional)), so paper and
+same grid the screen `Flowsheet` draws (see [Observation History in your EMR/EHR](OBSERVATION-HISTORY.md)), so paper and
 screen agree. Pass the same `entries` and/or `observations`; the header lines are yours to fill.
 
 ```ts
@@ -350,111 +350,17 @@ Options: `maxColumns`, `includeEmptyRows` (a blank chart to fill by hand), `orie
 
 ## 7. Observation history (optional)
 
-Everything a host needs to make [previous values and flowsheets](#previous-values-and-flowsheets-optional)
-work well. Applies to any form filled more than once for the same patient.
+Forms filled repeatedly for one patient can show each field's **previous values** and a **flowsheet**
+— from your data, in your frontend. The full walkthrough (React and Angular, storing readings, the
+FHIR mapping, testing, troubleshooting) is a guide of its own:
+**[Observation History in your EMR/EHR](OBSERVATION-HISTORY.md)**.
 
-### Which record shape to use
-
-| The clinical artifact | Shape | History comes from |
-|---|---|---|
-| A scheduled fill, signed each time (q2h vitals, per-round pain score) | **One response per occurrence** — the default | N stored responses |
-| A chart that is itself the record, signed once (24-h ICU observation sheet, fluid balance) | One response with a `recordTable` inside | the rows of one response (`recordTable.effectiveAtPath` gives each row its own time) |
-| A draft being corrected before completion | Update in place | — |
-
-Never overwrite a completed response to record a new reading: a completed response is a signed
-clinical record. A correction is a **new** response; mark the old reading superseded (below).
-
-### Store the readings, not only the blob
-
-The response JSON is the record. The readings *inside* it are what history and flowsheets query. At
-save time, flatten one into the other with `projectObservations` from `@openmedform/form-core` and
-store the rows in whatever you already have — a table, a document store, or your FHIR server.
-
-```ts
-import { projectObservations, toFhirObservation } from '@openmedform/form-core';
-
-const rows = projectObservations(definition, response, {
-  effectiveAt: observedAt,                       // when TAKEN — ISO-8601, not the save time
-  source: { formCode, formVersion, author },     // anything you want back later (opaque to us)
-});
-await store.saveObservations(patientId, rows);   // your table…
-// …or, if your store is FHIR:
-await fhir.create(rows.map((r) => toFhirObservation(r, { subject: { reference: `Patient/${patientId}` } })));
-```
-
-One `Observation` row per scalar answer:
-
-| Field | Meaning |
-|---|---|
-| `path` | Dotted data path inside the response, indices included (`vitals.systolic`, `hourly.2.hr`). Provenance, and the fallback identity. |
-| `coding` | The field's LOINC/SNOMED bindings from the definition (`omf.coding`). **The primary identity.** |
-| `label`, `section` | Display label and nearest Group label, resolved as the renderer shows them. |
-| `value`, `valueLabel`, `valueCoding` | The stored scalar; for a coded answer, the option's label and its `omf.optionCoding`. A multi-select yields one row per selected option. |
-| `unit` | UCUM string from `omf.unit`. Never inferred. |
-| `effectiveAt` | Clinical time of the reading. |
-| `source` | Your bag. Two keys are read back for display: `author` (shown on chips and flowsheet columns) and `superseded: true` (struck through, excluded from trends). |
-
-No patient identifier is on the row by design — it is your key, in your store.
-
-### Answering the lazy provider
-
-`historyProvider` is called once per history-enabled field with a `HistoryQuery`; return
-`Observation[]`, newest first. Against a FHIR server the mapping is direct:
-
-| `HistoryQuery` | FHIR R4 `Observation` search |
-|---|---|
-| `coding[0]` (system + code) | `code=http://loinc.org|8867-4` |
-| `path` (only when the field has no coding) | your own extension or a local `code` — see below |
-| `limit` | `_count=5` |
-| — (you supply it) | `patient=Patient/123&_sort=-date` |
-
-And back from a FHIR resource to our row:
-
-| FHIR R4 `Observation` | `Observation` |
-|---|---|
-| `code.coding[]` / `code.text` | `coding` / `label` |
-| `effectiveDateTime` | `effectiveAt` |
-| `valueQuantity.value` / `.code` | `value` / `unit` |
-| `valueCodeableConcept.coding[]` / `.text` | `valueCoding` / `valueLabel` (put the stored code in `value`) |
-| `valueBoolean`, `valueString` | `value` |
-| `performer[0].display` | `source.author` |
-| `status: 'entered-in-error'` or superseded by a later resource | `source.superseded: true` |
-
-Unbound fields (no `coding`) can only be looked up by `path`. A FHIR store has nowhere natural to put
-that, so bind the fields you want to trend — the **Dictionary** panel in OpenMedForm suggests and
-verifies LOINC/SNOMED codes per field.
-
-### How readings line up across versions and forms
-
-When the renderer gets a reading, it decides which field it belongs to by, in order:
-
-1. **Same terminology binding** (system + code) — survives a field being renamed or moved between
-   versions, and lines up the same reading captured on a *different* form (ward vitals vs ICU chart).
-2. **Same data path**, indices ignored — works while an unbound field stays put; breaks the moment it
-   moves.
-3. Nothing. Labels are never matched: two "Temperature" fields in °C and °F are not one series.
-
-Practical consequence: a verified LOINC binding on a field is what makes its history durable.
-
-### Time and units
-
-- `effectiveAt` is when the reading was **taken**. The 14:00 round charted at 14:20, or back-charted
-  at 16:00, is still the 14:00 reading. Every chip, sort and flowsheet column uses it.
-- Units are carried and shown, **never converted**. A prior reading in a different unit from the
-  current field shows with its unit and a warning glyph instead of a delta arrow; a flowsheet row that
-  mixes units shows the unit in every cell. Codes are UCUM in the data and on the wire; on screen and
-  paper they appear as the usual symbols (`Cel` → `°C`, `mm[Hg]` → `mmHg`) via `displayUnit()` from
-  `@openmedform/form-core` — use it in your own views for the same reading.
-
-### Printing
-
-`renderFlowsheetHtml` in `@openmedform/form-print-engine` prints the same grid — see
-[§6 C](#c-print-a-flowsheet).
-
-### Not covered
-
-Scheduling. A missed 16:00 round has no response, so "overdue" cannot be derived from history — that
-is your task/worklist model's job.
+In one paragraph: the form's fields opt in with `omf.history`; you pass `history` (earlier fills) or
+`historyProvider` (a per-field lookup that closes over your patient); the renderer lines readings up
+by LOINC/SNOMED binding first, data path second, never label; `effectiveAt` is when a reading was
+**taken**; units are shown, never converted. At save time, `projectObservations()` from `form-core`
+turns a response into FHIR-shaped rows for your store (`toFhirObservation()` if that store is FHIR);
+`renderFlowsheetHtml()` prints the grid ([§6 C](#c-print-a-flowsheet)).
 
 ---
 
@@ -518,7 +424,7 @@ a display aid.
 
 The same two inputs as the React renderer (see
 [§3](#previous-values-and-flowsheets-optional) and, for storage and the FHIR mapping,
-[§7](#7-observation-history-optional)): `[history]` for prior fills you already have, and
+[Observation History in your EMR/EHR](OBSERVATION-HISTORY.md)): `[history]` for prior fills you already have, and
 `[historyProvider]` for a lazy per-field lookup that closes over your patient. Fields whose definition
 carries `omf.history` show a previous-value chip; `<omf-flowsheet>` charts the same data.
 
@@ -574,4 +480,4 @@ build (`tsc`, or `ng-packagr` for the Angular library), so `dist/` is always fre
   pixel fidelity is the print engine's job.
 - **History alignment**: readings from older versions or other forms line up only by terminology
   binding or unchanged data path — bind the fields you want to trend. Units are displayed, not
-  converted. Scheduling / overdue detection is not provided (see [§7](#7-observation-history-optional)).
+  converted. Scheduling / overdue detection is not provided (see [Observation History in your EMR/EHR](OBSERVATION-HISTORY.md)).

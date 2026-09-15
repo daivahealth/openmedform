@@ -14,6 +14,7 @@ AI-powered clinical form builder platform.
 | ADRs | [ADR/](ADR/) | Architecture decision records |
 | API | [api/](api/) | API contracts, endpoints, DTOs |
 | Features | [features/](features/) | Form builder, AI builder, scoring engine |
+| Integration | [integration/](integration/) | Embedding the renderers in an EMR/EHR, observation history |
 | Development | [development/](development/) | Dev setup, commands, coding patterns |
 | Deployment | [deployment/](deployment/) | Local deployment, Docker Compose, GCP Cloud Run (production) |
 | Security | [security/](security/) | Auth, RBAC, audit logging, LLM key handling |
@@ -25,6 +26,8 @@ AI-powered clinical form builder platform.
 - [Conversion Limitations & Roadmap](features/CONVERSION-LIMITATIONS.md)
 - [Data Model](architecture/DATA-MODEL.md)
 - [API Reference](api/README.md)
+- [Third-Party Integration Guide](integration/THIRD-PARTY-GUIDE.md)
+- [Observation History in your EMR/EHR](integration/OBSERVATION-HISTORY.md)
 - [Form Builder](features/FORM-BUILDER.md)
 - [Clinical Terminology](features/CLINICAL-TERMINOLOGY.md)
 - [AI Builder](features/AI-BUILDER.md)
