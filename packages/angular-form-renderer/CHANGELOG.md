@@ -1,5 +1,38 @@
 # @openmedform/angular-form-renderer
 
+## 1.10.0
+
+### Minor Changes
+
+- 048e627: Observation history, part 3 of ADR-005: the Angular renderer reaches parity
+  with React.
+
+  `<omf-form>` accepts `[history]` (prior fills as the host stored them, each
+  optionally with the definition it was filled against) and `[historyProvider]`
+  (a lazy per-field lookup the host implements — it closes over the patient, the
+  renderer never sees an identifier). Every value control whose definition
+  carries `omf.history` gets the same chip as in React — "Previous 84 /min · 2h
+  ago · ↑ +6" — with a popover of the last N readings, author and a sparkline.
+  New `<omf-flowsheet>` draws the same grid as the React `Flowsheet`. Both are
+  thin views over form-core's shared model, so the two frameworks cannot
+  disagree about a previous reading.
+
+  `form-core` exports a `vitalsHistoryReference` / `vitalsHistoryV2` /
+  `vitalsHistoryEntries()` fixture — a q2h vitals form in two versions with a
+  shift of prior fills — used by both demos and useful for testing a host
+  integration.
+
+### Patch Changes
+
+- Updated dependencies [048e627]
+- Updated dependencies [788971a]
+- Updated dependencies [9e8027f]
+- Updated dependencies [b77b0d3]
+- Updated dependencies [35e9ed6]
+  - @openmedform/form-core@1.10.0
+  - @openmedform/form-schema-types@1.10.0
+  - @openmedform/form-design-tokens@1.10.0
+
 ## 1.9.0
 
 ### Minor Changes
