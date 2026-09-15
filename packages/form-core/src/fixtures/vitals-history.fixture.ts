@@ -73,26 +73,28 @@ export const vitalsHistoryReference = {
         {
           type: 'Group',
           label: 'Observations',
-          options: { omf: { accentColor: '#1e8e5a', icon: '❤️' } },
+          // History declared ONCE for the section (ADR-006); the fields below
+          // inherit it, two narrow it to a popover, SpO2 asks for more rows.
+          options: { omf: { accentColor: '#1e8e5a', icon: '❤️', history: { show: 'inline' } } },
           elements: [
             {
               type: 'HorizontalLayout',
               elements: [
-                { type: 'Control', scope: '#/properties/obs/properties/heartRate', options: { omf: { coding: [HR], unit: '/min', history: { show: 'inline' } } } },
-                { type: 'Control', scope: '#/properties/obs/properties/respRate', options: { omf: { coding: [RR], unit: '/min', history: { show: 'inline' } } } },
+                { type: 'Control', scope: '#/properties/obs/properties/heartRate', options: { omf: { coding: [HR], unit: '/min' } } },
+                { type: 'Control', scope: '#/properties/obs/properties/respRate', options: { omf: { coding: [RR], unit: '/min' } } },
               ],
             },
             {
               type: 'HorizontalLayout',
               elements: [
-                { type: 'Control', scope: '#/properties/obs/properties/systolic', options: { omf: { coding: [SYS], unit: 'mm[Hg]', history: { show: 'inline' } } } },
-                { type: 'Control', scope: '#/properties/obs/properties/diastolic', options: { omf: { coding: [DIA], unit: 'mm[Hg]', history: { show: 'inline' } } } },
+                { type: 'Control', scope: '#/properties/obs/properties/systolic', options: { omf: { coding: [SYS], unit: 'mm[Hg]' } } },
+                { type: 'Control', scope: '#/properties/obs/properties/diastolic', options: { omf: { coding: [DIA], unit: 'mm[Hg]' } } },
               ],
             },
             {
               type: 'HorizontalLayout',
               elements: [
-                { type: 'Control', scope: '#/properties/obs/properties/temp', options: { omf: { coding: [TEMP], unit: '[degF]', history: { show: 'inline' } } } },
+                { type: 'Control', scope: '#/properties/obs/properties/temp', options: { omf: { coding: [TEMP], unit: '[degF]' } } },
                 { type: 'Control', scope: '#/properties/obs/properties/spo2', options: { omf: { unit: '%', history: { show: 'inline', count: 8 } } } },
               ],
             },

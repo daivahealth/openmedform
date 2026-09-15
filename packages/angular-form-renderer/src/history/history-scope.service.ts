@@ -17,13 +17,20 @@ import type {
   HistoryEntry,
   HistoryProvider,
   Observation,
+  OmfHistoryOptions,
 } from '@openmedform/form-schema-types';
-import { alignHistoryEntries } from '@openmedform/form-core';
+import { alignHistoryEntries, resolveHistoryConfig } from '@openmedform/form-core';
 import { BehaviorSubject } from 'rxjs';
 
 export interface HistoryScopeState {
   aligned: Map<string, Observation[]>;
   provider?: HistoryProvider;
+  /**
+   * Each field's EFFECTIVE `omf.history` after section inheritance, keyed by
+   * index-free data path (ADR-006) — resolved once so a Group-level setting
+   * reaches every control.
+   */
+  config: Map<string, OmfHistoryOptions>;
 }
 
 @Injectable()
@@ -48,6 +55,7 @@ export class HistoryScopeService {
     }
     this.state$.next({
       aligned: alignHistoryEntries(definition, history ?? []),
+      config: resolveHistoryConfig(definition),
       ...(provider ? { provider } : {}),
     });
   }

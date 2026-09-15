@@ -175,7 +175,13 @@ export class FieldHistoryComponent implements OnInit, OnChanges, OnDestroy {
   // --- derived display -----------------------------------------------------
 
   private get config(): OmfHistoryOptions | undefined {
-    return readOmf(this.uischema)?.['history'] as OmfHistoryOptions | undefined;
+    // The scope's resolved map carries the field's own setting or its
+    // section's (ADR-006); the raw element is the fallback for a control the
+    // walker did not reach.
+    return (
+      this.scope?.state?.config.get(this.key) ??
+      (readOmf(this.uischema)?.['history'] as OmfHistoryOptions | undefined)
+    );
   }
   private get coding(): OmfCoding[] | undefined {
     const c = readOmf(this.uischema)?.['coding'];

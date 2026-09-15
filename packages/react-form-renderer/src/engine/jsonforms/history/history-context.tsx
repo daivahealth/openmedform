@@ -21,12 +21,18 @@ import type {
   OmfCoding,
   OmfHistoryOptions,
 } from '@openmedform/form-schema-types';
-import { alignHistoryEntries, historyKeyForPath, mergeHistory } from '@openmedform/form-core';
+import { alignHistoryEntries, historyKeyForPath, mergeHistory, resolveHistoryConfig } from '@openmedform/form-core';
 import { readOmf } from '../testers';
 
 export interface HistoryScopeValue {
   aligned: Map<string, Observation[]>;
   provider?: HistoryProvider;
+  /**
+   * Each field's EFFECTIVE `omf.history` after section inheritance, keyed by
+   * index-free data path (ADR-006). Resolved once here so a Group-level
+   * setting reaches every control without the control knowing its ancestors.
+   */
+  config: Map<string, OmfHistoryOptions>;
 }
 
 const HistoryContext = createContext<HistoryScopeValue | null>(null);
@@ -43,6 +49,7 @@ export function HistoryScope({ definition, history, historyProvider, children }:
     if ((!history || history.length === 0) && !historyProvider) return null;
     return {
       aligned: alignHistoryEntries(definition, history ?? []),
+      config: resolveHistoryConfig(definition),
       ...(historyProvider ? { provider: historyProvider } : {}),
     };
   }, [definition, history, historyProvider]);
@@ -72,9 +79,12 @@ export interface FieldHistoryState {
 export function useFieldHistory(path: string, uischema: UISchemaElement | undefined): FieldHistoryState | null {
   const scope = useContext(HistoryContext);
   const omf = readOmf(uischema);
-  const config = omf?.history as OmfHistoryOptions | undefined;
-  const enabled = Boolean(scope && config && config.show !== 'none');
   const key = historyKeyForPath(path);
+  // The resolved map carries the field's own setting or its section's
+  // (ADR-006); the raw element is the fallback for a control the walker did
+  // not reach (a custom control with an unusual scope).
+  const config = scope?.config.get(key) ?? (omf?.history as OmfHistoryOptions | undefined);
+  const enabled = Boolean(scope && config && config.show !== 'none');
   const count = config?.count ?? DEFAULT_HISTORY_COUNT;
   const coding = Array.isArray(omf?.coding) && omf!.coding.length > 0 ? (omf!.coding as OmfCoding[]) : undefined;
   const unit = typeof omf?.unit === 'string' ? (omf.unit as string) : undefined;
