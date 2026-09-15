@@ -1,5 +1,21 @@
 # @openmedform/form-core
 
+## 1.11.0
+
+### Minor Changes
+
+- e64b193: Units read like a chart, not like a code table. `form-core` gains
+  `displayUnit(ucum)` — `Cel` → `°C`, `[degF]` → `°F`, `mm[Hg]` → `mmHg`,
+  `10*9/L` → `×10⁹/L`, and the other common vital-sign and lab units; an unknown
+  code passes through unchanged. `formatObservationValue` uses it, so the
+  previous-value chip, both `Flowsheet` components and `renderFlowsheetHtml`
+  all show symbols. The stored `omf.unit` and the `Observation.unit` on the wire
+  stay UCUM, which is what FHIR wants.
+
+### Patch Changes
+
+- @openmedform/form-schema-types@1.11.0
+
 ## 1.10.0
 
 ### Minor Changes
