@@ -238,6 +238,19 @@ rejection, so one half-configured control never sinks the whole form.
 
 #### Total score & risk stratification
 
+### Serial observation forms
+
+A vitals or observation chart, a fluid balance sheet, a pain reassessment — anything the source
+shows being filled every few hours or each shift for the same patient (a time-column grid, "q2h",
+"4-hourly") — is converted so the clinician sees the patient's **previous readings** while charting.
+The model declares `options.omf.history: { show: 'inline' }` **once, on the section's Group**; every
+measurement Control inside inherits it, individual fields narrow it (`popover`) or opt out (`none`)
+([ADR-006](../ADR/006-section-level-history.md)). Numeric measurements get their UCUM `omf.unit`, and a
+"Time of observation" field is marked `omf.effectiveAt: true`. One-off sections (admission details,
+consent, signatures) and single-occasion assessment scores do not get history. The refine chat treats
+"show previous values on the Observations section" as one Group-level patch, and the Dictionary panel
+shows and edits the result ([Clinical Terminology](CLINICAL-TERMINOLOGY.md)).
+
 Many scored forms sum the ticked points across every box into a grand total and
 map that total to a risk level. This is **data-driven and computed from a single
 source of truth** — the `options.omf.points` on each checkbox, and
