@@ -1,5 +1,97 @@
 # @openmedform/form-core
 
+## 1.10.0
+
+### Minor Changes
+
+- 048e627: Observation history, part 3 of ADR-005: the Angular renderer reaches parity
+  with React.
+
+  `<omf-form>` accepts `[history]` (prior fills as the host stored them, each
+  optionally with the definition it was filled against) and `[historyProvider]`
+  (a lazy per-field lookup the host implements — it closes over the patient, the
+  renderer never sees an identifier). Every value control whose definition
+  carries `omf.history` gets the same chip as in React — "Previous 84 /min · 2h
+  ago · ↑ +6" — with a popover of the last N readings, author and a sparkline.
+  New `<omf-flowsheet>` draws the same grid as the React `Flowsheet`. Both are
+  thin views over form-core's shared model, so the two frameworks cannot
+  disagree about a previous reading.
+
+  `form-core` exports a `vitalsHistoryReference` / `vitalsHistoryV2` /
+  `vitalsHistoryEntries()` fixture — a q2h vitals form in two versions with a
+  shift of prior fills — used by both demos and useful for testing a host
+  integration.
+
+- 9e8027f: `renderFlowsheetHtml(definition, { entries | observations, … })` prints a
+  patient's readings across time — parameters down the left, one column per
+  occurrence, newest first — as a self-contained A4 landscape HTML document
+  (ADR-005). It draws the same form-core `buildFlowsheet` grid the React and
+  Angular `Flowsheet` components draw, so paper and screen agree: readings taken
+  against an older version of the form line up by LOINC/SNOMED binding, a row
+  that mixes units shows the unit in every cell, coded answers print their
+  labels, superseded readings are struck through. Wide sheets continue on a new
+  page after `columnsPerPage` (default 12) with the parameter spine repeated;
+  `headerLines` and `footer` are the host's to fill.
+
+  `form-core`: `collectHistoryFields` now resolves each field's display label
+  (element label, schema title, then key), and `buildFlowsheet` uses it, so a
+  blank chart printed to be filled by hand reads like the form rather than
+  showing raw keys.
+
+- b77b0d3: Observation history, part 2 of ADR-005: the React renderer shows a field's
+  PRIOR values when the host supplies them.
+
+  `FormRenderer` / `JsonFormsRenderer` accept `history` (prior fills as the host
+  stored them, each optionally with the definition it was filled against) and
+  `historyProvider` (a lazy per-field lookup the host implements — it closes over
+  the patient, the renderer never sees an identifier). A Control whose definition
+  carries `omf.history` gets a chip under it — "Previous 84 /min · 2h ago · ↑ +6"
+  — that opens a popover with the last N readings (clock, author) and a sparkline
+  for numeric fields. Alignment is by LOINC/SNOMED binding first, so readings
+  taken against an older version of the form, or a different form, line up under
+  the right field. A unit change between readings is flagged, never converted.
+  Fields without `omf.history`, and forms with no host history, render exactly as
+  before.
+
+  New `<Flowsheet definition entries|observations />`: parameters down the left,
+  one column per occurrence across the top, newest first, sections from the
+  form's Groups, superseded readings struck through. `FieldHistory` is exported
+  for custom controls that want the same chip.
+
+  `form-core` gains the shared model behind both: `buildFlowsheet` (the grid),
+  `formatObservationValue`, `relativeAge`, `formatClock` / `formatDay`, and the
+  `source.author` / `source.superseded` conventions. The Angular renderer will
+  render the same model; it follows in its own release.
+
+- 35e9ed6: Observation history, part 1 of ADR-005: the contracts and the core logic that
+  let a host show a field's PRIOR values (previous-value chip, trend, flowsheet)
+  when a form is filled repeatedly for one patient — including inside an EMR,
+  where OpenMedForm holds no patient data and the host supplies the history.
+
+  `form-schema-types` gains `Observation` (one scalar reading, FHIR-shaped, with
+  its terminology binding and a clinical `effectiveAt`), `HistoryEntry`,
+  `HistoryQuery` and `HistoryProvider` (the batch and lazy shapes a renderer will
+  accept), and three `omf` keys: `unit` (UCUM string on a numeric field),
+  `history` (`{ show, count, trend }` — the designer decides which fields show
+  history) and `recordTable.effectiveAtPath` (a per-record timestamp field, so
+  an hourly chart signed once still trends by the hour).
+
+  `form-core` gains `projectObservations` (flatten a response into observations —
+  scalars, coded answers with their option binding, one row per multi-select
+  option, every record of a `recordTable`), `alignHistory` /
+  `alignHistoryEntries` (which prior observations belong to which field of the
+  current definition: by LOINC/SNOMED code first, so a series survives a rename,
+  a move or a different form; by index-free data path second; never by label),
+  `mergeHistory`, trend prep (`trendPoints`, `latestDelta` with a unit-mismatch
+  flag instead of a silent conversion, `hasMixedUnits`) and `toFhirObservation`
+  for hosts whose store is FHIR R4. No renderer changes yet; those follow.
+
+### Patch Changes
+
+- Updated dependencies [788971a]
+- Updated dependencies [35e9ed6]
+  - @openmedform/form-schema-types@1.10.0
+
 ## 1.9.0
 
 ### Minor Changes
