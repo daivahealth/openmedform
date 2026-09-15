@@ -84,6 +84,25 @@ history carry:
 A field with no `omf.history` of its own and no enclosing section that declares one renders exactly
 as before. A form with no history supplied renders exactly as before.
 
+### Deciding which fields show history — in the builder
+
+You rarely need to edit JSON. In OpenMedForm the decision is made **per section** and reviewed per
+field, in the form's **Dictionary** panel (preview page → Dictionary tab):
+
+1. **Section header → "Previous values".** Set the Observations section to *Inline* (or *Popover*).
+   Every reading-bearing field inside inherits it; the field rows now read "Inherit (Inline)".
+2. **Field row → override.** Switch a free-text note to *Off*, or a boolean to *Popover*. Type the
+   UCUM code in the **Unit** box of each numeric field (`mm[Hg]`, `Cel`, `/min`, `%`).
+3. **Fix the amber warnings.** A field with previous values on and no verified LOINC/SNOMED code is
+   flagged: its history breaks the next time the field is renamed or moved. Approve or add a code
+   (see [Clinical Terminology](../features/CLINICAL-TERMINOLOGY.md)).
+
+The AI does most of this for you. A converted vitals or observation chart arrives with history
+already declared on its section, units on its measurements and the observation-time field flagged;
+and the refine chat treats "show previous values on the Observations section" as one change. The
+result is stored in the definition, audited, and travels with the export — so it is identical in
+your React app, your Angular app and OpenMedForm itself ([ADR-006](../ADR/006-section-level-history.md)).
+
 ## 3. Two ways to supply history — pick one or both
 
 | | `history` (batch) | `historyProvider` (lazy) |
@@ -435,7 +454,8 @@ A4 landscape by default; rasterize as in the
 | Symptom | Cause | Fix |
 |---|---|---|
 | No chip anywhere | nothing supplied (`history` empty and no `historyProvider`), or the form has no `omf.history` | supply history; set `omf.history` on the fields in the definition |
-| Chip on some fields only | only those fields carry `omf.history` | by design — add it to the others |
+| Chip on some fields only | only those fields (or their section) carry `omf.history` | set it on the section in the Dictionary, or add it to the others |
+| Chip on a field you never set | it inherits from its section | override the field to *Off* in the Dictionary (`show: 'none'`) |
 | "Previous values unavailable" | your provider rejected | check the network call; the field stays usable |
 | A prior reading is missing after a form revision | the field moved and has no binding | bind it to LOINC/SNOMED (§6); the path fallback cannot follow a move |
 | Two fields show the same history | both bound to the same code, or both at the same path | one code per concept |
