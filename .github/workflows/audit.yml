@@ -24,7 +24,7 @@ jobs:
       contents: write # push the fix branch
       pull-requests: write # open / update the fix PR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Same PAT fallback as release.yml: the default GITHUB_TOKEN cannot
           # open PRs when the org policy forbids Actions from doing so, and
@@ -32,12 +32,12 @@ jobs:
           token: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 9.15.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
