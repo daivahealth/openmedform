@@ -137,7 +137,7 @@ same in every EMR. `renderFlowsheetHtml()` from `@openmedform/form-print-engine`
 grid as an A4 landscape sheet. At save time the EMR can flatten a response into coded, FHIR-shaped observation
 rows with `projectObservations()` from `@openmedform/form-core` (`toFhirObservation()` for a FHIR
 store), so both ends of the flow share one shape. Details, the FHIR search mapping and the record-shape
-guidance are in the [Third-Party Integration Guide §7](../integration/THIRD-PARTY-GUIDE.md#7-observation-history-optional).
+guidance are in [Observation History in your EMR/EHR](../integration/OBSERVATION-HISTORY.md).
 
 ## Print / PDF
 
