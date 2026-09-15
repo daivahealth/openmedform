@@ -81,6 +81,7 @@ describe('updateFieldMeta (ADR-006)', () => {
       USER,
     );
     expect(prisma.formVersion.update).toHaveBeenCalled();
+    expect(prisma.form.update).toHaveBeenCalledWith({ where: { id: FORM_ID }, data: { currentVersionId: 'v1' } });
     const group = (layoutOf(writes[0]).elements as Array<Record<string, unknown>>)[0];
     expect(omfOf(group)).toEqual({ accentColor: '#1e8e5a', history: { show: 'inline', count: 8 } });
     expect(audits[0]).toMatchObject({
@@ -140,5 +141,7 @@ describe('updateFieldMeta (ADR-006)', () => {
     expect(prisma.formVersion.create).toHaveBeenCalled();
     expect(result.version).toBe(4);
     expect(audits[0].details).toMatchObject({ forkedNewDraft: true });
+    // …and the published v3 stays current for data entry until v4 is published.
+    expect(prisma.form.update).not.toHaveBeenCalled();
   });
 });

@@ -17,7 +17,8 @@ is AI-first:
    natural-language description.
 3. **Refine by prompt** — on the form's preview page, "Refine with AI" edits the
    draft in place (optionally with a reference image attached). Published
-   versions are immutable, so a refine after publish forks a new draft.
+   versions are immutable, so a refine after publish forks a new draft; the published
+   version stays in use for data entry until the draft is published.
 4. **Publish** — makes the version available for data entry.
 
 A form's structure is a JSON Forms UI schema, so nothing stops a developer from

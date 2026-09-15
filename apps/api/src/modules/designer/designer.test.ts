@@ -61,6 +61,8 @@ describe('refine writes only fields FormVersion still has', () => {
     expect(data).not.toHaveProperty('engine');
     expect(data.version).toBe(2);
     expect(data).toHaveProperty('dataSchema');
+    // The published version stays current for data entry; the fork waits to be published.
+    expect(prisma.form.update).not.toHaveBeenCalled();
   });
 
   it('edits a draft in place without an engine field', async () => {
@@ -70,6 +72,7 @@ describe('refine writes only fields FormVersion still has', () => {
 
     expect(prisma.formVersion.create).not.toHaveBeenCalled();
     expect(prisma.formVersion.update.mock.calls[0][0].data).not.toHaveProperty('engine');
+    expect(prisma.form.update).toHaveBeenCalledWith({ where: { id: FORM_ID }, data: { currentVersionId: 'v1' } });
   });
 });
 

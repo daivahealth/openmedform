@@ -81,8 +81,15 @@ export default function FormPreviewPage() {
     );
   }
 
-  const version = form.currentVersion ?? form.versions?.[0];
+  // The designer works on the LATEST version. After a published form is
+  // refined (or its bindings / history edited) that is a forked draft, while
+  // `currentVersion` — what the fill screen serves — stays the published one
+  // until this draft is published.
+  const latest = form.versions?.[0] ?? form.currentVersion;
+  const version = latest;
   const hasContent = !!(version as { dataSchema?: unknown } | undefined)?.dataSchema;
+  const draftPending = form.status === 'PUBLISHED' && !!latest && !latest.publishedAt;
+  const canPublish = form.status !== 'PUBLISHED' || draftPending;
 
   return (
     <div className="space-y-4">
@@ -128,7 +135,7 @@ export default function FormPreviewPage() {
             )}
             {refineOpen ? 'Hide chat' : 'Refine with AI'}
           </Button>
-          {form.status !== 'PUBLISHED' && (
+          {canPublish && (
             <Button size="sm" onClick={() => void handlePublish()} disabled={publish.isPending}>
               {publish.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -145,8 +152,9 @@ export default function FormPreviewPage() {
 
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">
-          Edits made with “Refine with AI” are saved automatically. Publish to make this
-          version available for data entry.
+          {draftPending
+            ? `Draft v${latest!.version} — v${form.currentVersion?.version ?? '?'} stays in use for data entry until you publish this draft.`
+            : 'Edits made with “Refine with AI” are saved automatically. Publish to make this version available for data entry.'}
         </span>
         {publishError && <span className="text-destructive">{publishError}</span>}
       </div>

@@ -180,10 +180,15 @@ export class DesignerService {
           data: versionData,
         });
 
-    await this.prisma.form.update({
-      where: { id: form.id },
-      data: { currentVersionId: savedVersion.id },
-    });
+    // A forked draft is NOT what clinicians fill: the published version stays
+    // current for data entry until someone publishes the fork. Only an
+    // in-place draft edit keeps the pointer on the row it just changed.
+    if (!latest.publishedAt) {
+      await this.prisma.form.update({
+        where: { id: form.id },
+        data: { currentVersionId: savedVersion.id },
+      });
+    }
 
     await this.audit.record({
       tenantId,
@@ -495,8 +500,10 @@ export class DesignerService {
 
   /**
    * Persist an edited UI schema: a draft is updated in place, a published
-   * version forks a new draft (published versions are immutable), and the
-   * form's current version follows.
+   * version forks a new draft (published versions are immutable). The form's
+   * current version — what the fill screen and new submissions use — follows
+   * an in-place draft edit but NOT a fork: a published form keeps serving its
+   * published version until the fork is itself published.
    */
   private async saveUiSchema(
     formId: string,
@@ -528,10 +535,12 @@ export class DesignerService {
         })
       : await this.prisma.formVersion.update({ where: { id: latest.id }, data: versionData });
 
-    await this.prisma.form.update({
-      where: { id: formId },
-      data: { currentVersionId: savedVersion.id },
-    });
+    if (!latest.publishedAt) {
+      await this.prisma.form.update({
+        where: { id: formId },
+        data: { currentVersionId: savedVersion.id },
+      });
+    }
     return savedVersion;
   }
 
