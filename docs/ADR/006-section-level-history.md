@@ -6,7 +6,7 @@ description: "Why observation history is switched on per section of a form, inhe
 # ADR-006: Section-level history — declared on a Group, inherited by its fields
 
 ## Status
-Accepted (2026-09-15). Extends [ADR-005](005-observation-history.md). Workstreams 1–4 implemented (core, renderers, Dictionary panel + API, prompts); 5 pending.
+Accepted (2026-09-15). Extends [ADR-005](005-observation-history.md). All five workstreams implemented (2026-09-15).
 
 ## Context
 

@@ -72,6 +72,11 @@ when the host supplies the prior fills. The design is
 | `omf.recordTable.effectiveAtPath` | a `recordTable` | Dot path inside one record to its clinical time (`'observedAt'`). Rows projected from that record take the record's own time instead of the response's. |
 | `omf.effectiveAt: true` | a date/date-time Control | This field is the clinical time of the **whole response**. The API sets `submission.effective_at` from it at completion (else the client's value, else creation time); a host storing its own data should do the same. |
 
+Designers set all three in the **Dictionary** panel (a "Previous values" selector on each section
+header and each field row, a Unit box on numeric fields — see
+[Clinical Terminology](CLINICAL-TERMINOLOGY.md)) or by asking the refine chat; a converted
+observation chart arrives with them already set ([PDF to Form](PDF-TO-FORM.md#serial-observation-forms)).
+
 Three `form-core` functions do the work and are the only place the rules live:
 `resolveHistoryConfig(definition)` gives each field's effective `history` after
 section inheritance, `projectObservations(definition, data, { effectiveAt })`
