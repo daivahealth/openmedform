@@ -16,6 +16,8 @@
  * - registry    — control-registry contract shared by both renderers
  * - serialization — empty-draft / prune / submit-payload helpers
  * - record-table  — summary-cell derivation shared by both renderers
+ * - observation   — project a response into coded observations, align prior
+ *                   observations to the current definition, trend prep, FHIR (ADR-005)
  */
 
 export * from './validation/validate-data';
@@ -30,6 +32,10 @@ export * from './registry/control-registry';
 export * from './serialization/response';
 export * from './scoring/score';
 export * from './record-table/summary';
+export * from './observation/project';
+export * from './observation/align';
+export * from './observation/trend';
+export * from './observation/fhir';
 
 export { rrtSbarReference } from './fixtures/rrt-sbar.reference';
 export {

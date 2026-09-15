@@ -53,6 +53,28 @@ touches the scoring itself: every item still feeds the grand total and the
 per-section breakdown. Scoring shown on screen is advisory: the server recalculates on
 submission and is authoritative.
 
+### History, units and repeat timestamps (`omf.history`, `omf.unit`, `recordTable.effectiveAtPath`)
+
+Forms filled repeatedly for one patient (vitals every two hours) can show a
+field's **previous values** — a chip under the control, a trend, a flowsheet —
+when the host supplies the prior fills. The design is
+[ADR-005](../ADR/005-observation-history.md); the vocabulary is:
+
+| Key | On | Meaning |
+|-----|----|---------|
+| `omf.history` | a Control | `{ show: 'inline' \| 'popover' \| 'none', count?, trend? }`. The designer decides which fields show history; absent means none. Rides in the exported definition, so it behaves the same in every host. |
+| `omf.unit` | a numeric Control | UCUM string (`'mm[Hg]'`, `'Cel'`, `'%'`, `'/min'`). Carried onto every projected observation. History **never converts** — two readings in different units are shown as two values with their units. |
+| `omf.recordTable.effectiveAtPath` | a `recordTable` | Dot path inside one record to its clinical time (`'observedAt'`). Rows projected from that record take the record's own time instead of the response's. |
+
+Two `form-core` functions do the work and are the only place the rules live:
+`projectObservations(definition, data, { effectiveAt })` flattens a response
+into `Observation` rows, and `alignHistory(definition, observations)` decides
+which prior rows belong to which field — by terminology binding first (so a
+series survives a rename, a move, or a different form), by index-free data path
+second, never by label. Bind the fields you want to trend (see
+[Clinical Terminology](CLINICAL-TERMINOLOGY.md)); an unbound field gets
+path-only history that breaks the moment the field moves.
+
 ### A verdict per instrument (`omf.bands` on a Group)
 
 A screening sheet usually prints a verdict beside each instrument's total —

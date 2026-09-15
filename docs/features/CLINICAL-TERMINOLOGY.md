@@ -26,6 +26,14 @@ exact form version, submitted answers are codified data retroactively and
 forever — the basis for cross-form queries, FHIR export (#79) and registry
 reporting (#137).
 
+Bindings are also the **identity of a reading over time**. When a form is
+filled repeatedly (q2h vitals) the previous-value chip and the flowsheet line
+readings up by `system` + `code` first, so a field that is renamed, moved to
+another section, or captured on a different form altogether still forms one
+series; an unbound field falls back to its data path and loses its history the
+moment it moves. See [ADR-005](../ADR/005-observation-history.md) and the
+`omf.history` / `omf.unit` keys in [Form Builder](FORM-BUILDER.md).
+
 ## The Dictionary panel
 
 On the form preview page, the side panel has two tabs: **Refine with AI** and

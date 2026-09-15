@@ -76,6 +76,24 @@ export interface OmfCoding {
   verified: boolean;
 }
 
+/**
+ * How a field shows its PRIOR values when the host supplies history
+ * (ADR-005). Rides in the definition so BP shows a previous-value chip in
+ * every host while a free-text field never does, with no per-host setup.
+ */
+export interface OmfHistoryOptions {
+  /**
+   * 'inline' — a chip under the control ("Previous 138 · 2h ago · ↑") that
+   * opens a popover of the last `count`; 'popover' — on demand only;
+   * 'none' — never (the default when the whole object is absent).
+   */
+  show: 'inline' | 'popover' | 'none';
+  /** How many prior values to request and list. Default 5. */
+  count?: number;
+  /** Draw a sparkline for a numeric field. Default true. */
+  trend?: boolean;
+}
+
 /** Vendor-namespaced extension bag carried on any element under `options.omf`. */
 export interface OmfOptions {
   /** Custom control/layout type resolved via the renderer's registry (e.g. 'scoringMatrix'). */
@@ -175,6 +193,15 @@ export interface OmfOptions {
    * `{ "YES": [{ system: "http://snomed.info/sct", code: "373066001", ... }] }`.
    */
   optionCoding?: Record<string, OmfCoding[]>;
+  /**
+   * Unit of a numeric field as a UCUM string ('mm[Hg]', 'Cel', '%', '/min').
+   * Carried onto every projected Observation. Display-only for the renderers;
+   * its job is to keep two matched readings honest — history never converts,
+   * it shows a mismatch as two values with their units.
+   */
+  unit?: string;
+  /** Previous-value / trend display for this field. See OmfHistoryOptions. */
+  history?: OmfHistoryOptions;
   /**
    * Risk-stratification bands: a total maps to the band whose
    * [minScore, maxScore] range contains it (both bounds inclusive and
@@ -281,6 +308,13 @@ export interface OmfRecordTableOptions {
   emptyLabel?: string;
   /** Confirmation prompt before removing a record. */
   removeConfirm?: string;
+  /**
+   * Dot path INSIDE one record to the field holding that record's clinical
+   * time (e.g. 'observedAt'). When set, observations projected from a record
+   * take that record's own timestamp — a 24-hour chart signed once at 20:00
+   * still trends by the hour each row was taken — instead of the response's.
+   */
+  effectiveAtPath?: string;
   /** Summary columns, in display order. */
   columns?: OmfRecordTableColumn[];
 }

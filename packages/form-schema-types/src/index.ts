@@ -14,3 +14,4 @@ export * from './asset';
 export * from './conversion';
 export * from './form-definition';
 export * from './form-instance';
+export * from './observation';
