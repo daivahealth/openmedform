@@ -29,6 +29,7 @@ import {
   scopeToDataPathSegments,
   getValueAtScope,
 } from '@openmedform/form-core';
+import { esc } from './html';
 
 export interface PrintRenderOptions {
   /** Response data to pre-fill (omitted → a blank printable form). */
@@ -273,12 +274,4 @@ function stringifyValue(value: unknown): string {
   if (value === undefined || value === null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
-}
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

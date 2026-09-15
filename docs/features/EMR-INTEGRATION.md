@@ -128,7 +128,8 @@ data path second, so readings taken against an older version of the form still l
 ```
 
 Which fields show history is set in the form definition (`omf.history` on the field), so it is the
-same in every EMR. At save time the EMR can flatten a response into coded, FHIR-shaped observation
+same in every EMR. `renderFlowsheetHtml()` from `@openmedform/form-print-engine` prints the same
+grid as an A4 landscape sheet. At save time the EMR can flatten a response into coded, FHIR-shaped observation
 rows with `projectObservations()` from `@openmedform/form-core` (`toFhirObservation()` for a FHIR
 store), so both ends of the flow share one shape. Details, the FHIR search mapping and the record-shape
 guidance are in the [Third-Party Integration Guide §7](../integration/THIRD-PARTY-GUIDE.md#7-observation-history-optional).

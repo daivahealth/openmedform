@@ -56,12 +56,12 @@ export interface BuildFlowsheetOptions {
 }
 
 function labelFor(field: HistoryField, observations: Observation[]): string {
-  // Prefer the label of the most recent reading taken at THIS field's path
-  // (i.e. against the current definition), else any reading's label, else
-  // the key's last segment.
+  // The current definition's own label wins (a blank chart must read like the
+  // form); a reading taken at this field's path is the same thing; only a
+  // reading matched from another form's field falls back to ITS label.
+  if (field.label) return field.label;
   const samePath = observations.find((o) => historyKeyForPath(o.path) === field.key);
-  const fromObs = (samePath ?? observations[0])?.label;
-  return fromObs ?? field.key.split('.').pop() ?? field.key;
+  return (samePath ?? observations[0])?.label ?? field.key.split('.').pop() ?? field.key;
 }
 
 export function buildFlowsheet(

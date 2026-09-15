@@ -318,6 +318,29 @@ Because the print HTML is built from the **UI + Print schemas** (never a scanned
 the output is data-fillable and re-flowable — the `data` you pass fills the boxes, and multi-line /
 bulleted instruction blocks keep their line breaks.
 
+### C. Print a flowsheet
+
+`renderFlowsheetHtml(definition, options)` prints a patient's readings across time — parameters down
+the left, one column per occurrence, newest first — as an A4 **landscape** document. It draws the
+same grid the screen `Flowsheet` draws (see [§7](#7-observation-history-optional)), so paper and
+screen agree. Pass the same `entries` and/or `observations`; the header lines are yours to fill.
+
+```ts
+import { renderFlowsheetHtml } from '@openmedform/form-print-engine';
+
+const html = renderFlowsheetHtml(definition, {
+  entries: priorFills,                              // and/or observations: Observation[]
+  title: 'Ward vitals',
+  headerLines: [patient.displayName, `MRN ${patient.mrn}`, 'Ward 3B'],
+  columnsPerPage: 12,                               // more columns continue on a new page
+  timeZone: 'Asia/Kolkata',
+  footer: `Printed ${new Date().toLocaleString()} by ${user.name}`,
+});
+```
+
+Options: `maxColumns`, `includeEmptyRows` (a blank chart to fill by hand), `orientation`,
+`marginsMm`. Rasterize exactly as in A or B above. Superseded readings print struck through.
+
 ---
 
 ## 7. Observation history (optional)
@@ -415,6 +438,11 @@ Practical consequence: a verified LOINC binding on a field is what makes its his
 - Units are carried and shown, **never converted**. A prior reading in a different unit from the
   current field shows with its unit and a warning glyph instead of a delta arrow; a flowsheet row that
   mixes units shows the unit in every cell.
+
+### Printing
+
+`renderFlowsheetHtml` in `@openmedform/form-print-engine` prints the same grid — see
+[§6 C](#c-print-a-flowsheet).
 
 ### Not covered
 

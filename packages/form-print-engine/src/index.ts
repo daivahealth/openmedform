@@ -8,6 +8,8 @@
 
 export { renderPrintHtml } from './render-html';
 export type { PrintRenderOptions } from './render-html';
+export { renderFlowsheetHtml } from './render-flowsheet';
+export type { FlowsheetPrintOptions } from './render-flowsheet';
 export {
   comparePixels,
 } from './compare-images';

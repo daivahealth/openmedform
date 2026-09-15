@@ -21,12 +21,13 @@
 import type {
   FormDefinitionSchemas,
   HistoryEntry,
+  JsonSchema,
   Observation,
   OmfCoding,
   UiSchema,
   UiSchemaElement,
 } from '@openmedform/form-schema-types';
-import { scopeToDataPath } from '../schema/pointer';
+import { resolveSchemaAtScope, scopeToDataPath } from '../schema/pointer';
 import { projectObservations } from './project';
 
 /** One field of the current definition, as alignment sees it. */
@@ -35,6 +36,8 @@ export interface HistoryField {
   key: string;
   /** JSON Forms scope of the Control (relative to its record's `items` when inside a recordTable). */
   scope: string;
+  /** Display label, resolved as the renderer does: element label, schema title, then the key. */
+  label: string;
   coding?: OmfCoding[];
   unit?: string;
   section?: string;
@@ -80,7 +83,12 @@ export function collectHistoryFields(definition: FormDefinitionSchemas): History
     {}) as UiSchemaElement;
   const fields: HistoryField[] = [];
 
-  const walk = (el: UiSchemaElement, prefix: string, section: string | undefined): void => {
+  const walk = (
+    el: UiSchemaElement,
+    prefix: string,
+    schemaRoot: JsonSchema,
+    section: string | undefined,
+  ): void => {
     const node = el as ElementWithScope;
     const nextSection =
       node.type === 'Group' && typeof node.label === 'string' ? node.label : section;
@@ -89,23 +97,30 @@ export function collectHistoryFields(definition: FormDefinitionSchemas): History
       const local = scopeToDataPath(node.scope);
       const key = prefix ? `${prefix}.${local}` : local;
       const omf = readOmf(node);
+      const schema = resolveSchemaAtScope(schemaRoot, node.scope);
+      const label =
+        (typeof node.label === 'string' && node.label) || schema?.title || local.split('.').pop() || local;
       const coding = Array.isArray(omf.coding) && omf.coding.length > 0 ? (omf.coding as OmfCoding[]) : undefined;
       const unit = typeof omf.unit === 'string' ? omf.unit : undefined;
       fields.push({
         key,
         scope: node.scope,
+        label,
         ...(coding ? { coding } : {}),
         ...(unit ? { unit } : {}),
         ...(nextSection ? { section: nextSection } : {}),
       });
       const detail = detailLayout(node);
-      if (detail) walk(detail, key, nextSection);
+      if (detail) {
+        const items = schema?.items;
+        walk(detail, key, ((Array.isArray(items) ? items[0] : items) ?? {}) as JsonSchema, nextSection);
+      }
     }
 
-    for (const child of node.elements ?? []) walk(child, prefix, nextSection);
+    for (const child of node.elements ?? []) walk(child, prefix, schemaRoot, nextSection);
   };
 
-  walk(root, '', undefined);
+  walk(root, '', (definition.dataSchema ?? {}) as JsonSchema, undefined);
   return fields;
 }
 
