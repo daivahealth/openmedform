@@ -1,12 +1,12 @@
 import { Component, signal } from '@angular/core';
-import { OmfFormComponent } from '@openmedform/angular-form-renderer';
-import { rrtSbarReference } from '@openmedform/form-core';
-import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+import { FlowsheetComponent, OmfFormComponent } from '@openmedform/angular-form-renderer';
+import { rrtSbarReference, vitalsHistoryEntries, vitalsHistoryReference } from '@openmedform/form-core';
+import type { HistoryEntry, JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [OmfFormComponent],
+  imports: [OmfFormComponent, FlowsheetComponent],
   template: `
     <div class="page">
       <header>
@@ -37,6 +37,22 @@ import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
             [data]="conditionalData()"
             (dataChange)="conditionalData.set($event)"
           ></omf-form>
+        </section>
+        <section class="card">
+          <h2>{{ vitals.name }} — with history</h2>
+          <p class="hint">
+            The host (an EMR) passes this patient's earlier fills via <code>[history]</code>. Fields
+            with <code>omf.history</code> show a previous-value chip; two of the fills were taken
+            against v2 of the form and line up by LOINC code. The flowsheet below is the same data
+            through <code>&lt;omf-flowsheet&gt;</code>.
+          </p>
+          <omf-form
+            [definition]="vitals"
+            [data]="vitalsData()"
+            [history]="vitalsHistory"
+            (dataChange)="vitalsData.set($event)"
+          ></omf-form>
+          <omf-flowsheet [definition]="vitals" [entries]="vitalsHistory" title="Today's observations"></omf-flowsheet>
         </section>
         <aside>
           <h3>Live data</h3>
@@ -107,6 +123,11 @@ export class AppComponent {
     },
   };
   readonly conditionalData = signal<Record<string, unknown>>({});
+
+  /** Observation history (ADR-005) — the same fixture the React demo renders. */
+  readonly vitals: JsonFormsFormDefinition = vitalsHistoryReference;
+  readonly vitalsHistory: HistoryEntry[] = vitalsHistoryEntries();
+  readonly vitalsData = signal<Record<string, unknown>>({});
 
   dataJson(): string {
     return JSON.stringify(this.data(), null, 2);

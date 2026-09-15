@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Flowsheet, FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
-import { rrtSbarReference } from '@openmedform/form-core';
+import { rrtSbarReference, vitalsHistoryEntries, vitalsHistoryReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
 import { chemoLogSample } from './chemo-log-sample';
 import { vipCannulaSample } from './vip-cannula-sample';
 import { bloodSugarSample } from './blood-sugar-sample';
-import { vitalsHistoryEntries, vitalsHistorySample } from './vitals-history-sample';
 
 type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs' | 'vitals' | 'review';
 
@@ -18,9 +17,11 @@ const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs
   chemo: chemoLogSample,
   vip: vipCannulaSample,
   bgs: bloodSugarSample,
-  vitals: vitalsHistorySample,
+  vitals: vitalsHistoryReference,
 };
 const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'bgs', 'vitals', 'review'];
+
+const historyEntries = vitalsHistoryEntries();
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -77,11 +78,11 @@ export function App() {
             definition={definition}
             data={data}
             onChange={(next) => setData(next)}
-            history={engine === 'vitals' ? vitalsHistoryEntries : undefined}
+            history={engine === 'vitals' ? historyEntries : undefined}
           />
           {engine === 'vitals' ? (
             <div style={{ marginTop: 24 }}>
-              <Flowsheet definition={definition} entries={vitalsHistoryEntries} title="Today's observations" />
+              <Flowsheet definition={definition} entries={historyEntries} title="Today's observations" />
             </div>
           ) : null}
         </section>

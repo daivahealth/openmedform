@@ -24,11 +24,21 @@
  * echo and never re-triggers that expensive path. See THIRD-PARTY-GUIDE.md.
  */
 
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  type OnChanges,
+  Output,
+  type SimpleChanges,
+  inject,
+} from '@angular/core';
 import { JsonFormsModule } from '@jsonforms/angular';
 import type { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 import { createAjv } from '@openmedform/form-core';
-import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+import type { HistoryEntry, HistoryProvider, JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+import { HistoryScopeService } from './history/history-scope.service';
 import { angularRenderers } from './renderer-set';
 import { tokenStyleObject } from './styles';
 
@@ -36,6 +46,9 @@ import { tokenStyleObject } from './styles';
   selector: 'omf-form',
   standalone: true,
   imports: [JsonFormsModule],
+  // One history scope per form instance: every renderer the outlets create
+  // beneath this host injects it (ADR-005).
+  providers: [HistoryScopeService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="omf-form-scope" [style]="tokenStyle">
@@ -51,10 +64,32 @@ import { tokenStyleObject } from './styles';
     </div>
   `,
 })
-export class OmfFormComponent {
+export class OmfFormComponent implements OnChanges {
   @Input({ required: true }) definition!: JsonFormsFormDefinition;
   @Input() readOnly = false;
+  /**
+   * Prior fills of this form for the same patient, as the host stored them
+   * (ADR-005). Fields whose definition carries `omf.history` show a
+   * previous-value chip. Each entry may name the definition it was filled
+   * against when that differs from `definition`; alignment is by terminology
+   * binding first, data path second.
+   */
+  @Input() history: HistoryEntry[] | undefined;
+  /**
+   * Lazy per-field lookup of prior readings — the host closes over the patient
+   * identifier, the renderer never sees it. Called once per history-enabled
+   * field; results are merged with (and win over) `history`.
+   */
+  @Input() historyProvider: HistoryProvider | undefined;
   @Output() dataChange = new EventEmitter<Record<string, unknown>>();
+
+  private readonly historyScope = inject(HistoryScopeService);
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['definition'] || changes['history'] || changes['historyProvider']) {
+      this.historyScope.configure(this.definition, this.history, this.historyProvider);
+    }
+  }
 
   readonly renderers: JsonFormsRendererRegistryEntry[] = angularRenderers;
   // form-core's Ajv 2020-12 instance; `any` avoids a cross-package Ajv type clash.

@@ -374,6 +374,35 @@ or rely on the built-in fallbacks the renderer ships with:
 as the React renderer). Recompute the authoritative score server-side on submit — the on-screen total is
 a display aid.
 
+### Previous values and flowsheets (optional)
+
+The same two inputs as the React renderer (see
+[§3](#previous-values-and-flowsheets-optional)): `[history]` for prior fills you already have, and
+`[historyProvider]` for a lazy per-field lookup that closes over your patient. Fields whose definition
+carries `omf.history` show a previous-value chip; `<omf-flowsheet>` charts the same data.
+
+```ts
+import { FlowsheetComponent, OmfFormComponent } from '@openmedform/angular-form-renderer';
+import type { HistoryEntry, HistoryProvider } from '@openmedform/form-schema-types';
+
+@Component({
+  standalone: true,
+  imports: [OmfFormComponent, FlowsheetComponent],
+  template: `
+    <omf-form [definition]="definition" [data]="data" (dataChange)="data = $event"
+              [history]="history" [historyProvider]="historyProvider"></omf-form>
+    <omf-flowsheet [definition]="definition" [entries]="history" title="Today's observations"></omf-flowsheet>
+  `,
+})
+export class VitalsComponent {
+  definition!: JsonFormsFormDefinition;
+  data: Record<string, unknown> = {};
+  history: HistoryEntry[] = [];                  // { effectiveAt, data, definition?, author? }
+  historyProvider: HistoryProvider = (q) =>       // { coding?, path, limit } → Observation[]
+    this.store.observations(this.patientId, q);
+}
+```
+
 ---
 
 ## Publishing the packages (for OpenMedForm maintainers)

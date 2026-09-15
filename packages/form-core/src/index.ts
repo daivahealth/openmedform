@@ -44,3 +44,8 @@ export {
   rrtSbarSampleEmpty,
   rrtSbarSampleCompleted,
 } from './fixtures/rrt-sbar.samples';
+export {
+  vitalsHistoryReference,
+  vitalsHistoryV2,
+  vitalsHistoryEntries,
+} from './fixtures/vitals-history.fixture';

@@ -5,7 +5,7 @@ publish: false
 # ADR-005: Observation history — projecting, aligning and displaying repeated fills
 
 ## Status
-Accepted (2026-09-15). Workstreams 1–3 implemented (types, core, React renderer); 4–7 pending.
+Accepted (2026-09-15). Workstreams 1–4 implemented (types, core, React and Angular renderers); 5–7 pending.
 
 ## Context
 

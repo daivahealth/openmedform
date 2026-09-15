@@ -12,12 +12,14 @@ import {
 } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
 import { readOmf } from '../testers';
+import { FieldHistoryComponent } from '../history/field-history.component';
 
 export { omfTextareaTester, omfRadioTester } from '../testers';
 
 @Component({
   selector: 'omf-textarea-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -30,6 +32,7 @@ export { omfTextareaTester, omfRadioTester } from '../testers';
           [disabled]="!enabled"
           (input)="onChange({ value: $any($event.target).value || undefined })"
         ></textarea>
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
@@ -46,6 +49,7 @@ export class OmfTextareaControlComponent extends JsonFormsControl {
 @Component({
   selector: 'omf-radio-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       @if (labelLeft) {
@@ -61,6 +65,7 @@ export class OmfTextareaControlComponent extends JsonFormsControl {
               }
             </div>
           </div>
+          <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
           @if (error) { <span class="omf-error">{{ error }}</span> }
         </div>
       } @else {
@@ -74,6 +79,7 @@ export class OmfTextareaControlComponent extends JsonFormsControl {
               </label>
             }
           </div>
+          <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
           @if (error) { <span class="omf-error">{{ error }}</span> }
         </div>
       }
