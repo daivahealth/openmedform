@@ -44,31 +44,51 @@ the same thing, line up under the right field — see [§6](#6-how-readings-line
 
 ### Package versions
 
-| Package | Minimum |
-|---|---|
-| `@openmedform/form-schema-types`, `form-core`, `react-form-renderer` | 1.11.0 |
-| `@openmedform/angular-form-renderer` | 1.10.1 |
-| `@openmedform/form-print-engine` (printing only) | 0.5.1 |
+| Package | Minimum | Adds |
+|---|---|---|
+| `@openmedform/form-schema-types`, `form-core`, `react-form-renderer` | 1.12.0 | section-level `omf.history` (1.12), unit symbols (1.11), history itself (1.10) |
+| `@openmedform/angular-form-renderer` | 1.11.0 | section-level `omf.history` (1.11), unit symbols and history (1.10.x) |
+| `@openmedform/form-print-engine` (printing only) | 0.5.2 | printed flowsheet (0.5), unit symbols (0.5.1) |
+
+Earlier 1.10/1.11 renderers still work with a definition that declares history **per field**; only the
+section-level form of the key needs 1.12 / 1.11.
 
 ### The form must opt in
 
 History is a property of the **form definition**, not of your code, so it behaves the same in every
-host. In OpenMedForm's designer (or by editing the exported definition) the fields that should show
-history carry:
+host. It is declared **once, on the section** whose fields are charted repeatedly; the fields inside
+inherit it, and any field can narrow or opt out. A converted vitals chart arrives in this shape:
 
 ```jsonc
 {
-  "type": "Control",
-  "scope": "#/properties/obs/properties/heartRate",
-  "options": {
-    "omf": {
-      "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate", "source": "human", "verified": true }],
-      "unit": "/min",
-      "history": { "show": "inline", "count": 5, "trend": true }
+  "type": "Group",
+  "label": "Observations",
+  "options": { "omf": { "history": { "show": "inline", "count": 5 } } },   // ← the section decides
+  "elements": [
+    {
+      "type": "Control",
+      "scope": "#/properties/obs/properties/heartRate",
+      "options": { "omf": {
+        "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate", "source": "human", "verified": true }],
+        "unit": "/min"                                                        // inherits inline
+      } }
+    },
+    {
+      "type": "Control",
+      "scope": "#/properties/obs/properties/onOxygen",
+      "options": { "omf": { "history": { "show": "popover" } } }             // narrows to a popover
+    },
+    {
+      "type": "Control",
+      "scope": "#/properties/obs/properties/notes",
+      "options": { "omf": { "control": "textarea", "history": { "show": "none" } } }  // opts out
     }
-  }
+  ]
 }
 ```
+
+A definition that still sets `omf.history` on every field works unchanged; the section form is the
+one the builder writes and the AI generates.
 
 | Key | Purpose |
 |---|---|
@@ -221,7 +241,9 @@ every render re-fetches every field.
 
 `FieldHistory` is also exported for a custom control that wants the same chip:
 `<FieldHistory path={path} uischema={uischema} value={data} label={label} />` inside your control's
-frame, under the same `JsonFormsRenderer`.
+frame, under the same `JsonFormsRenderer`. It reads the field's **effective** setting — its own or
+its section's — from the renderer's history scope, so a custom control inherits section-level history
+like any other; outside a `JsonFormsRenderer`, resolve it yourself with `resolveHistoryConfig(definition)`.
 
 ## 5. Angular
 
@@ -418,7 +440,9 @@ Field-by-field:
 ## 10. Test it before you have data
 
 `form-core` ships a fixture: a q2h vitals form in **two versions** (heart rate renamed and moved
-between them, temperature in °C then °F) and a shift of prior fills.
+between them, temperature in °C then °F) and a shift of prior fills. Its current version declares
+history **once on the Observations section**, with two fields narrowed to a popover and SpO2 asking
+for eight rows — the shape described in §2.
 
 ```ts
 import { vitalsHistoryReference, vitalsHistoryV2, vitalsHistoryEntries } from '@openmedform/form-core';
@@ -426,10 +450,11 @@ import { vitalsHistoryReference, vitalsHistoryV2, vitalsHistoryEntries } from '@
 <JsonFormsRenderer definition={vitalsHistoryReference} history={vitalsHistoryEntries()} />
 ```
 
-You should see: chips under six fields reading "2h ago", "4h ago"; heart rate lined up from the v2
-field called "Pulse" (by LOINC 8867-4); temperature showing a units warning; the AVPU radio with a
-"History (3)" button. The same fixture drives both OpenMedForm demos (`apps/react-demo`,
-`apps/angular-demo`), so you can compare against a known-good render.
+You should see: chips under six fields reading "2h ago", "4h ago", all inherited from the section;
+heart rate lined up from the v2 field called "Pulse" (by LOINC 8867-4); units as symbols (`mmHg`,
+`°F`) with a units warning on temperature; the oxygen checkbox and the AVPU radio with "History (3)"
+buttons. The same fixture drives both OpenMedForm demos (`apps/react-demo`, `apps/angular-demo`), so
+you can compare against a known-good render.
 
 ## 11. Printing
 
@@ -456,6 +481,8 @@ A4 landscape by default; rasterize as in the
 | No chip anywhere | nothing supplied (`history` empty and no `historyProvider`), or the form has no `omf.history` | supply history; set `omf.history` on the fields in the definition |
 | Chip on some fields only | only those fields (or their section) carry `omf.history` | set it on the section in the Dictionary, or add it to the others |
 | Chip on a field you never set | it inherits from its section | override the field to *Off* in the Dictionary (`show: 'none'`) |
+| Section selector says "Not set" yet fields show chips | the fields carry their own `omf.history` (a definition made before 1.12, or explicit overrides) | set the section, then switch the fields to *Inherit* to hand control back to it |
+| Chip on some fields of a section but not others, nothing overridden | the silent ones are display controls (score summary, matrices, charts) — they never inherit | expected; a display control can still opt in with its own `omf.history` |
 | "Previous values unavailable" | your provider rejected | check the network call; the field stays usable |
 | A prior reading is missing after a form revision | the field moved and has no binding | bind it to LOINC/SNOMED (§6); the path fallback cannot follow a move |
 | Two fields show the same history | both bound to the same code, or both at the same path | one code per concept |
@@ -474,7 +501,10 @@ A4 landscape by default; rasterize as in the
 | Chip in a custom control | `<FieldHistory path uischema value label />` | `<omf-field-history [path] [uischema] [value] [label]>` |
 
 `form-core` functions you may call directly: `projectObservations`, `toFhirObservation`,
-`alignHistory`, `buildFlowsheet`, `displayUnit`, `formatObservationValue`, `relativeAge`.
+`alignHistory`, `buildFlowsheet`, `resolveHistoryConfig` (each field's effective `omf.history` after
+section inheritance, keyed by data path), `collectHistoryFields` (the same per field with label, unit,
+binding and whether the setting was inherited — what the Dictionary panel lists), `displayUnit`,
+`formatObservationValue`, `relativeAge`.
 
 Related: [Third-Party Integration Guide](THIRD-PARTY-GUIDE.md) ·
 [Clinical Terminology](../features/CLINICAL-TERMINOLOGY.md) ·
