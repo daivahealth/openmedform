@@ -75,7 +75,7 @@ export class SubmissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSubmissionDto,
   ) {
-    return this.submissionService.updateData(user.tenantId, id, dto.data);
+    return this.submissionService.updateData(user.tenantId, id, dto.data, dto.effectiveAt);
   }
 
   @Post('submissions/:id/complete')

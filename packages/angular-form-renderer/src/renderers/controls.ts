@@ -27,10 +27,12 @@ import { resolveEnumOptions, type EnumOption } from '@openmedform/form-core';
 import { FIELD_STYLES } from '../styles';
 import { ENUM_DATE_RANK, STANDARD_RANK, enumControlTester, textControlTester } from '../testers';
 import { pointColor, readOmf } from '../point-value';
+import { FieldHistoryComponent } from '../history/field-history.component';
 
 @Component({
   selector: 'omf-text-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -43,6 +45,7 @@ import { pointColor, readOmf } from '../point-value';
           [disabled]="!enabled"
           (input)="onChange({ value: $any($event.target).value || undefined })"
         />
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
@@ -62,6 +65,7 @@ export { textControlTester };
 @Component({
   selector: 'omf-number-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -74,6 +78,7 @@ export { textControlTester };
           [disabled]="!enabled"
           (input)="onNumber($event)"
         />
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
@@ -92,6 +97,7 @@ export const integerControlTester = rankWith(STANDARD_RANK, isIntegerControl);
 @Component({
   selector: 'omf-boolean-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -110,6 +116,7 @@ export const integerControlTester = rankWith(STANDARD_RANK, isIntegerControl);
             <span class="omf-point-badge" [style.color]="badgeFg" [style.background]="badgeBg">{{ points }}</span>
           }
         </div>
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
@@ -133,6 +140,7 @@ export const booleanControlTester = rankWith(STANDARD_RANK, isBooleanControl);
 @Component({
   selector: 'omf-enum-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -149,6 +157,7 @@ export const booleanControlTester = rankWith(STANDARD_RANK, isBooleanControl);
             <option [value]="option.code" [selected]="data === option.code">{{ option.label }}</option>
           }
         </select>
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }
@@ -166,6 +175,7 @@ export { enumControlTester };
 @Component({
   selector: 'omf-date-control',
   standalone: true,
+  imports: [FieldHistoryComponent],
   template: `
     @if (!hidden) {
       <div class="omf-field">
@@ -178,6 +188,7 @@ export { enumControlTester };
           [disabled]="!enabled"
           (input)="onChange({ value: $any($event.target).value || undefined })"
         />
+        <omf-field-history [path]="propsPath" [uischema]="uischema" [value]="data" [label]="label" />
         @if (error) { <span class="omf-error">{{ error }}</span> }
       </div>
     }

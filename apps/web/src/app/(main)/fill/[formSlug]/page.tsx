@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormBySlug } from '@/hooks/use-forms';
 import {
   useCreateSubmission,
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle } from 'lucide-react';
 import { PatientHeaderBar } from '@/components/forms/patient-header-bar';
+import { makeHistoryProvider } from '@/hooks/use-observations';
 
 interface PatientContext {
   patientName?: string;
@@ -46,6 +47,13 @@ export default function FormFillPage() {
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const autoStarted = useRef(false);
+
+  // Previous values under history-enabled fields, read from this patient's
+  // earlier completed submissions (ADR-005). Nothing when there is no MRN.
+  const historyProvider = useMemo(
+    () => makeHistoryProvider(patientContext.patientMrn),
+    [patientContext.patientMrn],
+  );
 
   const isPatientForm = form?.formType !== 'NON_PATIENT';
 
@@ -269,6 +277,7 @@ export default function FormFillPage() {
         <RendererErrorBoundary surface="form">
         <JsonFormsRendererWrapper
           form={form}
+          historyProvider={historyProvider}
           onChange={(data) => {
             setJsonFormsData(data);
             handleChange(data);

@@ -82,15 +82,24 @@ All four accept `?scope=tenant|global`. `tenant` is the caller's own organizatio
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/forms/:formId/submissions | List submissions |
-| POST | /api/forms/:formId/submissions | Start submission |
+| POST | /api/forms/:formId/submissions | Start submission. Optional `effectiveAt` (ISO-8601): when the readings were taken |
 | GET | /api/submissions | List records. Voided ones are excluded unless `?includeVoided=true`. `/api/submissions/count` counts the same set |
 | GET | /api/submissions/count | Total record count, matching the default list (voided excluded) |
 | GET | /api/submissions/:id | Get submission |
-| PUT | /api/submissions/:id | Update submission (auto-save) |
-| POST | /api/submissions/:id/complete | Finalize and score (jsonforms: Ajv-validated server-side; 400 on invalid; audit-logged) |
+| PUT | /api/submissions/:id | Update submission (auto-save). Optional `effectiveAt` |
+| POST | /api/submissions/:id/complete | Finalize and score (jsonforms: Ajv-validated server-side; 400 on invalid; audit-logged). Fixes `effectiveAt` and rebuilds the submission's `observation` rows (ADR-005) |
 | DELETE | /api/submissions/:id | **Void** a record — how "delete" behaves for clinical data. Status becomes `VOIDED`; the row and its data are kept and drop out of the default list. Own records for any user; anyone's for `TENANT_ADMIN`/`SUPER_ADMIN` (403 otherwise). Idempotent. Audited as `submission.void` with the previous status |
 | DELETE | /api/submissions/:id/permanent | **Destroy** a record. `TENANT_ADMIN`/`SUPER_ADMIN` only (403 otherwise), unrecoverable. Audited as `submission.delete` **before** the row is removed, with form, status, MRN, encounter and submitter — once it is gone that entry is the only trace |
 | POST | /api/submissions/:id/sign | Sign a COMPLETED submission → status SIGNED + signed_at/signed_by (audit-logged) |
+
+### Patient observations (ADR-005)
+Any authenticated user of the tenant, like submission reads. Rows come from completed submissions
+only; voided ones are excluded.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/patients/:mrn/observations | Prior readings, newest first — the server side of a renderer `historyProvider`. Query `code=8867-4[&system=http://loinc.org]` **or** `path=vitals.pulse` (index-free), plus `limit` (default 5, max 500), optional `formId`, `from`, `to`. Returns form-core `Observation[]` |
+| GET | /api/patients/:mrn/flowsheet | Everything charted on one form for the patient: `{ definition: { dataSchema, uiSchema } \| null, observations }`. Required `formId`; optional `from`, `to`, `limit`. The client builds the grid with form-core `buildFlowsheet` |
 
 ### AI Builder
 | Method | Path | Description |

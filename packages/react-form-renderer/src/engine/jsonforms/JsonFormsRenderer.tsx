@@ -13,8 +13,9 @@ import { JsonFormsStyleContext, vanillaCells, vanillaStyles } from '@jsonforms/v
 import type { JsonSchema as JsonFormsSchema, UISchemaElement } from '@jsonforms/core';
 import { createAjv } from '@openmedform/form-core';
 import { cssVariables } from '@openmedform/form-design-tokens';
-import type { JsonFormsFormDefinition } from '@openmedform/form-schema-types';
+import type { HistoryEntry, HistoryProvider, JsonFormsFormDefinition } from '@openmedform/form-schema-types';
 import { rendererRegistry } from './renderer-registry';
+import { HistoryScope } from './history/history-context';
 
 export interface JsonFormsRendererProps {
   definition: JsonFormsFormDefinition;
@@ -29,6 +30,20 @@ export interface JsonFormsRendererProps {
    * submit).
    */
   validationMode?: 'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation';
+  /**
+   * Prior fills of this form for the same patient, as the host stored them
+   * (ADR-005). Fields whose definition carries `omf.history` show a
+   * previous-value chip. Each entry may name the definition it was filled
+   * against when that differs from `definition`; alignment is by terminology
+   * binding first, data path second.
+   */
+  history?: HistoryEntry[];
+  /**
+   * Lazy per-field lookup of prior readings — the host closes over the patient
+   * identifier, the renderer never sees it. Called once per history-enabled
+   * field on mount; results are merged with (and win over) `history`.
+   */
+  historyProvider?: HistoryProvider;
 }
 
 /** Design tokens as a scoped inline style (CSS custom properties). */
@@ -58,6 +73,8 @@ export function JsonFormsRenderer({
   readOnly,
   onChange,
   validationMode = 'ValidateAndHide',
+  history,
+  historyProvider,
 }: JsonFormsRendererProps) {
   const ajv = useMemo(() => createAjv(), []);
   const [formData, setFormData] = useState<Record<string, unknown>>(data ?? {});
@@ -66,20 +83,22 @@ export function JsonFormsRenderer({
     <div className="omf-jsonforms-scope" style={tokenStyle}>
       <style>{SCOPED_CSS}</style>
       <JsonFormsStyleContext.Provider value={{ styles: vanillaStyles }}>
-        <JsonForms
-          schema={definition.dataSchema as unknown as JsonFormsSchema}
-          uischema={definition.uiSchema.layout as unknown as UISchemaElement}
-          data={formData}
-          renderers={rendererRegistry}
-          cells={vanillaCells}
-          ajv={ajv as never}
-          validationMode={validationMode}
-          readonly={readOnly}
-          onChange={({ data: next, errors }) => {
-            setFormData(next);
-            onChange?.(next, errors ?? []);
-          }}
-        />
+        <HistoryScope definition={definition} history={history} historyProvider={historyProvider}>
+          <JsonForms
+            schema={definition.dataSchema as unknown as JsonFormsSchema}
+            uischema={definition.uiSchema.layout as unknown as UISchemaElement}
+            data={formData}
+            renderers={rendererRegistry}
+            cells={vanillaCells}
+            ajv={ajv as never}
+            validationMode={validationMode}
+            readonly={readOnly}
+            onChange={({ data: next, errors }) => {
+              setFormData(next);
+              onChange?.(next, errors ?? []);
+            }}
+          />
+        </HistoryScope>
       </JsonFormsStyleContext.Provider>
     </div>
   );

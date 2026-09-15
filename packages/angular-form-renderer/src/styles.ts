@@ -141,3 +141,70 @@ export const FIELD_STYLES = `
     border-bottom-color: var(--omf-color-accent, #4a2d5c);
   }
 `;
+
+/**
+ * Previous-value chip + popover (ADR-005). Mirrors the inline styles of the
+ * React `FieldHistory` so the chip reads identically in both frameworks.
+ */
+export const HISTORY_STYLES = `
+  :host { display: block; }
+  .omf-history { position: relative; display: inline-block; align-self: flex-start; }
+  .omf-history-loading, .omf-history-error { font-size: var(--omf-font-size-help, 12px); color: var(--omf-color-label, #3a4552); }
+  .omf-history-chip {
+    display: inline-block; white-space: nowrap; padding: 2px 8px; line-height: 1.6; cursor: pointer;
+    font: inherit; font-size: var(--omf-font-size-help, 12px); font-family: inherit;
+    border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    border-radius: var(--omf-border-radius, 4px);
+    background: var(--omf-color-section-bg, #f7f8fa); color: var(--omf-color-text, #1c2430);
+  }
+  .omf-history-chip strong { font-weight: 600; }
+  .omf-history-popover {
+    position: absolute; z-index: 10; top: 100%; left: 0; margin-top: 4px; min-width: 240px; padding: 10px;
+    border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4);
+    border-radius: var(--omf-border-radius, 4px); background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    color: var(--omf-color-text, #1c2430); font-size: var(--omf-font-size-help, 12px);
+  }
+  .omf-history-sparkline { display: block; margin-bottom: 6px; }
+  .omf-history-list { border-collapse: collapse; width: 100%; }
+  .omf-history-list td { padding: 2px 8px 2px 0; white-space: nowrap; }
+  .omf-history-when { color: var(--omf-color-label, #3a4552); }
+  .omf-history-age { margin-left: 6px; opacity: .8; }
+  .omf-history-value { font-weight: 600; }
+  .omf-history-author { color: var(--omf-color-label, #3a4552); padding-right: 0 !important; }
+  .omf-history-refreshing { margin-top: 6px; font-size: var(--omf-font-size-help, 12px); color: var(--omf-color-label, #3a4552); }
+`;
+
+/**
+ * Flowsheet grid (ADR-005). The sheet is its own white surface: a host page
+ * may be dark, and a token-coloured value on an inherited dark ground is
+ * unreadable. Mirrors the React `Flowsheet` inline styles.
+ */
+export const FLOWSHEET_STYLES = `
+  :host { display: block; min-width: 0; max-width: 100%; }
+  .omf-flowsheet { font-family: var(--omf-font-family); color: var(--omf-color-text, #1c2430); min-width: 0; max-width: 100%; }
+  .omf-flowsheet-title { margin: 0 0 8px; font-size: var(--omf-font-size-section-title, 15px); }
+  .omf-flowsheet-empty { margin: 0; font-size: var(--omf-font-size-help, 12px); color: var(--omf-color-label, #3a4552); }
+  .omf-scroll-x { overflow-x: auto; min-width: 0; max-width: 100%; }
+  .omf-flowsheet-grid { border-collapse: separate; border-spacing: 0; font-size: var(--omf-font-size-body, 14px); }
+  .omf-flowsheet-grid th, .omf-flowsheet-grid td {
+    border: var(--omf-border-width, 1px) solid var(--omf-color-border, #c8cdd4); padding: 6px 10px; white-space: nowrap;
+  }
+  .omf-flowsheet-grid thead th {
+    background: var(--omf-color-section-bg, #f7f8fa); text-align: center; font-weight: 600;
+    font-size: var(--omf-font-size-label, 13px);
+  }
+  .omf-flowsheet-grid th + th, .omf-flowsheet-grid th + td, .omf-flowsheet-grid td + td { border-left: none; }
+  .omf-flowsheet-grid tbody th, .omf-flowsheet-grid tbody td { border-top: none; }
+  .omf-flowsheet-grid td { text-align: center; background: #fff; }
+  .omf-flowsheet-param { position: sticky; left: 0; z-index: 1; text-align: left; min-width: 160px; }
+  .omf-flowsheet-grid thead .omf-flowsheet-param { color: var(--omf-color-label, #3a4552); font-size: var(--omf-font-size-label, 13px); }
+  .omf-flowsheet-grid tbody .omf-flowsheet-param { background: #fff; font-weight: 600; }
+  .omf-flowsheet-unit { margin-left: 6px; font-weight: 400; color: var(--omf-color-label, #3a4552); }
+  .omf-flowsheet-sub { font-weight: 400; font-size: var(--omf-font-size-help, 12px); }
+  .omf-flowsheet-author { color: var(--omf-color-label, #3a4552); }
+  .omf-flowsheet-section th {
+    position: sticky; left: 0; text-align: left; padding: 4px 10px; background: var(--omf-color-section-bg, #f7f8fa);
+    font-size: var(--omf-font-size-help, 12px); letter-spacing: .4px; text-transform: uppercase; color: var(--omf-color-label, #3a4552);
+  }
+  .omf-flowsheet-superseded { color: var(--omf-color-label, #3a4552); margin-right: 6px; }
+`;

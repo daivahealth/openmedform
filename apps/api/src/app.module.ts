@@ -8,6 +8,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { UserModule } from './modules/user/user.module';
 import { FormModule } from './modules/form/form.module';
 import { SubmissionModule } from './modules/submission/submission.module';
+import { ObservationModule } from './modules/observation/observation.module';
 import { HealthModule } from './modules/health/health.module';
 import { ScoringModule } from './modules/scoring/scoring.module';
 import { AiBuilderModule } from './modules/ai-builder/ai-builder.module';
@@ -29,6 +30,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     UserModule,
     FormModule,
     SubmissionModule,
+    ObservationModule,
     ScoringModule,
     AiBuilderModule,
     FormConversionModule,

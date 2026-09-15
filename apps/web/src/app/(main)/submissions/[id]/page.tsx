@@ -12,8 +12,13 @@ const JsonFormsRendererWrapper = dynamic(
     })),
   { ssr: false, loading: () => <div className="flex h-[200px] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> },
 );
+const Flowsheet = dynamic(
+  () => import('@openmedform/react-form-renderer').then(m => ({ default: m.Flowsheet })),
+  { ssr: false },
+);
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { usePatientFlowsheet } from '@/hooks/use-observations';
 import { ArrowLeft, Download } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -30,6 +35,9 @@ export default function SubmissionDetailPage() {
   const id = params.id as string;
 
   const { data: submission, isLoading } = useSubmission(id);
+  // Everything charted on this form for the same patient (ADR-005) — the
+  // record in the context of the day, not on its own.
+  const flowsheet = usePatientFlowsheet(submission?.patientMrn, submission?.formId);
 
   if (isLoading) {
     return (
@@ -150,6 +158,16 @@ export default function SubmissionDetailPage() {
         />
         </RendererErrorBoundary>
       </div>
+
+      {submission.patientMrn && flowsheet.data && flowsheet.data.observations.length > 0 && flowsheet.data.definition && (
+        <div className="rounded-lg border bg-white p-6">
+          <Flowsheet
+            definition={flowsheet.data.definition as never}
+            observations={flowsheet.data.observations}
+            title={`Observations for ${submission.patientMrn}`}
+          />
+        </div>
+      )}
     </div>
   );
 }

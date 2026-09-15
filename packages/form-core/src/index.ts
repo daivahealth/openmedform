@@ -36,9 +36,16 @@ export * from './observation/project';
 export * from './observation/align';
 export * from './observation/trend';
 export * from './observation/fhir';
+export * from './observation/format';
+export * from './observation/flowsheet';
 
 export { rrtSbarReference } from './fixtures/rrt-sbar.reference';
 export {
   rrtSbarSampleEmpty,
   rrtSbarSampleCompleted,
 } from './fixtures/rrt-sbar.samples';
+export {
+  vitalsHistoryReference,
+  vitalsHistoryV2,
+  vitalsHistoryEntries,
+} from './fixtures/vitals-history.fixture';

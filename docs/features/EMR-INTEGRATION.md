@@ -28,6 +28,8 @@ OpenMedForm integrates with external EMR/HIS systems through a JSON export/impor
 4. **Install** — EMR installs `@openmedform/renderer` npm package
 5. **Render** — EMR frontend renders the form, passing patient context from its own patient data
 6. **Store** — EMR stores submission data in its own database
+7. **Show history** — for forms filled repeatedly (q2h vitals), the EMR hands the renderer the
+   patient's earlier fills and gets previous-value chips and a flowsheet back
 
 OpenMedForm never receives patient data from EMRs.
 
@@ -107,6 +109,30 @@ const result = calculateScores(template.scoringRules, submissionData);
 ```
 
 See `packages/renderer/README.md` for full API reference.
+
+## Observation History
+
+A clinical form is often filled repeatedly for one patient. The renderers can show each field's
+**previous values** while the clinician charts the new one, and draw a **flowsheet** of the day —
+without OpenMedForm ever seeing the data. The EMR supplies the history, either as the prior fills
+it already has (`history`) or by answering per-field lookups from its own store or FHIR server
+(`historyProvider`); the renderer aligns readings to the current form by LOINC/SNOMED binding first,
+data path second, so readings taken against an older version of the form still line up.
+
+```tsx
+<FormRenderer definition={template} data={data} onChange={setData}
+  history={priorFills}                 // [{ effectiveAt, data, definition?, author? }]
+  historyProvider={lookupObservations} // ({ coding?, path, limit }) => Promise<Observation[]>
+/>
+<Flowsheet definition={template} entries={priorFills} />
+```
+
+Which fields show history is set in the form definition (`omf.history` on the field), so it is the
+same in every EMR. `renderFlowsheetHtml()` from `@openmedform/form-print-engine` prints the same
+grid as an A4 landscape sheet. At save time the EMR can flatten a response into coded, FHIR-shaped observation
+rows with `projectObservations()` from `@openmedform/form-core` (`toFhirObservation()` for a FHIR
+store), so both ends of the flow share one shape. Details, the FHIR search mapping and the record-shape
+guidance are in the [Third-Party Integration Guide §7](../integration/THIRD-PARTY-GUIDE.md#7-observation-history-optional).
 
 ## Print / PDF
 

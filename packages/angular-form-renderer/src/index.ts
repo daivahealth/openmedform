@@ -8,6 +8,9 @@
  */
 
 export { OmfFormComponent } from './omf-form.component';
+export { FlowsheetComponent } from './flowsheet.component';
+export { FieldHistoryComponent } from './history/field-history.component';
+export { HistoryScopeService } from './history/history-scope.service';
 export {
   angularRenderers,
   standardRenderers,

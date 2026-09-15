@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
-import { rrtSbarReference } from '@openmedform/form-core';
+import { Flowsheet, FormRenderer, ReviewSurface } from '@openmedform/react-form-renderer';
+import { rrtSbarReference, vitalsHistoryEntries, vitalsHistoryReference } from '@openmedform/form-core';
 import type { FormDefinition } from '@openmedform/form-schema-types';
 import { vteSample } from './vte-sample';
 import { signoffSample } from './signoff-sample';
@@ -8,17 +8,20 @@ import { chemoLogSample } from './chemo-log-sample';
 import { vipCannulaSample } from './vip-cannula-sample';
 import { bloodSugarSample } from './blood-sugar-sample';
 
-type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs' | 'review';
+type Mode = 'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs' | 'vitals' | 'review';
 
-const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs', FormDefinition> = {
+const definitions: Record<'jsonforms' | 'vte' | 'table' | 'chemo' | 'vip' | 'bgs' | 'vitals', FormDefinition> = {
   jsonforms: rrtSbarReference,
   vte: vteSample,
   table: signoffSample,
   chemo: chemoLogSample,
   vip: vipCannulaSample,
   bgs: bloodSugarSample,
+  vitals: vitalsHistoryReference,
 };
-const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'bgs', 'review'];
+const modes: Mode[] = ['jsonforms', 'vte', 'table', 'chemo', 'vip', 'bgs', 'vitals', 'review'];
+
+const historyEntries = vitalsHistoryEntries();
 
 export function App() {
   const [engine, setEngine] = useState<Mode>('jsonforms');
@@ -64,7 +67,24 @@ export function App() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
         <section style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: 16, minWidth: 0 }}>
           <h2 style={{ fontSize: 15, marginTop: 0 }}>{definition.name}</h2>
-          <FormRenderer definition={definition} data={data} onChange={(next) => setData(next)} />
+          {engine === 'vitals' ? (
+            <p style={{ color: '#555', marginTop: 0, fontSize: 13 }}>
+              The host (an EMR) passes this patient's earlier fills via <code>history</code>. Fields with{' '}
+              <code>omf.history</code> show a previous-value chip; two of the fills were taken against v2 of the
+              form and line up by LOINC code. The flowsheet below is the same data through <code>&lt;Flowsheet /&gt;</code>.
+            </p>
+          ) : null}
+          <FormRenderer
+            definition={definition}
+            data={data}
+            onChange={(next) => setData(next)}
+            history={engine === 'vitals' ? historyEntries : undefined}
+          />
+          {engine === 'vitals' ? (
+            <div style={{ marginTop: 24 }}>
+              <Flowsheet definition={definition} entries={historyEntries} title="Today's observations" />
+            </div>
+          ) : null}
         </section>
 
         <aside style={{ position: 'sticky', top: 16 }}>
@@ -104,7 +124,7 @@ function ModeTabs({ engine, onSelect }: { engine: Mode; onSelect: (m: Mode) => v
             cursor: 'pointer',
           }}
         >
-          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : key === 'vip' ? 'cannula chart' : key === 'bgs' ? 'blood sugar' : `${key} engine`}
+          {key === 'review' ? 'review surface' : key === 'vte' ? 'vte checklist' : key === 'table' ? 'table columns' : key === 'chemo' ? 'treatment log' : key === 'vip' ? 'cannula chart' : key === 'bgs' ? 'blood sugar' : key === 'vitals' ? 'vitals + history' : `${key} engine`}
         </button>
       ))}
     </div>
