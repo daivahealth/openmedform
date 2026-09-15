@@ -67,14 +67,15 @@ when the host supplies the prior fills. The design is
 
 | Key | On | Meaning |
 |-----|----|---------|
-| `omf.history` | a Control | `{ show: 'inline' \| 'popover' \| 'none', count?, trend? }`. The designer decides which fields show history; absent means none. Rides in the exported definition, so it behaves the same in every host. |
+| `omf.history` | a Control, or a **Group** | `{ show: 'inline' \| 'popover' \| 'none', count?, trend? }`. On a Group it is the default for every reading-bearing Control inside (nearest section wins); a Control's own value overrides, `show: 'none'` opts one field out ([ADR-006](../ADR/006-section-level-history.md)). Absent everywhere means none. Rides in the exported definition, so it behaves the same in every host. |
 | `omf.unit` | a numeric Control | UCUM string (`'mm[Hg]'`, `'Cel'`, `'%'`, `'/min'`). Carried onto every projected observation. History **never converts** — two readings in different units are shown as two values with their units. Displayed as the clinical symbol (`mmHg`, `°C`) via form-core's `displayUnit`; the stored code is unchanged. |
 | `omf.recordTable.effectiveAtPath` | a `recordTable` | Dot path inside one record to its clinical time (`'observedAt'`). Rows projected from that record take the record's own time instead of the response's. |
 | `omf.effectiveAt: true` | a date/date-time Control | This field is the clinical time of the **whole response**. The API sets `submission.effective_at` from it at completion (else the client's value, else creation time); a host storing its own data should do the same. |
 
-Two `form-core` functions do the work and are the only place the rules live:
-`projectObservations(definition, data, { effectiveAt })` flattens a response
-into `Observation` rows, and `alignHistory(definition, observations)` decides
+Three `form-core` functions do the work and are the only place the rules live:
+`resolveHistoryConfig(definition)` gives each field's effective `history` after
+section inheritance, `projectObservations(definition, data, { effectiveAt })`
+flattens a response into `Observation` rows, and `alignHistory(definition, observations)` decides
 which prior rows belong to which field — by terminology binding first (so a
 series survives a rename, a move, or a different form), by index-free data path
 second, never by label. Bind the fields you want to trend (see

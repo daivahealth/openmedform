@@ -80,6 +80,11 @@ export interface OmfCoding {
  * How a field shows its PRIOR values when the host supplies history
  * (ADR-005). Rides in the definition so BP shows a previous-value chip in
  * every host while a free-text field never does, with no per-host setup.
+ *
+ * Set it on a **Group** (or any section layout) and every reading-bearing
+ * Control beneath inherits it — the nearest enclosing section wins, and a
+ * Control's own value overrides, `{ show: 'none' }` opting one field out
+ * (ADR-006). form-core's `resolveHistoryConfig` computes the effective value.
  */
 export interface OmfHistoryOptions {
   /**
@@ -200,7 +205,11 @@ export interface OmfOptions {
    * it shows a mismatch as two values with their units.
    */
   unit?: string;
-  /** Previous-value / trend display for this field. See OmfHistoryOptions. */
+  /**
+   * Previous-value / trend display. On a Control: for that field. On a Group
+   * or section layout: the default for every reading-bearing Control inside
+   * it (ADR-006). See OmfHistoryOptions.
+   */
   history?: OmfHistoryOptions;
   /**
    * This date/date-time Control holds the CLINICAL time of the whole response

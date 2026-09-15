@@ -24,6 +24,7 @@ import type {
   JsonSchema,
   Observation,
   OmfCoding,
+  OmfHistoryOptions,
   UiSchema,
   UiSchemaElement,
 } from '@openmedform/form-schema-types';
@@ -41,6 +42,29 @@ export interface HistoryField {
   coding?: OmfCoding[];
   unit?: string;
   section?: string;
+  /**
+   * The EFFECTIVE history setting after inheritance (ADR-006): the Control's
+   * own `omf.history`, else the nearest enclosing section's. Absent when
+   * neither declares one, or when the control cannot carry a reading.
+   */
+  history?: OmfHistoryOptions;
+  /** True when `history` came from an enclosing section rather than the field itself. */
+  historyInherited?: boolean;
+}
+
+/**
+ * omf custom controls that hold a scalar reading and so may inherit a section's
+ * history. Every other `omf.control` (matrices, charts, summaries, signature,
+ * the recordTable container itself) is layout or display and never does; it
+ * may still opt in explicitly with its own `omf.history`.
+ */
+const READING_CONTROLS = new Set(['textarea', 'radio', 'checkboxGroup']);
+
+function readHistory(omf: Record<string, unknown>): OmfHistoryOptions | undefined {
+  const h = omf.history;
+  return h && typeof h === 'object' && typeof (h as OmfHistoryOptions).show === 'string'
+    ? (h as OmfHistoryOptions)
+    : undefined;
 }
 
 /**
@@ -73,6 +97,14 @@ function detailLayout(el: ElementWithScope): UiSchemaElement | undefined {
   return undefined;
 }
 
+/** One Control per property — what a detail-less repeating group renders as. */
+function generatedDetail(items: JsonSchema): UiSchemaElement {
+  return {
+    type: 'VerticalLayout',
+    elements: Object.keys(items.properties ?? {}).map((k) => ({ type: 'Control', scope: `#/properties/${k}` })),
+  } as unknown as UiSchemaElement;
+}
+
 /**
  * Every Control of the definition that can carry history, including the
  * Controls inside a `recordTable`'s detail layout (keyed without indices).
@@ -88,40 +120,72 @@ export function collectHistoryFields(definition: FormDefinitionSchemas): History
     prefix: string,
     schemaRoot: JsonSchema,
     section: string | undefined,
+    inherited: OmfHistoryOptions | undefined,
   ): void => {
     const node = el as ElementWithScope;
     const nextSection =
       node.type === 'Group' && typeof node.label === 'string' ? node.label : section;
+    const omf = readOmf(node);
+    const isControl = node.type === 'Control' && typeof node.scope === 'string';
+    // Any non-Control element that declares history is a section default for
+    // everything beneath it; the nearest one wins (ADR-006).
+    const nextInherited = !isControl ? (readHistory(omf) ?? inherited) : inherited;
 
-    if (node.type === 'Control' && typeof node.scope === 'string') {
-      const local = scopeToDataPath(node.scope);
+    if (isControl) {
+      const scope = node.scope as string;
+      const local = scopeToDataPath(scope);
       const key = prefix ? `${prefix}.${local}` : local;
-      const omf = readOmf(node);
-      const schema = resolveSchemaAtScope(schemaRoot, node.scope);
+      const schema = resolveSchemaAtScope(schemaRoot, scope);
       const label =
         (typeof node.label === 'string' && node.label) || schema?.title || local.split('.').pop() || local;
       const coding = Array.isArray(omf.coding) && omf.coding.length > 0 ? (omf.coding as OmfCoding[]) : undefined;
       const unit = typeof omf.unit === 'string' ? omf.unit : undefined;
+      const own = readHistory(omf);
+      const control = typeof omf.control === 'string' ? omf.control : undefined;
+      const canInherit = control === undefined || READING_CONTROLS.has(control);
+      const history = own ?? (canInherit ? inherited : undefined);
       fields.push({
         key,
-        scope: node.scope,
+        scope,
         label,
         ...(coding ? { coding } : {}),
         ...(unit ? { unit } : {}),
         ...(nextSection ? { section: nextSection } : {}),
+        ...(history ? { history, historyInherited: !own } : {}),
       });
-      const detail = detailLayout(node);
+      // A repeating group: walk its per-record layout so record fields are
+      // fields too. Without an authored detail layout, derive one from the
+      // items schema — the same degrade path projection takes, so a reading
+      // projected from a bare array still finds its row here.
+      const rawItems = schema?.items;
+      const items = (Array.isArray(rawItems) ? rawItems[0] : rawItems) as JsonSchema | undefined;
+      const detail = detailLayout(node) ?? (items?.properties ? generatedDetail(items) : undefined);
       if (detail) {
-        const items = schema?.items;
-        walk(detail, key, ((Array.isArray(items) ? items[0] : items) ?? {}) as JsonSchema, nextSection);
+        // The table's own history (or its section's) is the default for the fields of each record.
+        walk(detail, key, (items ?? {}) as JsonSchema, nextSection, own ?? inherited);
       }
     }
 
-    for (const child of node.elements ?? []) walk(child, prefix, schemaRoot, nextSection);
+    for (const child of node.elements ?? []) walk(child, prefix, schemaRoot, nextSection, nextInherited);
   };
 
-  walk(root, '', (definition.dataSchema ?? {}) as JsonSchema, undefined);
+  walk(root, '', (definition.dataSchema ?? {}) as JsonSchema, undefined, undefined);
   return fields;
+}
+
+/**
+ * The effective history setting of every field that has one, keyed by
+ * index-free data path — what a renderer's history scope hands its controls
+ * so a section-level `omf.history` reaches them without each control having
+ * to know its ancestors (ADR-006). Fields with `show: 'none'` are included so
+ * an explicit opt-out is distinguishable from "nothing declared".
+ */
+export function resolveHistoryConfig(definition: FormDefinitionSchemas): Map<string, OmfHistoryOptions> {
+  const out = new Map<string, OmfHistoryOptions>();
+  for (const f of collectHistoryFields(definition)) {
+    if (f.history) out.set(f.key, f.history);
+  }
+  return out;
 }
 
 function sameCoding(a: OmfCoding, b: OmfCoding): boolean {

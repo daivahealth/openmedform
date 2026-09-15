@@ -34,6 +34,12 @@ export interface CodedItemRow {
   label: string;
   /** Nearest ancestor Group label, for grouping the dictionary visually. */
   section?: string;
+  /**
+   * JSON pointer of that nearest Group within `uiSchema.layout` (e.g.
+   * `/elements/0`), the stable address a section-level write needs — Groups
+   * have no scope (ADR-006). Absent for a field outside any Group.
+   */
+  sectionPointer?: string;
   coding: OmfCoding[];
   /** Present only for enum controls: one row per answer option. */
   options?: CodedOptionRow[];
@@ -91,9 +97,15 @@ export function collectCodedItems(
   const schemaRoot = dataSchema as SchemaNode | undefined;
   const rows: CodedItemRow[] = [];
 
-  const walk = (el: UiSchemaElement, section: string | undefined): void => {
-    const nextSection =
-      el.type === 'Group' && typeof el.label === 'string' ? el.label : section;
+  const walk = (
+    el: UiSchemaElement,
+    section: string | undefined,
+    pointer: string,
+    sectionPointer: string | undefined,
+  ): void => {
+    const isGroup = el.type === 'Group';
+    const nextSection = isGroup && typeof el.label === 'string' ? el.label : section;
+    const nextSectionPointer = isGroup ? pointer : sectionPointer;
 
     const scope = (el as { scope?: string }).scope;
     if (typeof scope === 'string' && el.type === 'Control') {
@@ -115,6 +127,7 @@ export function collectCodedItems(
         path,
         label,
         section: nextSection,
+        ...(nextSectionPointer !== undefined ? { sectionPointer: nextSectionPointer } : {}),
         coding: codingList(omf.coding),
         ...(enumOptions.length > 0
           ? {
@@ -128,11 +141,11 @@ export function collectCodedItems(
       });
     }
 
-    for (const child of ((el as { elements?: UiSchemaElement[] }).elements ?? [])) {
-      walk(child, nextSection);
-    }
+    ((el as { elements?: UiSchemaElement[] }).elements ?? []).forEach((child, i) => {
+      walk(child, nextSection, `${pointer}/elements/${i}`, nextSectionPointer);
+    });
   };
 
-  walk(root, undefined);
+  walk(root, undefined, '', undefined);
   return rows;
 }
