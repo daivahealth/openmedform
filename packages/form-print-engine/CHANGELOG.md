@@ -1,5 +1,14 @@
 # @openmedform/form-print-engine
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [769fdc6]
+- Updated dependencies [c3b4b5c]
+  - @openmedform/form-schema-types@1.12.0
+  - @openmedform/form-core@1.12.0
+
 ## 0.5.1
 
 ### Patch Changes
