@@ -57,7 +57,7 @@ describe('buildFlowsheet', () => {
     ];
     const row = buildFlowsheet(VITALS_V3, mixed).sections.flatMap((s) => s.rows).find((r) => r.key === 'vitals.temp')!;
     expect(row.mixedUnits).toBe(true);
-    expect(row.cells.map((c) => c.text)).toEqual(['98.6 [degF]', '37 Cel']);
+    expect(row.cells.map((c) => c.text)).toEqual(['98.6 °F', '37 °C']);
     expect(row.cells[0].superseded.map((o) => o.value)).toEqual([99.1]);
   });
 

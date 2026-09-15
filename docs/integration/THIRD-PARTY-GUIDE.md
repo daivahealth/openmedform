@@ -442,7 +442,9 @@ Practical consequence: a verified LOINC binding on a field is what makes its his
   at 16:00, is still the 14:00 reading. Every chip, sort and flowsheet column uses it.
 - Units are carried and shown, **never converted**. A prior reading in a different unit from the
   current field shows with its unit and a warning glyph instead of a delta arrow; a flowsheet row that
-  mixes units shows the unit in every cell.
+  mixes units shows the unit in every cell. Codes are UCUM in the data and on the wire; on screen and
+  paper they appear as the usual symbols (`Cel` → `°C`, `mm[Hg]` → `mmHg`) via `displayUnit()` from
+  `@openmedform/form-core` — use it in your own views for the same reading.
 
 ### Printing
 

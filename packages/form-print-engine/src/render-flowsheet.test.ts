@@ -47,8 +47,8 @@ describe('renderFlowsheetHtml', () => {
   it('aligns older-version readings by LOINC and shows units per cell when a row mixes them', () => {
     // Heart rate came from vitals.pulse in v2 — it lands in the v3 row.
     expect(html).toMatch(/Heart rate <span class="omf-fs-unit">\/min<\/span><\/th><td>88<\/td><td>92<\/td><td>96<\/td>/);
-    // Temperature: °F now, °C before — no row unit, each cell carries its own.
-    expect(html).toMatch(/Temperature \(°F\)<\/th><td>98\.6 \[degF\]<\/td><td>37\.1 Cel<\/td><td>37\.4 Cel<\/td>/);
+    // Temperature: °F now, °C before — no row unit, each cell carries its own, as symbols not UCUM codes.
+    expect(html).toMatch(/Temperature \(°F\)<\/th><td>98\.6 °F<\/td><td>37\.1 °C<\/td><td>37\.4 °C<\/td>/);
     // Coded answers print their labels, never the stored code.
     expect(html).toContain('<td>Alert</td>');
     expect(html).not.toContain('>ALERT<');

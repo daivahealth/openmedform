@@ -17,6 +17,7 @@
 import type { FormDefinitionSchemas, HistoryEntry, Observation } from '@openmedform/form-schema-types';
 import {
   buildFlowsheet,
+  displayUnit,
   formatClock,
   formatDay,
   formatObservationValue,
@@ -154,7 +155,7 @@ function headCell(c: FlowsheetColumn, multiDay: boolean, clockOpts: { timeZone?:
 }
 
 function rowHtml(row: FlowsheetRow, colIdx: number[]): string {
-  const unit = row.unit && !row.mixedUnits ? ` <span class="omf-fs-unit">${esc(row.unit)}</span>` : '';
+  const unit = row.unit && !row.mixedUnits ? ` <span class="omf-fs-unit">${esc(displayUnit(row.unit))}</span>` : '';
   const cells = colIdx
     .map((i) => {
       const cell = row.cells[i];

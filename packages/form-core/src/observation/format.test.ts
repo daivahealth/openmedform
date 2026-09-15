@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Observation } from '@openmedform/form-schema-types';
-import { formatClock, formatDay, formatObservationValue, isSuperseded, observationAuthor, relativeAge, sameDay } from './format';
+import { displayUnit, formatClock, formatDay, formatObservationValue, isSuperseded, observationAuthor, relativeAge, sameDay } from './format';
 
 const NOW = Date.parse('2026-09-15T14:00:00Z');
 const base: Observation = { path: 'v.hr', label: 'HR', value: 88, unit: '/min', effectiveAt: '2026-09-15T12:00:00Z' };
@@ -13,6 +13,22 @@ describe('formatObservationValue', () => {
     expect(formatObservationValue(base)).toBe('88 /min');
     expect(formatObservationValue(base, { unit: false })).toBe('88');
     expect(formatObservationValue({ ...base, unit: undefined })).toBe('88');
+  });
+
+  it('shows the clinical symbol for a UCUM code, never the raw code', () => {
+    expect(formatObservationValue({ ...base, value: 98.6, unit: '[degF]' })).toBe('98.6 °F');
+    expect(formatObservationValue({ ...base, value: 37, unit: 'Cel' })).toBe('37 °C');
+    expect(formatObservationValue({ ...base, value: 138, unit: 'mm[Hg]' })).toBe('138 mmHg');
+  });
+});
+
+describe('displayUnit', () => {
+  it('maps common UCUM codes and passes unknown ones through', () => {
+    expect(displayUnit('Cel')).toBe('°C');
+    expect(displayUnit('10*9/L')).toBe('×10⁹/L');
+    expect(displayUnit('umol/L')).toBe('µmol/L');
+    expect(displayUnit('furlongs')).toBe('furlongs');
+    expect(displayUnit(undefined)).toBe('');
   });
 });
 
