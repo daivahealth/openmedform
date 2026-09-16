@@ -59,6 +59,37 @@ describe('TerminologyService.searchLoinc', () => {
     expect(results[0]).toMatchObject({ code: '59408-5' });
   });
 
+  it('a synonym that leads a row beats the same synonym buried in another row', async () => {
+    // Production regression: "SpO2" ranked the inhaled-oxygen codes above pulse
+    // oximetry, because all were related-name hits and the tie broke on the
+    // shorter long name.
+    const rows = [
+      LOINC_ROWS[2],
+      {
+        code: '3151-8',
+        component: 'Inhaled oxygen',
+        longCommonName: 'Inhaled oxygen flow rate',
+        shortName: 'Inhaled O2 flow rate',
+        relatedNames: 'O2 flow oxygen litres CLIN Flow Gases IhG Inhaled Gas Inhaled O2 Inspired Lung O2 Pulmonary Pulmonology Respiratory SpO2',
+        class: null,
+      },
+      {
+        code: '3150-0',
+        component: 'Inhaled oxygen',
+        longCommonName: 'Inhaled oxygen concentration',
+        shortName: 'Inhaled O2 concentration',
+        relatedNames: 'FiO2 CLIN Gases IhG Inhaled Gas Inspired Lung O2 Percent Pulmonary Pulmonology Respiratory SpO2',
+        class: null,
+      },
+    ];
+    const { svc } = terminologyHarness(rows);
+    const results = await svc.searchLoinc('SpO2');
+    expect(results[0].code).toBe('59408-5');
+    // A synonym still never outranks a real name match.
+    const byName = await svc.searchLoinc('Inhaled oxygen');
+    expect(byName.slice(0, 2).map((r) => r.code)).toEqual(['3151-8', '3150-0']);
+  });
+
   it('ranks the exact-term shorter name above the longer variant', async () => {
     const { svc } = terminologyHarness();
     const results = await svc.searchLoinc('Heart rate');
