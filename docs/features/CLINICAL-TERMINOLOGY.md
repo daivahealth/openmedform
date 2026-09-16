@@ -141,7 +141,9 @@ the dictionary's search UI reflects it verbatim.
 
 `PATCH /api/forms/:id/coding` with `{ scope, optionCode?, coding[] }` replaces
 that target's binding list (empty clears it). Same immutability rule as
-refine: drafts are edited in place, published versions fork a new draft. Every
+refine: drafts are edited in place, published versions fork a new draft — and the
+published version stays what clinicians fill until that draft is published from
+the preview page (the Publish button reappears while a draft is pending). Every
 write is audited (`form.coding.update`) with the acting user and the
 `system|code|verified` list.
 

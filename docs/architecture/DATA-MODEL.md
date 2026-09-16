@@ -63,7 +63,7 @@ Multi-tenant isolation root.
 | archived_at | TIMESTAMP? | When the form was archived. Hidden from the default list; the clock a retention policy would run off |
 | status_before_archive | form_status_enum? | Status to restore on unarchive. Recorded rather than derived — a form archived awaiting review must return to REVIEW |
 | status | ENUM | DRAFT, CONVERTING, REVIEW, PUBLISHED, ARCHIVED, RETIRED |
-| current_version_id | UUID FK | → form_version (nullable) |
+| current_version_id | UUID FK | → form_version (nullable). The version served for data entry (fill screen, new submissions, export). Follows an in-place draft edit and a publish; a fork made by editing a published form does **not** move it — the published version stays current until the fork is published |
 | created_by_id | UUID FK | → user |
 
 ### form_version

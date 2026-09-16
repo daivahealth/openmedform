@@ -98,7 +98,8 @@ cache for every call.
   reference image itself is not stored — only the fact one was attached.
 - Refinement accepts an optional image upload (`multipart/form-data`, field
   `image`) so a visual reference can accompany the instruction.
-- Published versions remain immutable — refining one always forks a draft.
+- Published versions remain immutable — refining one always forks a draft, and the
+  published version keeps serving data entry until that draft is published.
 - PDF conversion uses page-image vision when `pdftoppm` is available and the
   selected provider supports image input.
 - Observation charts map to the `vitalSignsChart` control rather than a generic
