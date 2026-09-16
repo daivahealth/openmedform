@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormBySlug } from '@/hooks/use-forms';
 import {
@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { CheckCircle } from 'lucide-react';
 import { PatientHeaderBar } from '@/components/forms/patient-header-bar';
 import { makeHistoryProvider } from '@/hooks/use-observations';
+import { patientContextFromParams } from '@/lib/fill-url';
 
 interface PatientContext {
   patientName?: string;
@@ -31,6 +32,7 @@ interface PatientContext {
 export default function FormFillPage() {
   const params = useParams();
   const router = useRouter();
+  const search = useSearchParams();
   const slug = params.formSlug as string;
 
   const { data: form, isLoading: formLoading } = useFormBySlug(slug);
@@ -38,6 +40,11 @@ export default function FormFillPage() {
 
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [patientContext, setPatientContext] = useState<PatientContext>({});
+  // "Fill again for this patient" (and per-patient bookmarks) arrive with the
+  // patient in the URL: pre-fill the details, but still let the clinician
+  // confirm before the round starts — a wrong MRN silently starts a new
+  // patient with no history.
+  const [prefilled, setPrefilled] = useState(false);
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [jsonFormsData, setJsonFormsData] = useState<Record<string, unknown>>({});
@@ -60,6 +67,14 @@ export default function FormFillPage() {
   );
 
   const isPatientForm = form?.formType !== 'NON_PATIENT';
+
+  useEffect(() => {
+    const ctx = patientContextFromParams(search);
+    if (Object.keys(ctx).length > 0) {
+      setPatientContext(ctx);
+      setPrefilled(true);
+    }
+  }, [search]);
 
   const startSubmission = useCallback(async (ctx?: PatientContext) => {
     if (!form) return;
@@ -149,7 +164,9 @@ export default function FormFillPage() {
               setStarted(false);
               setCompleted(false);
               setSubmissionId(null);
-              setPatientContext({});
+              // Same patient, next round: keep the details that came in with
+              // the URL; otherwise start clean.
+              setPatientContext(prefilled ? patientContextFromParams(search) : {});
               autoStarted.current = false;
               submitting.current = false;
             }}
@@ -173,6 +190,12 @@ export default function FormFillPage() {
           <p className="text-sm font-medium text-muted-foreground">
             Patient Information (optional)
           </p>
+          {prefilled && (
+            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+              Patient details carried over from an earlier record. Check them, then start the next
+              round — previous values will show under the fields.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 grid gap-2">

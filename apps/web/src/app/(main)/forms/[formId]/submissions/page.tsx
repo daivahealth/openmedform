@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, FileText, ExternalLink, RotateCw } from 'lucide-react';
+import { fillUrlFor, patientContextOfSubmission } from '@/lib/fill-url';
 
 const statusStyles: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -138,6 +139,19 @@ export default function SubmissionsPage() {
                         {new Date(sub.createdAt).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-right">
+                        {sub.patientMrn && form?.slug && form.status === 'PUBLISHED' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Start the next round for this patient with their details pre-filled"
+                            onClick={() =>
+                              router.push(fillUrlFor(form.slug, patientContextOfSubmission(sub)))
+                            }
+                          >
+                            <RotateCw className="mr-1 h-3.5 w-3.5" />
+                            Fill again
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
