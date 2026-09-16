@@ -1,0 +1,457 @@
+[
+  {
+    "code": "8867-4",
+    "component": "Heart rate",
+    "longCommonName": "Heart rate",
+    "shortName": "Heart rate",
+    "relatedNames": "HR pulse bpm Heart beat Pulse"
+  },
+  {
+    "code": "8889-8",
+    "component": "Heart rate",
+    "longCommonName": "Heart rate by Pulse oximetry",
+    "shortName": "Heart rate PulseOx",
+    "relatedNames": "Cardio Cardiology Heart beat Heart Disease Pulse PulseOx SpO2"
+  },
+  {
+    "code": "8893-0",
+    "component": "Heart rate",
+    "longCommonName": "Heart rate Peripheral artery by palpation",
+    "shortName": "Heart rate Periph a Palpation",
+    "relatedNames": "Art Cardio Cardiology Heart beat Heart Disease Periph Periph a Pulse"
+  },
+  {
+    "code": "8884-9",
+    "component": "Heart rate rhythm",
+    "longCommonName": "Heart rate rhythm",
+    "shortName": "Heart rate rhythm",
+    "relatedNames": "rhythm regular irregular Heart beat Pulse Typ"
+  },
+  {
+    "code": "9279-1",
+    "component": "Breaths",
+    "longCommonName": "Respiratory rate",
+    "shortName": "Resp rate",
+    "relatedNames": "RR breaths Breathing Lungs Respiratory rate RS"
+  },
+  {
+    "code": "8310-5",
+    "component": "Body temperature",
+    "longCommonName": "Body temperature",
+    "shortName": "Body temperature",
+    "relatedNames": "temp fever Bdy temp bod Bodies Temp Temperature"
+  },
+  {
+    "code": "8331-1",
+    "component": "Body temperature",
+    "longCommonName": "Oral temperature",
+    "shortName": "Oral temp",
+    "relatedNames": "Bdy temp bod Bodies Oral Temp Temperature"
+  },
+  {
+    "code": "8332-9",
+    "component": "Body temperature",
+    "longCommonName": "Rectal temperature",
+    "shortName": "Rectal temp",
+    "relatedNames": "Bdy temp bod Bodies Rectal Temp Temperature"
+  },
+  {
+    "code": "8333-7",
+    "component": "Body temperature",
+    "longCommonName": "Tympanic membrane temperature",
+    "shortName": "Tymp memb temp",
+    "relatedNames": "Bdy temp bod Bodies Ear Temp Temperature"
+  },
+  {
+    "code": "8328-7",
+    "component": "Body temperature",
+    "longCommonName": "Axillary temperature",
+    "shortName": "Axil temp",
+    "relatedNames": "Ax Bdy temp bod Bodies Temp Temperature"
+  },
+  {
+    "code": "75539-7",
+    "component": "Body temperature",
+    "longCommonName": "Body temperature - Temporal artery",
+    "shortName": "Bdy temp Temporal a",
+    "relatedNames": "Art Bdy temp bod Bodies forehead Temp Temperature"
+  },
+  {
+    "code": "8329-5",
+    "component": "Body temperature",
+    "longCommonName": "Body temperature - Core",
+    "shortName": "Bdy temp Core",
+    "relatedNames": "Bdy temp bod Bodies Temp Temperature"
+  },
+  {
+    "code": "8480-6",
+    "component": "Intravascular systolic",
+    "longCommonName": "Systolic blood pressure",
+    "shortName": "BP sys",
+    "relatedNames": "SBP Art sys Blood pressure Blood pressure systolic BP BP sys BP systolic Cardio Cardiology Heart Disease Intravenous IV Pressure SBP Sys BP"
+  },
+  {
+    "code": "8462-4",
+    "component": "Intravascular diastolic",
+    "longCommonName": "Diastolic blood pressure",
+    "shortName": "BP dias",
+    "relatedNames": "DBP Art sys Blood pressure Blood pressure diastolic BP BP dias BP diastolic Cardio Cardiology DBP Dias Dias BP Diast Diastoli Heart Disease Intravenous IV Pressure"
+  },
+  {
+    "code": "8478-0",
+    "component": "Intravascular mean",
+    "longCommonName": "Mean blood pressure",
+    "shortName": "BP mean",
+    "relatedNames": "MAP Art sys Average Avg Blood pressure mean BP BP mean Cardio Cardiology Heart Disease Intravenous IV MBP Pressure"
+  },
+  {
+    "code": "8479-8",
+    "component": "Intravascular systolic",
+    "longCommonName": "Systolic blood pressure by palpation",
+    "shortName": "BP sys by Palpation",
+    "relatedNames": "Art sys Blood pressure Blood pressure systolic BP BP sys BP systolic Cardio Cardiology Heart Disease Intravenous IV Pressure SBP Sys BP"
+  },
+  {
+    "code": "8459-0",
+    "component": "Intravascular systolic^sitting",
+    "longCommonName": "Systolic blood pressure--sitting",
+    "shortName": "BP sys--sitting",
+    "relatedNames": "Art sys Blood pressure Blood pressure systolic BP BP sys BP systolic Cardio Cardiology Heart Disease Intravenous IV Position Pressure SBP Sys BP"
+  },
+  {
+    "code": "8460-8",
+    "component": "Intravascular systolic^standing",
+    "longCommonName": "Systolic blood pressure--standing",
+    "shortName": "BP sys--stand",
+    "relatedNames": "Art sys Blood pressure Blood pressure systolic BP BP sys BP systolic Cardio Cardiology Heart Disease Intravenous IV Position Pressure SBP Stand) Sys BP WB Weight bearing"
+  },
+  {
+    "code": "8461-6",
+    "component": "Intravascular systolic^supine",
+    "longCommonName": "Systolic blood pressure--supine",
+    "shortName": "BP sys--sup",
+    "relatedNames": "Art sys Blood pressure Blood pressure systolic BP BP sys BP systolic Cardio Cardiology Heart Disease Intravenous IV Lying Position Pressure SBP Sys BP"
+  },
+  {
+    "code": "8453-3",
+    "component": "Intravascular diastolic^sitting",
+    "longCommonName": "Diastolic blood pressure--sitting",
+    "shortName": "BP dias--sitting",
+    "relatedNames": "Art sys Blood pressure Blood pressure diastolic BP BP dias BP diastolic Cardio Cardiology DBP Dias Dias BP Diast Diastoli Heart Disease Intravenous IV Position Pressure"
+  },
+  {
+    "code": "8454-1",
+    "component": "Intravascular diastolic^standing",
+    "longCommonName": "Diastolic blood pressure--standing",
+    "shortName": "BP dias--stand",
+    "relatedNames": "Art sys Blood pressure Blood pressure diastolic BP BP dias BP diastolic Cardio Cardiology DBP Dias Dias BP Diast Diastoli Heart Disease Intravenous IV Position Pressure Stand) WB Weight bearing"
+  },
+  {
+    "code": "8455-8",
+    "component": "Intravascular diastolic^supine",
+    "longCommonName": "Diastolic blood pressure--supine",
+    "shortName": "BP dias--sup",
+    "relatedNames": "Art sys Blood pressure Blood pressure diastolic BP BP dias BP diastolic Cardio Cardiology DBP Dias Dias BP Diast Diastoli Heart Disease Intravenous IV Lying Position Pressure"
+  },
+  {
+    "code": "59408-5",
+    "component": "Oxygen saturation",
+    "longCommonName": "Oxygen saturation in Arterial blood by Pulse oximetry",
+    "shortName": "SaO2 % BldA PulseOx",
+    "relatedNames": "SpO2 O2 sat sats pulse oximetry ABG ART Art bld Art blood Arterial Arterial blood Blood arterial Lung Mass Fraction O2 Percent Pulmonology PulseOx Respiratory SaO2 SAT Satn SO2 SpO2 tO2"
+  },
+  {
+    "code": "2708-6",
+    "component": "Oxygen saturation",
+    "longCommonName": "Oxygen saturation in Arterial blood",
+    "shortName": "SaO2 % BldA",
+    "relatedNames": "SaO2 ABG ART Art bld Art blood Arterial Arterial blood Blood arterial Chemistry Lung Mass Fraction O2 Percent Pulmonary Pulmonology Respiratory SaO2 SAT Satn SO2 tO2"
+  },
+  {
+    "code": "20564-1",
+    "component": "Oxygen saturation",
+    "longCommonName": "Oxygen saturation in Blood",
+    "shortName": "SaO2 % Bld",
+    "relatedNames": "Blood Hemodynamics Lung Mass fraction O2 Percent Pulmonary Pulmonology Respiratory SaO2 SAT Satn SO2 tO2 WB Whole blood"
+  },
+  {
+    "code": "3150-0",
+    "component": "Oxygen/Gas.total",
+    "longCommonName": "Inhaled oxygen concentration",
+    "shortName": "Inhaled O2 concentration",
+    "relatedNames": "FiO2 CLIN Gases IhG Inhaled Gas Inspired Lung O2 Percent Pulmonary Pulmonology Respiratory tO2 Tot Totl Volfr Volume fraction"
+  },
+  {
+    "code": "3151-8",
+    "component": "Oxygen inhaled",
+    "longCommonName": "Inhaled oxygen flow rate",
+    "shortName": "Inhaled O2 flow rate",
+    "relatedNames": "O2 flow oxygen litres CLIN Flow Gases IhG Inhaled Gas Inhaled O2 Inspired Lung O2 Pulmonary Pulmonology Respiratory tO2 Volume rate vRate"
+  },
+  {
+    "code": "19994-3",
+    "component": "Oxygen/Gas.total setting",
+    "longCommonName": "Oxygen/Total gas setting [Volume Fraction] Ventilator",
+    "shortName": "O2/Total gas setting VFr Vent",
+    "relatedNames": "Gases Lung O2 O2/gas .tot set Percent Pulmonology Respiratory tO2 Tot Total gas setting Totl Volfr Volume fraction"
+  },
+  {
+    "code": "19889-5",
+    "component": "Carbon dioxide/Gas.total.at end expiration",
+    "longCommonName": "Carbon dioxide/Gas.total.at end expiration in Exhaled gas",
+    "shortName": "CO2 VFr ExG",
+    "relatedNames": "ETCO2 end tidal capnography Breath Carbonic anhydride cO2 ExG Exhaled gas Exhaled gas (=breath) Exp Gases Lung Percent Pulmonology Respiratory Tot Totl Volfr Volume fraction"
+  },
+  {
+    "code": "19935-6",
+    "component": "Expiratory gas flow.max",
+    "longCommonName": "Maximum expiratory gas flow Respiratory system airway by Peak flow meter",
+    "shortName": "PEF Airway PFM",
+    "relatedNames": "PEFR peak flow Breathing Dynamic Flow Gases Largest Lung Lungs Maximal Maximum Peak Peak expiratory flow PEF PFM Pulmonary Pulmonology Respiratory RS Volume rate vRate"
+  },
+  {
+    "code": "44963-7",
+    "component": "Capillary refill",
+    "longCommonName": "Capillary refill [Time] of Nail bed",
+    "shortName": "Capillary refill Time Nail Bed",
+    "relatedNames": "CRT cap refill Capillary nail refill test CRT H+P Nail blanch test Nails P prime Ungal nail"
+  },
+  {
+    "code": "29463-7",
+    "component": "Body weight",
+    "longCommonName": "Body weight",
+    "shortName": "Weight",
+    "relatedNames": "weight wt kg AOEObservation Bdy weight bod Bodies Wt"
+  },
+  {
+    "code": "3141-9",
+    "component": "Body weight",
+    "longCommonName": "Body weight Measured",
+    "shortName": "Weight Measured",
+    "relatedNames": "Bdy weight bod Bodies Wt"
+  },
+  {
+    "code": "3142-7",
+    "component": "Body weight",
+    "longCommonName": "Body weight Stated",
+    "shortName": "Weight Stated",
+    "relatedNames": "Bdy weight bod Bodies Wt"
+  },
+  {
+    "code": "8335-2",
+    "component": "Body weight",
+    "longCommonName": "Body weight Estimated",
+    "shortName": "Weight Est",
+    "relatedNames": "Bdy weight bod Bodies Est estimation Wt"
+  },
+  {
+    "code": "8339-4",
+    "component": "Body weight^at birth",
+    "longCommonName": "Birth weight Measured",
+    "shortName": "Birth weight Measured",
+    "relatedNames": "@ birth Bdy weight bod Bodies New born Newborn Wt"
+  },
+  {
+    "code": "8302-2",
+    "component": "Body height",
+    "longCommonName": "Body height",
+    "shortName": "Body height",
+    "relatedNames": "height ht cm AOEObservation Axial length bod Bodies Body length Length"
+  },
+  {
+    "code": "3137-7",
+    "component": "Body height",
+    "longCommonName": "Body height Measured",
+    "shortName": "Body height Measured",
+    "relatedNames": "Axial length bod Bodies Body length Length"
+  },
+  {
+    "code": "8306-3",
+    "component": "Body height^lying",
+    "longCommonName": "Body height --lying",
+    "shortName": "Body height lying",
+    "relatedNames": "Axial length bod Bodies Body length Length Recumbant"
+  },
+  {
+    "code": "8308-9",
+    "component": "Body height^standing",
+    "longCommonName": "Body height --standing",
+    "shortName": "Body height stand",
+    "relatedNames": "Axial length bod Bodies Body length Length Stand) WB Weight bearing"
+  },
+  {
+    "code": "39156-5",
+    "component": "Body mass index",
+    "longCommonName": "Body mass index (BMI) [Ratio]",
+    "shortName": "BMI",
+    "relatedNames": "BMI BMI bod Bodies Quetelet index Ratios Rto"
+  },
+  {
+    "code": "8287-5",
+    "component": "Circumference.occipital-frontal",
+    "longCommonName": "Head Occipital-frontal circumference by Tape measure",
+    "shortName": "Head Circumf OFC by Tape measure",
+    "relatedNames": "head circumference OFC Brain Circumf OFC Cranial Cranium Girth Intracranial Length Skull"
+  },
+  {
+    "code": "9843-4",
+    "component": "Circumference.occipital-frontal",
+    "longCommonName": "Head Occipital-frontal circumference",
+    "shortName": "Head Circumf OFC",
+    "relatedNames": "head circumference Brain Circumf OFC Cranial Cranium Girth Intracranial Length Skull"
+  },
+  {
+    "code": "8280-0",
+    "component": "Circumference.at umbilicus",
+    "longCommonName": "Waist Circumference at umbilicus by Tape measure",
+    "shortName": "Circumf.at umbilicus by Tape measure",
+    "relatedNames": "Abd Abdo Abdomen+ Abdominal Circumf.at umbilicus Girth Length Maximum mid-abdomen girth"
+  },
+  {
+    "code": "72514-3",
+    "component": "Pain severity - 0-10 verbal numeric rating",
+    "longCommonName": "Pain severity - 0-10 verbal numeric rating [Score] - Reported",
+    "shortName": "Pain severity 0-10 Scre Reported",
+    "relatedNames": "pain score NRS 0-10 H+P P prime Pain severity 0-10 Scale Scre"
+  },
+  {
+    "code": "38208-5",
+    "component": "Pain severity",
+    "longCommonName": "Pain severity - Reported",
+    "shortName": "Pain severity Reported",
+    "relatedNames": "Finding Findings H+P P prime Qual Screen"
+  },
+  {
+    "code": "38221-8",
+    "component": "Pain severity",
+    "longCommonName": "Pain severity Wong-Baker FACES pain rating scale",
+    "shortName": "Pain severity Wong-Baker FACES Scale",
+    "relatedNames": "faces pain scale Finding Findings H+P P prime Qual Screen Wong-Baker FACES Scale"
+  },
+  {
+    "code": "9269-2",
+    "component": "Glasgow coma score.total",
+    "longCommonName": "Glasgow coma score total",
+    "shortName": "GCS total",
+    "relatedNames": "GCS FCN Func Funct Function GCS total Neuro Neurology Tot Totl"
+  },
+  {
+    "code": "9267-6",
+    "component": "Glasgow coma score.eye opening",
+    "longCommonName": "Glasgow coma score eye opening",
+    "shortName": "GCS eye",
+    "relatedNames": "FCN Func Funct Function GCS eye GCS.eye nemsis Neuro Neurology Qual Screen"
+  },
+  {
+    "code": "9268-4",
+    "component": "Glasgow coma score.motor",
+    "longCommonName": "Glasgow coma score motor",
+    "shortName": "GCS motor",
+    "relatedNames": "FCN Func Funct Function GCS motor Neuro Neurology Qual Screen"
+  },
+  {
+    "code": "9270-0",
+    "component": "Glasgow coma score.verbal",
+    "longCommonName": "Glasgow coma score verbal",
+    "shortName": "GCS verbal",
+    "relatedNames": "FCN Func Funct Function GCS verbal Neuro Neurology Qual Screen"
+  },
+  {
+    "code": "67775-7",
+    "component": "Level of responsiveness",
+    "longCommonName": "Level of responsiveness",
+    "shortName": "Level of responsiveness",
+    "relatedNames": "AVPU alert voice pain unresponsive consciousness Finding Findings Levels Levl LV LVL Qual Screen"
+  },
+  {
+    "code": "80319-7",
+    "component": "Breath sounds",
+    "longCommonName": "Breath sounds by Auscultation",
+    "shortName": "Breath sounds Auscultation",
+    "relatedNames": "Ausc Breathing Finding Findings H+P Lungs P prime RS"
+  },
+  {
+    "code": "9187-6",
+    "component": "Fluid output.urine",
+    "longCommonName": "Urine output",
+    "shortName": "Fluid output urine",
+    "relatedNames": "urine output UO Fld Fluid output urine Volume"
+  },
+  {
+    "code": "9192-6",
+    "component": "Fluid output.urine",
+    "longCommonName": "Urine output 24 hour",
+    "shortName": "Fluid output urine 24h",
+    "relatedNames": "1 day 24 hours 24HR Fld Flow Fluid output urine Volume Rate vRate"
+  },
+  {
+    "code": "2339-0",
+    "component": "Glucose",
+    "longCommonName": "Glucose [Mass/volume] in Blood",
+    "shortName": "Glucose Bld-mCnc",
+    "relatedNames": "blood sugar RBS Blood Chemistry Endocrine Endocrinology Glu Gluc Glucoseur Level Mass concentration UniversalLabOrders WB Whole blood"
+  },
+  {
+    "code": "41653-7",
+    "component": "Glucose",
+    "longCommonName": "Glucose [Mass/volume] in Capillary blood by Glucometer",
+    "shortName": "Glucose BldC Glucomtr-mCnc",
+    "relatedNames": "blood sugar GRBS RBS CBG glucometer Blood - capillary Cap bld Cap blood Capillary bld Capillary blood Chemistry Endocrine Endocrinology Finger stick Glu Gluc Glucomtr Glucoseur Level Mass concentration UniversalLabOrders"
+  },
+  {
+    "code": "14743-9",
+    "component": "Glucose",
+    "longCommonName": "Glucose [Moles/volume] in Capillary blood by Glucometer",
+    "shortName": "Glucose BldC Glucomtr-sCnc",
+    "relatedNames": "blood sugar CBG mmol Blood - capillary Cap bld Cap blood Capillary bld Capillary blood Chemistry Endocrine Endocrinology Finger stick Glu Gluc Glucomtr Glucoseur Level Substance concentration"
+  },
+  {
+    "code": "15074-8",
+    "component": "Glucose",
+    "longCommonName": "Glucose [Moles/volume] in Blood",
+    "shortName": "Glucose Bld-sCnc",
+    "relatedNames": "Blood Chemistry Endocrine Endocrinology Glu Gluc Glucoseur Level Substance concentration WB Whole blood"
+  },
+  {
+    "code": "55283-6",
+    "component": "Heart rate",
+    "longCommonName": "Fetal Heart rate",
+    "shortName": "Fet Heart rate",
+    "relatedNames": "FHR Fetal Gyn Gynecology H+P Heart beat OB ObGyn Obstetrics P prime Pulse"
+  },
+  {
+    "code": "9272-6",
+    "component": "Score^1M post birth",
+    "longCommonName": "1 minute Apgar Score",
+    "shortName": "1M Apgar Score",
+    "relatedNames": "After Function Gyn Gynecology OB ObGyn Obstetrics p birth PST"
+  },
+  {
+    "code": "9274-2",
+    "component": "Score^5M post birth",
+    "longCommonName": "5 minute Apgar Score",
+    "shortName": "5M Apgar Score",
+    "relatedNames": "After Function Gyn Gynecology OB ObGyn Obstetrics p birth PST"
+  },
+  {
+    "code": "9271-8",
+    "component": "Score^10M post birth",
+    "longCommonName": "10 minute Apgar Score",
+    "shortName": "10M Apgar Score",
+    "relatedNames": "After Function Gyn Gynecology OB ObGyn Obstetrics p birth PST"
+  },
+  {
+    "code": "59461-4",
+    "component": "Fall risk level",
+    "longCommonName": "Fall risk level [Morse Fall Scale]",
+    "shortName": "Fall risk level [Morse Fall Scale]",
+    "relatedNames": "Morse falls Finding Findings Levels Levl LV LVL MFS Morse Fall Score Qual Screen Survey VTE"
+  },
+  {
+    "code": "882-1",
+    "component": "ABO+Rh group",
+    "longCommonName": "ABO and Rh group [Type] in Blood",
+    "shortName": "ABO+Rh Bld",
+    "relatedNames": "blood group blood type ABO Rh"
+  }
+]
