@@ -266,7 +266,15 @@ function scoreRow(
   for (const token of tokens) {
     if (component.includes(token) || short.includes(token)) score += 3;
     else if (long.includes(token)) score += 2;
-    else if (related.includes(token)) score += 1;
+    else {
+      // A synonym match counts more the earlier it sits in the list: curated
+      // rows lead with the ward abbreviation the code IS ("SpO2 …" on pulse
+      // oximetry), while LOINC's own long synonym tails mention loosely
+      // related terms ("SpO2" deep inside inhaled-oxygen rows). Stays below a
+      // name match (2) whatever the position.
+      const idx = related.indexOf(token);
+      if (idx >= 0) score += 1 + 0.9 * (1 - idx / Math.max(related.length, 1));
+    }
   }
   return score - row.longCommonName.length / 1000;
 }
