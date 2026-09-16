@@ -29,7 +29,7 @@ import {
   useCloneForm,
   useExportForm,
 } from '@/hooks/use-forms';
-import { FormStatusBadge } from '@/components/forms/form-status-badge';
+import { FormStatusBadge, hasPendingDraft } from '@/components/forms/form-status-badge';
 import { PromptToFormDialog } from '@/components/forms/prompt-to-form-dialog';
 import { PdfToFormDialog } from '@/components/forms/pdf-to-form-dialog';
 
@@ -208,7 +208,10 @@ export default function FormsPage() {
                         {form.category || '—'}
                       </td>
                       <td className="px-4 py-3">
-                        <FormStatusBadge status={form.status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'} />
+                        <FormStatusBadge
+                          status={form.status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'}
+                          draftPending={hasPendingDraft(form)}
+                        />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {new Date(form.updatedAt).toLocaleDateString()}

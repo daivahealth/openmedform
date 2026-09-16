@@ -90,6 +90,10 @@ export default function FormPreviewPage() {
   const hasContent = !!(version as { dataSchema?: unknown } | undefined)?.dataSchema;
   const draftPending = form.status === 'PUBLISHED' && !!latest && !latest.publishedAt;
   const canPublish = form.status !== 'PUBLISHED' || draftPending;
+  // What clinicians are filling: the newest PUBLISHED version. Not
+  // `currentVersion` — a form edited before forks stopped repointing it may
+  // still have the draft as current, and the line must not name the draft twice.
+  const inUse = form.versions?.find((v) => v.publishedAt) ?? form.currentVersion;
 
   return (
     <div className="space-y-4">
@@ -107,7 +111,10 @@ export default function FormPreviewPage() {
               <h1 className="text-2xl font-bold tracking-tight">
                 Preview: {form.name}
               </h1>
-              <FormStatusBadge status={form.status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'} />
+              <FormStatusBadge
+                status={form.status as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'}
+                draftPending={draftPending}
+              />
             </div>
             <p className="text-sm text-muted-foreground">
               {form.description || 'Preview how the form will appear to users'}
@@ -153,7 +160,7 @@ export default function FormPreviewPage() {
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">
           {draftPending
-            ? `Draft v${latest!.version} — v${form.currentVersion?.version ?? '?'} stays in use for data entry until you publish this draft.`
+            ? `Draft v${latest!.version} — v${inUse?.version ?? '?'} stays in use for data entry until you publish this draft.`
             : 'Edits made with “Refine with AI” are saved automatically. Publish to make this version available for data entry.'}
         </span>
         {publishError && <span className="text-destructive">{publishError}</span>}

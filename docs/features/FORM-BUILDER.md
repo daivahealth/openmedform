@@ -18,7 +18,9 @@ is AI-first:
 3. **Refine by prompt** — on the form's preview page, "Refine with AI" edits the
    draft in place (optionally with a reference image attached). Published
    versions are immutable, so a refine after publish forks a new draft; the published
-   version stays in use for data entry until the draft is published.
+   version stays in use for data entry until the draft is published. Such a form shows a
+   **Draft pending** badge beside "Published" in the forms list and on the preview page, where
+   the Publish button reappears and the status line names the version clinicians are filling.
 4. **Publish** — makes the version available for data entry.
 
 A form's structure is a JSON Forms UI schema, so nothing stops a developer from
