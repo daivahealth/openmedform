@@ -19,7 +19,8 @@ const Flowsheet = dynamic(
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePatientFlowsheet } from '@/hooks/use-observations';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, RotateCw } from 'lucide-react';
+import { fillUrlFor, patientContextOfSubmission } from '@/lib/fill-url';
 import api from '@/lib/api';
 
 const statusStyles: Record<string, string> = {
@@ -90,7 +91,22 @@ export default function SubmissionDetailPage() {
             </div>
             <div className="flex gap-4 text-sm text-muted-foreground">
               {submission.patientMrn && (
-                <span>Patient: {submission.patientMrn}</span>
+                <span className="inline-flex items-center gap-2">
+                  Patient: {submission.patientMrn}
+                  {submission.form?.slug && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+                      title="Start the next round for this patient with their details pre-filled"
+                      onClick={() =>
+                        router.push(fillUrlFor(submission.form!.slug, patientContextOfSubmission(submission)))
+                      }
+                    >
+                      <RotateCw className="h-3 w-3" />
+                      Fill again
+                    </button>
+                  )}
+                </span>
               )}
               {submission.submittedBy && (
                 <span>By: {submission.submittedBy.fullName ?? submission.submittedBy.email}</span>

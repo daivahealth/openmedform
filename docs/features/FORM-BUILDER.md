@@ -75,6 +75,11 @@ when the host supplies the prior fills. The design is
 | `omf.recordTable.effectiveAtPath` | a `recordTable` | Dot path inside one record to its clinical time (`'observedAt'`). Rows projected from that record take the record's own time instead of the response's. |
 | `omf.effectiveAt: true` | a date/date-time Control | This field is the clinical time of the **whole response**. The API sets `submission.effective_at` from it at completion (else the client's value, else creation time); a host storing its own data should do the same. |
 
+In OpenMedForm's own Records pages, **Fill again** on a record (list row or detail page) opens the
+fill screen with that patient's details pre-filled — `/fill/<slug>?mrn=…&encounter=…` — so the next
+round is charted for the same patient without retyping the MRN (a typo there would start a new
+patient with no history). The clinician confirms the details before the round starts.
+
 Designers set all three in the **Dictionary** panel (a "Previous values" selector on each section
 header and each field row, a Unit box on numeric fields — see
 [Clinical Terminology](CLINICAL-TERMINOLOGY.md)) or by asking the refine chat; a converted

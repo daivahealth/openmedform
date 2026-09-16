@@ -23,6 +23,7 @@ interface Submission {
   riskLevel?: string;
   patientMrn?: string;
   encounterId?: string;
+  patientContext?: Record<string, unknown>;
   status: string;
   submittedBy?: SubmissionUser;
   formVersion?: SubmissionVersion;
