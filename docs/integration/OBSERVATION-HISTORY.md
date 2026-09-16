@@ -28,6 +28,159 @@ packages, render it).
 
 OpenMedForm never sees your patient data. Everything below runs in your frontend and your store.
 
+**In a hurry?** The [step-by-step quick start](#quick-start--step-by-step) below is the whole
+integration as a checklist; the numbered sections after it are the reference.
+
+## Quick start — step by step
+
+Two kinds of form come out of OpenMedForm. Work out which one you have, then follow that track.
+
+| Your form… | How to tell | Track |
+|---|---|---|
+| is filled **once** per patient (an assessment, a consent, a checklist) | no `omf.history` anywhere in `uiSchema` | **A — Without history** |
+| is filled **repeatedly** for the same patient (vitals, observations, pain, fluid balance) | a Group or Control in `uiSchema` carries `options.omf.history` | **B — With history** |
+
+Check in code:
+
+```ts
+const hasHistory = JSON.stringify(definition.uiSchema).includes('"history"');
+```
+
+Track B is Track A **plus three steps**. Nothing in Track A changes when you add history, and a
+Track-B form rendered without history simply shows no chips.
+
+---
+
+### Track A — a form without history (render, save, show saved values)
+
+**Step A1 — Download the form and install the renderer.** Export the published form from OpenMedForm
+as JSON (its `dataSchema`, `uiSchema`, `printSchema`, `translations`) and install the package for
+your framework — [Third-Party Guide §1–§2](THIRD-PARTY-GUIDE.md#1-design--download-the-form).
+
+**Step A2 — Render it for data entry.** Pass the definition; collect the response from `onChange`.
+
+React:
+
+```tsx
+import { JsonFormsRenderer } from '@openmedform/react-form-renderer';
+
+<JsonFormsRenderer definition={definition} data={data} onChange={setData} />
+```
+
+Angular:
+
+```html
+<omf-form [definition]="definition" [data]="data" (dataChange)="data = $event"></omf-form>
+```
+
+**Step A3 — Save the response.** Store the `data` object from `onChange` **together with**
+`formCode`, `formVersion` and — even for a one-off form — `effectiveAt`, the clinical time
+([§7](#7-time-the-effectiveat-rule)). Validate against `dataSchema` on your server first
+([Third-Party Guide §4–§5](THIRD-PARTY-GUIDE.md#4-validate-before-you-save)).
+
+**Step A4 — Show a saved response with its values.** Render the *same definition version* the
+response was filled against, pass the saved `data`, and set read-only.
+
+React:
+
+```tsx
+<JsonFormsRenderer definition={definitionV1} data={savedResponse} readOnly />
+```
+
+Angular:
+
+```html
+<omf-form [definition]="definitionV1" [data]="savedResponse" [readOnly]="true"></omf-form>
+```
+
+Done. That is a complete integration for a form without history.
+
+---
+
+### Track B — a form with history (Track A + previous values + flowsheet)
+
+Do Steps A1–A4 first, then:
+
+**Step B1 — At save time, also store the readings.** Besides the response blob, flatten it into
+one row per answer with `projectObservations` and store those rows in your database (or as FHIR
+`Observation`s). This is what history queries read back
+([§8](#8-storing-readings-so-they-can-be-queried-back)).
+
+```ts
+import { projectObservations } from '@openmedform/form-core';
+
+const rows = projectObservations(definition, data, { effectiveAt, source: { author } });
+await store.saveObservations(patientId, rows);   // or toFhirObservation(row) → your FHIR server
+```
+
+**Step B2 — When rendering for data entry, hand the renderer the patient's history.** Pick one
+(or both — [§3](#3-two-ways-to-supply-history--pick-one-or-both)):
+
+- *Batch* — `history`: the patient's earlier fills you already loaded.
+- *Lazy* — `historyProvider`: a function the renderer calls per field, which queries **your** store
+  by LOINC code (or path) for **your** patient. The renderer never sees the patient id.
+
+React:
+
+```tsx
+<JsonFormsRenderer
+  definition={definition}
+  data={data}
+  onChange={setData}
+  history={priorFills}                       // [{ effectiveAt, data, definition?, author? }]
+  historyProvider={async ({ coding, path, limit }) =>
+    store.observations({ patientId, code: coding?.[0]?.code, path, limit })}
+/>
+```
+
+Angular:
+
+```html
+<omf-form [definition]="definition" [data]="data" (dataChange)="data = $event"
+          [history]="priorFills" [historyProvider]="historyProvider"></omf-form>
+```
+
+Every field the form marks for history now shows `Previous 88 /min · 2h ago · ↑ +6`, with a
+popover of the last readings. Which fields those are was decided in the form definition — you
+change nothing per field ([§2](#the-form-must-opt-in)).
+
+**Step B3 — Show the flowsheet (optional).** Mount the grid wherever the chart belongs — a "Vitals"
+tab, or under a saved response — with the same history.
+
+React:
+
+```tsx
+import { Flowsheet } from '@openmedform/react-form-renderer';
+
+<Flowsheet definition={definition} entries={priorFills} title="Today's observations" />
+```
+
+Angular:
+
+```html
+<omf-flowsheet [definition]="definition" [entries]="priorFills" title="Today's observations"></omf-flowsheet>
+```
+
+**Step B4 — Print it (optional).** `renderFlowsheetHtml(definition, { entries })` from
+`@openmedform/form-print-engine` returns an A4 landscape HTML document ([§11](#11-printing)).
+
+**Step B5 — Check it works before you have real data.** Render `vitalsHistoryReference` with
+`vitalsHistoryEntries()` from `@openmedform/form-core`; you should see six chips and two popover
+buttons ([§10](#10-test-it-before-you-have-data)). Then, with real data, fill the form twice for one
+test patient: the second fill shows the first as "Previous …".
+
+#### Checklist
+
+| | Without history | With history |
+|---|---|---|
+| Render for data entry | definition + `data` + `onChange` | + `history` and/or `historyProvider` |
+| Save | response + `formCode` + `formVersion` + `effectiveAt` | + `projectObservations()` rows |
+| Show a saved response | same version + `data` + read-only | same, plus `<Flowsheet>` if wanted |
+| Patient identity | yours, never passed to the renderer | same — the provider closes over it |
+| Form definition | as exported | as exported — history is already declared in it |
+
+---
+
 ## 1. What the clinician gets
 
 | Surface | Where | What it shows |
