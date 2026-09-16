@@ -72,11 +72,20 @@ shows), grouped by section, with per-option rows under enum controls:
 
 ## Loading LOINC
 
-A starter set of ~10 ubiquitous vital-sign codes ships as a data migration
-(`20260805110000_seed_terminology_starters`, idempotent `ON CONFLICT DO
+A curated starter set of **65 common observation codes** ships as data
+migrations (`20260805110000_seed_terminology_starters`, then
+`20260916090000_loinc_observation_starter`; both idempotent `ON CONFLICT DO
 NOTHING`), so every environment — including production, where migrations run
-on API boot — has working search and suggestions out of the box. The dev seed
-carries the same rows for fresh local databases.
+on API boot — has working search, suggestions and history alignment for the
+fields clinicians chart most: heart rate (several methods), respiratory rate,
+temperature by site, blood pressure by position, oxygen saturation, FiO2 and O2
+flow, weight/height/BMI/head and waist circumference, pain scores, Glasgow
+Coma Scale and AVPU, urine output, point-of-care glucose, peak flow, ETCO2,
+capillary refill, fetal heart rate, Apgar and Morse fall risk. The rows live in
+`apps/api/prisma/loinc-starter.json`, which the dev seed loads; each code was
+verified ACTIVE against LOINC 2.82 via the public FHIR terminology server, and
+carries LOINC's own names plus the ward abbreviations searches use (SpO2, GCS,
+AVPU, GRBS). It is still a subset.
 
 For real coverage, download the official "LOINC Table File (CSV)" from
 https://loinc.org (free account; the license — which also bars redistributing
