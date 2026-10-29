@@ -178,3 +178,51 @@ jobs:
           service: ${{ env.WEB_SERVICE }}
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
+
+      # A deploy is not finished until the new revision can actually reach the
+      # database.
+      #
+      # This step exists to catch a bad DATABASE_URL, and it is load-bearing.
+      # PrismaService deliberately boots even when it cannot connect, so that
+      # /api/health survives an outage and is able to report one — an instance
+      # that dies in onModuleInit never binds its port and serves nothing at
+      # all, health endpoint included. The price of that choice is that a wrong
+      # connection string no longer announces itself as a crash loop: it
+      # deploys clean and then 500s on every database-backed route. Without a
+      # probe here, nothing would notice until a user did.
+      #
+      # Retries because a fresh revision takes a few seconds to start taking
+      # traffic, and a single immediate request would be flaky.
+      #
+      # NOTE: this reports, it does not roll back. The revision is already
+      # live by the time it runs, so a failure here is a red workflow and a
+      # command to run, not an automatic recovery.
+      - name: Smoke test the API against the database
+        run: |
+          set -uo pipefail
+          url="${{ vars.API_URL }}/api/health"
+          for attempt in $(seq 1 6); do
+            # rm first: on a connection failure curl leaves the previous
+            # attempt's file in place, and a stale body in a failed deploy log
+            # sends whoever reads it after the wrong problem. `|| true` rather
+            # than `|| echo 000` because curl's own -w already prints 000.
+            rm -f /tmp/health.json
+            code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 15 "$url" || true)
+            code=${code:-000}
+            body=$(cat /tmp/health.json 2>/dev/null || true)
+            # Whitespace-tolerant: do not let a serializer's spacing decide
+            # whether every future deploy passes.
+            if [ "$code" = "200" ] && printf '%s' "$body" | grep -qE '"database"[[:space:]]*:[[:space:]]*"ok"'; then
+              echo "Healthy on attempt $attempt: $body"
+              exit 0
+            fi
+            echo "Attempt $attempt/6: HTTP $code $body"
+            sleep 10
+          done
+          echo "::error::/api/health did not report a reachable database after 6 attempts."
+          echo "The new revision is LIVE and serving. Check DATABASE_URL in Secret Manager"
+          echo "and the PrismaService error in the API logs:"
+          echo "  gcloud logging read 'resource.labels.service_name=${{ env.API_SERVICE }} AND severity>=ERROR' --freshness=10m"
+          echo "To roll back:"
+          echo "  gcloud run services update-traffic ${{ env.API_SERVICE }} --region ${{ env.REGION }} --to-revisions=<previous>=100"
+          exit 1
