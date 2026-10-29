@@ -184,6 +184,121 @@ Setup notes:
   GitHub vars `API_URL` = `WEB_URL` = `https://openmedform.daiva.health`.
   Roll a new API revision and rebuild/redeploy web to pick these up.
 
+## 6. Health checks and monitoring
+
+Two endpoints, and the difference matters operationally.
+
+| Path | Touches the DB? | Use it for |
+|---|---|---|
+| `GET /api/health` | yes | uptime monitoring, alerting, readiness. 200 with `database: "ok"`, or **503** with `database: "unreachable"` |
+| `GET /api/health/live` | no | container **liveness** probes only |
+
+**Never point a liveness probe at `/api/health`.** The instance would be killed
+and restarted every time Postgres blips, which turns a brief upstream outage
+into a crash loop and has never once fixed a database. Cloud Run configures no
+liveness probe by default and this repo adds none; if you add one, use
+`/api/health/live`.
+
+### Alerting (configured)
+
+Until October 2026 nothing alerted on anything. The health endpoint returned a
+hardcoded `{"status":"ok"}`, so the platform reported a healthy service for 13
+days while every database-backed route — sign-in included — returned 500. The
+outage was found by someone pasting a login-page URL into a chat, which is not
+monitoring. These exist now:
+
+| Resource | Name | Config |
+|---|---|---|
+| Uptime check | `openmedform-api-health` | `https://openmedform.daiva.health/api/health`, every 5 min, 10s timeout |
+| Notification channel | `OpenMedForm production alerts` | email |
+| Alert policy | `OpenMedForm API — health check failing` | fires when 2+ checker regions fail for 5 min; auto-closes after 30 min |
+
+The check keys on the **status code**, which is the whole point of
+`/api/health` returning 503: no content matching to drift out of sync with the
+response body.
+
+The policy requires **two or more** checker regions to fail together
+(`REDUCE_COUNT_FALSE`, threshold > 1) so a single flaky region does not page
+anyone. Its documentation field carries the triage steps, including the
+signature of the October outage: `POST /api/auth/login` returning 500 in
+~20 ms rather than 401 in ~150 ms. A fast failure is a refused connection,
+not a timeout.
+
+To recreate them from scratch:
+
+```bash
+gcloud monitoring uptime create openmedform-api-health \
+  --resource-type=uptime-url \
+  --resource-labels=host=openmedform.daiva.health,project_id="$PROJECT_ID" \
+  --path=/api/health --period=5 --timeout=10 --protocol=https
+
+gcloud beta monitoring channels create \
+  --display-name="OpenMedForm production alerts" \
+  --type=email --channel-labels=email_address=<address>
+```
+
+The alert policy itself is a `POST` to
+`monitoring.googleapis.com/v3/projects/$PROJECT_ID/alertPolicies` —
+`gcloud alpha monitoring policies create` needs the alpha component, which the
+API call avoids.
+
+**Email channels can sit unverified, and an unverified channel drops
+notifications silently** — which would rebuild the exact blind spot this
+replaces. Confirm with *Monitoring → Alerting → Notification channels → Send
+test notification* once, rather than finding out during an incident.
+
+### The API boots without the database
+
+`PrismaService.onModuleInit` calls `$connect()`, but a failure there is
+logged and swallowed rather than thrown.
+
+This is deliberate and it is what makes the health check usable. While the
+rejection was unhandled it took down `onModuleInit`, so Nest never bound the
+port — an instance cold-starting during a database outage served **nothing**,
+`/api/health` included, and the endpoint that exists to report "the database
+is down" was the one guaranteed to be missing exactly when it mattered.
+Verified against an unreachable host: before, the process exited on `P1001`;
+after, it listens and `/api/health` answers 503 while `/api/health/live`
+answers 200.
+
+It also means the API recovers by itself when Postgres comes back, instead of
+needing every instance cycled. Prisma connects lazily on the first query, so
+nothing is lost by not connecting up front.
+
+**The trade-off:** a wrong `DATABASE_URL` no longer fails the deploy with a
+crash loop. It now deploys "successfully" and then 500s on every
+database-backed route. The ERROR from `PrismaService` at boot and a
+post-deploy smoke test against `/api/health` are what catch it — so wire that
+smoke test up if `deploy.yml` does not have one.
+
+### Reading SSO failures
+
+A failed SSO sign-in redirects the browser to
+`/login?error=sso&message=<reason>` and returns **302**, so the request log
+alone cannot tell a rejection from a fault — both look like a successful
+redirect. `SsoAuthExceptionFilter` logs the distinction:
+
+- `WARN` — a deliberate rejection (unknown email, ambiguous account, no
+  Microsoft mailbox). The `message` in the redirect is the real reason and is
+  written for the user.
+- `ERROR`, with a stack — a fault: the database is unreachable, the token
+  exchange failed, a provider library threw. The user sees the generic
+  `Sign-in failed`, which carries no diagnostic information at all, so the log
+  is the only evidence.
+
+```bash
+gcloud logging read \
+  'resource.labels.service_name="openmedform-api"
+   AND jsonPayload.context="SsoAuthExceptionFilter" AND severity>=ERROR' \
+  --freshness=1d --format=json
+```
+
+Neither the filter nor the health check puts the underlying error in an HTTP
+response: both routes are reachable unauthenticated, and a driver error names
+the database host and the user it failed to connect as. The filter logs
+`req.path`, never `req.url` — the callback URL still carries the provider's
+authorization `code`.
+
 ## Caveats
 
 - **Cold starts**: the API runs with `--min-instances=1` so it never scales to
