@@ -199,20 +199,53 @@ into a crash loop and has never once fixed a database. Cloud Run configures no
 liveness probe by default and this repo adds none; if you add one, use
 `/api/health/live`.
 
-Nothing currently alerts on `/api/health`. **Set that up.** Until October 2026
-the endpoint returned a hardcoded `{"status":"ok"}` and never queried
-anything, so the platform reported a healthy service for 13 days while every
-database-backed route — sign-in included — returned 500. The outage was found
-by a user pasting a login-page URL into a chat, which is not monitoring.
+### Alerting (configured)
 
-An uptime check plus an alert policy on it:
+Until October 2026 nothing alerted on anything. The health endpoint returned a
+hardcoded `{"status":"ok"}`, so the platform reported a healthy service for 13
+days while every database-backed route — sign-in included — returned 500. The
+outage was found by someone pasting a login-page URL into a chat, which is not
+monitoring. These exist now:
+
+| Resource | Name | Config |
+|---|---|---|
+| Uptime check | `openmedform-api-health` | `https://openmedform.daiva.health/api/health`, every 5 min, 10s timeout |
+| Notification channel | `OpenMedForm production alerts` | email |
+| Alert policy | `OpenMedForm API — health check failing` | fires when 2+ checker regions fail for 5 min; auto-closes after 30 min |
+
+The check keys on the **status code**, which is the whole point of
+`/api/health` returning 503: no content matching to drift out of sync with the
+response body.
+
+The policy requires **two or more** checker regions to fail together
+(`REDUCE_COUNT_FALSE`, threshold > 1) so a single flaky region does not page
+anyone. Its documentation field carries the triage steps, including the
+signature of the October outage: `POST /api/auth/login` returning 500 in
+~20 ms rather than 401 in ~150 ms. A fast failure is a refused connection,
+not a timeout.
+
+To recreate them from scratch:
 
 ```bash
 gcloud monitoring uptime create openmedform-api-health \
   --resource-type=uptime-url \
   --resource-labels=host=openmedform.daiva.health,project_id="$PROJECT_ID" \
-  --path=/api/health --period=5 --timeout=10
+  --path=/api/health --period=5 --timeout=10 --protocol=https
+
+gcloud beta monitoring channels create \
+  --display-name="OpenMedForm production alerts" \
+  --type=email --channel-labels=email_address=<address>
 ```
+
+The alert policy itself is a `POST` to
+`monitoring.googleapis.com/v3/projects/$PROJECT_ID/alertPolicies` —
+`gcloud alpha monitoring policies create` needs the alpha component, which the
+API call avoids.
+
+**Email channels can sit unverified, and an unverified channel drops
+notifications silently** — which would rebuild the exact blind spot this
+replaces. Confirm with *Monitoring → Alerting → Notification channels → Send
+test notification* once, rather than finding out during an incident.
 
 ### The API boots without the database
 
