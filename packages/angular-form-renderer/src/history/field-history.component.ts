@@ -16,8 +16,8 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
-  HostListener,
   Input,
+  NgZone,
   type OnChanges,
   type OnDestroy,
   type OnInit,
@@ -71,7 +71,7 @@ interface Row {
             class="omf-history-chip"
             [attr.aria-expanded]="open"
             [attr.aria-controls]="popoverId"
-            (click)="open = !open"
+            (click)="setOpen(!open)"
           >
             @if (inline) {
               Previous <strong>{{ previousText }}</strong> · {{ previousAge }}
@@ -133,7 +133,10 @@ export class FieldHistoryComponent implements OnInit, OnChanges, OnDestroy {
   private readonly scope = inject(HistoryScopeService, { optional: true });
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly zone = inject(NgZone);
   private scopeSub?: Subscription;
+  /** Removes the document listeners; set only while the popover is open. */
+  private detachDocumentListeners?: () => void;
   private fetchSeq = 0;
 
   active = false;
@@ -154,22 +157,48 @@ export class FieldHistoryComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.scopeSub?.unsubscribe();
+    this.detachDocumentListeners?.();
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.open) {
-      this.open = false;
-      this.cdr.markForCheck();
+  /**
+   * Opens or closes the popover, attaching the outside-click / Escape listeners
+   * only while it is open.
+   *
+   * PERFORMANCE — do not turn these back into `@HostListener('document:…')`.
+   * One of these components sits under EVERY control, and under zone.js each
+   * document listener is its own task that ends in a full application tick. On
+   * a ~190-field form that was ~190 change-detection passes (~3.3 s measured)
+   * per mousedown anywhere on the page, so a native <select> took 3–5 s to open
+   * in the EMR. At most one popover is open at a time, so at most one pair of
+   * listeners exists, and they run outside the zone, re-entering only to close.
+   * Same shape as the React FieldHistory's open-only useEffect.
+   */
+  setOpen(open: boolean): void {
+    if (open === this.open) return;
+    this.open = open;
+    this.detachDocumentListeners?.();
+    this.detachDocumentListeners = undefined;
+    if (open) {
+      this.zone.runOutsideAngular(() => {
+        const onMouseDown = (event: MouseEvent): void => {
+          if (!this.host.nativeElement.contains(event.target as Node)) this.closeFromOutside();
+        };
+        const onKeyDown = (event: KeyboardEvent): void => {
+          if (event.key === 'Escape') this.closeFromOutside();
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('keydown', onKeyDown);
+        this.detachDocumentListeners = () => {
+          document.removeEventListener('mousedown', onMouseDown);
+          document.removeEventListener('keydown', onKeyDown);
+        };
+      });
     }
+    this.cdr.markForCheck();
   }
 
-  @HostListener('document:mousedown', ['$event'])
-  onDocumentMouseDown(event: MouseEvent): void {
-    if (this.open && !this.host.nativeElement.contains(event.target as Node)) {
-      this.open = false;
-      this.cdr.markForCheck();
-    }
+  private closeFromOutside(): void {
+    this.zone.run(() => this.setOpen(false));
   }
 
   // --- derived display -----------------------------------------------------
