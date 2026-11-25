@@ -10,16 +10,30 @@ description: "REST API reference for forms, versions, submissions and AI generat
 > endpoints (`/api/conversions`, `/api/forms/from-prompt`,
 > `/api/forms/:id/jsonforms/refine`) are 10/min **per user**; uploads 30/min;
 > everything else 300/min. Exceeding a limit returns **429** with a
-> `Retry-After` header. `GET /api/health` is exempt. See
+> `Retry-After` header. `GET /api/health` and `GET /api/health/live` are
+> exempt. See
 > [security/AUTH-AND-RBAC](../security/AUTH-AND-RBAC.md#rate-limiting).
 
 ## Base URL
 `http://localhost:3100/api`
 
 ## Authentication
-All endpoints except `/api/auth/login`, `/api/auth/google*` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
+All endpoints except `/api/auth/login`, `/api/auth/google*`, `/api/auth/microsoft*`, `/api/health*` and `/api/public/*` require a valid JWT in the `Authorization: Bearer <token>` header.
 
 ## Endpoints
+
+### Health
+Unauthenticated and un-throttled. The two are **not** interchangeable, and
+which one a monitor calls decides what it can tell you.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/health | **Readiness.** Confirms the process can reach the database, then returns `{ status, database, timestamp }` with `database: "ok"`. If the query fails, **503** with `{ status: "error", database: "unreachable", timestamp }` — the driver's own error is logged, never returned, because this route is public and a connection error names the host and user it failed as |
+| GET | /api/health/live | **Liveness.** Returns `{ status: "ok", timestamp }` and touches nothing. Point container liveness probes here: a probe on `/api/health` restarts the instance every time the database blips, and restarting the API does not fix Postgres |
+
+Uptime monitoring and alerting belong on `/api/health`. It answered a
+hardcoded `ok` until October 2026 and so stayed green through a multi-day
+outage in which every database-backed route, sign-in included, returned 500.
 
 ### Auth
 | Method | Path | Description |

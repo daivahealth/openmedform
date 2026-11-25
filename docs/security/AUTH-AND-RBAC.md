@@ -164,8 +164,13 @@ generate/refine/PDF upload actions (token usage for these IS metered — see bel
 | ai | 10/min | **user** | `POST /api/conversions`, `/api/forms/from-prompt`, `/api/forms/:id/jsonforms/refine` |
 | upload | 30/min | user | `POST /api/forms/:id/assets`, `/api/forms/import` |
 
-`GET /api/health` is exempt — the platform's own liveness probes hit it on a
-timer, and a throttled health check reads as an outage.
+`GET /api/health` and `GET /api/health/live` are exempt — the platform's own
+probes hit them on a timer, and a throttled health check reads as an outage.
+Both are `@Public()`. `/api/health` reaches the database and answers 503 when
+it cannot; `/api/health/live` answers from memory and is the one to attach a
+container liveness probe to. Neither returns the underlying driver error: the
+routes are unauthenticated, and a connection failure names the host and the
+user it failed to connect as.
 
 **Keying.** `UserAwareThrottlerGuard` keys authenticated traffic by user id, not
 by IP: a hospital sits behind one NAT, and the expensive routes all require a
